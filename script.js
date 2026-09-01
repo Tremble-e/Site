@@ -928,7 +928,7 @@ function updateStats() {
 /* ==========================================================
    TEXTE ROTATIF DU HERO
 ========================================================== */
-const = [
+const rotatingMessages = [
     'Explorer de nouvelles idées',
     "Apprendre en créant",
     "Donner vie à des projets",
