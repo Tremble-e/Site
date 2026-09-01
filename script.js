@@ -26,9 +26,9 @@ let motionReduced = false;
    Ne mettez JAMAIS une clé service_role dans ce fichier.
 ========================================================== */
 const SUPABASE_CONFIG = {
-    url: 'VOTRE_URL_SUPABASE',
-    publishableKey: 'VOTRE_CLE_PUBLISHABLE_SUPABASE',
-    adminEmail: 'VOTRE_EMAIL_ADMIN'
+    url: 'https://aoyisuxgvcleocgetfnq.supabase.co',
+    publishableKey: 'sb_publishable_GtX79VZzTcrYY4DFazOGpg_C6D7cu68',
+    adminEmail: 'leween87220@gmail.com'
 };
 
 const STORAGE_BUCKETS = {
