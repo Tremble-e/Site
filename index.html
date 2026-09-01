@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Portfolio de Leween Chauveau : mathématiques, développement d'applications, projets et ressources d'études.">
+    <meta name="author" content="Leween Chauveau">
+    <meta name="theme-color" content="#0b1120">
+    <meta property="og:title" content="Leween Chauveau — Mathématiques & Développement">
+    <meta property="og:description" content="Portfolio, applications et ressources mathématiques.">
+    <meta property="og:type" content="website">
+    <title>Leween Chauveau — Mathématiques & Développement</title>
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Cpath d='M18 19h26M18 45h26M25 13l-9 19 9 19M39 13l9 19-9 19' stroke='%233b82f6' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="forum.css">
+    <link rel="stylesheet" href="forum_v2.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Aller au contenu</a>
+
+    <canvas id="particles-canvas" aria-hidden="true"></canvas>
+    <div class="bg-animation" aria-hidden="true">
+        <div class="shape shape1"></div>
+        <div class="shape shape2"></div>
+        <div class="shape shape3"></div>
+    </div>
+
+    <nav class="site-nav" aria-label="Navigation principale">
+        <div class="nav-content">
+            <button class="brand" type="button" data-go="about" aria-label="Retour à l'accueil" data-tooltip="Retour à l’accueil" data-tooltip-placement="bottom">
+                <span class="brand-mark"><i class="fa-solid fa-code"></i></span>
+                <span class="brand-text">
+                    <strong>Mathématiques</strong>
+                    <small>& Développement</small>
+                </span>
+            </button>
+
+            <button id="mobile-menu-btn" class="icon-btn mobile-menu-btn" type="button" aria-label="Ouvrir le menu" data-tooltip="Menu" data-tooltip-placement="bottom" aria-expanded="false" aria-controls="nav-menu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <div id="nav-menu" class="nav-menu">
+                <ul>
+                    <li><button class="nav-btn active" type="button" data-target="about"><i class="fa-solid fa-user"></i><span>À propos</span></button></li>
+                    <li><button class="nav-btn" type="button" data-target="services"><i class="fa-solid fa-briefcase"></i><span>Services</span></button></li>
+                    <li><button class="nav-btn" type="button" data-target="projects"><i class="fa-solid fa-layer-group"></i><span>Projets</span></button></li>
+                    <li><button class="nav-btn" type="button" data-target="courses"><i class="fa-solid fa-graduation-cap"></i><span>Études</span></button></li>
+                    <li><button class="nav-btn" type="button" data-target="forum"><i class="fa-solid fa-comments"></i><span>Forum</span></button></li>
+                </ul>
+
+                <div class="nav-tools">
+                    <div class="theme-wrapper">
+                        <button id="theme-picker-btn" class="icon-btn" type="button" aria-label="Choisir la couleur d'accent" data-tooltip="Personnaliser la couleur" data-tooltip-placement="bottom" aria-expanded="false">
+                            <i class="fa-solid fa-palette"></i>
+                        </button>
+                        <div id="theme-popover" class="theme-popover" role="menu" aria-label="Couleur d'accent">
+                            <button type="button" class="theme-swatch blue" data-theme="blue" aria-label="Bleu" data-tooltip="Thème bleu" data-tooltip-placement="bottom"></button>
+                            <button type="button" class="theme-swatch violet" data-theme="violet" aria-label="Violet" data-tooltip="Thème violet" data-tooltip-placement="bottom"></button>
+                            <button type="button" class="theme-swatch green" data-theme="green" aria-label="Vert" data-tooltip="Thème vert" data-tooltip-placement="bottom"></button>
+                            <button type="button" class="theme-swatch pink" data-theme="pink" aria-label="Rose" data-tooltip="Thème rose" data-tooltip-placement="bottom"></button>
+                        </div>
+                    </div>
+                    <button id="motion-toggle" class="icon-btn" type="button" aria-label="Désactiver les animations" data-tooltip="Réduire les animations" data-tooltip-placement="bottom">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </button>
+                    <div class="nav-popover-wrapper notification-wrapper">
+                        <button id="notification-btn" class="icon-btn" type="button" aria-label="Notifications" data-tooltip="Notifications" data-tooltip-placement="bottom" hidden>
+                            <i class="fa-regular fa-bell"></i><span id="notification-badge" class="nav-badge" hidden>0</span>
+                        </button>
+                        <div id="notification-popover" class="nav-account-popover notification-popover" hidden></div>
+                    </div>
+                    <div class="nav-popover-wrapper account-wrapper">
+                        <button id="account-btn" class="icon-btn account-nav-btn" type="button" aria-label="Compte" data-tooltip="Se connecter ou créer un compte" data-tooltip-placement="bottom">
+                            <i class="fa-regular fa-user"></i>
+                        </button>
+                        <div id="account-popover" class="nav-account-popover" hidden></div>
+                    </div>
+                    <button id="admin-open-btn" class="icon-btn admin-nav-btn" type="button" aria-label="Ouvrir l’administration" data-tooltip="Administration" data-tooltip-placement="bottom" hidden>
+                        <i class="fa-solid fa-lock"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main id="main-content">
+        <!-- À PROPOS / ACCUEIL -->
+        <section id="about" class="page-section active" aria-labelledby="about-title">
+            <div class="hero reveal">
+                <div class="hero-content">
+                    <p class="eyebrow"><span class="status-dot"></span> Portfolio personnel</p>
+                    <h1 id="about-title">Leween Chauveau</h1>
+                    <p class="hero-subtitle">Mathématiques <span>×</span> Développement</p>
+                    <p class="hero-rotating" aria-live="polite"><span id="rotating-text">Étudiant en L3 de Mathématiques</span></p>
+                    <p class="hero-description">
+                        J'allie la rigueur des mathématiques à la créativité du développement logiciel pour concevoir des outils, des applications et des projets utiles.
+                    </p>
+                    <div class="hero-actions">
+                        <button class="primary-btn" type="button" data-go="projects"><i class="fa-solid fa-layer-group"></i> Découvrir mes projets</button>
+                        <button class="secondary-btn" type="button" data-go="courses"><i class="fa-solid fa-book-open"></i> Explorer mes ressources</button>
+                    </div>
+                </div>
+
+                <div class="hero-visual" aria-hidden="true">
+                    <div class="hero-orbit orbit-one"></div>
+                    <div class="hero-orbit orbit-two"></div>
+                    <div class="hero-avatar-wrap">
+                        <img src="image/pdp.png" alt="" class="hero-avatar">
+                    </div>
+                    <span class="floating-badge badge-math"><i class="fa-solid fa-square-root-variable"></i> Maths</span>
+                    <span class="floating-badge badge-code"><i class="fa-brands fa-python"></i> Python</span>
+                    <span class="floating-badge badge-build"><i class="fa-solid fa-laptop-code"></i> Création</span>
+                </div>
+            </div>
+
+            <div class="stats-grid reveal" aria-label="Quelques chiffres">
+                <div class="stat-card"><span class="stat-value" id="stat-projects">0</span><span class="stat-label">projets présentés</span></div>
+                <div class="stat-card"><span class="stat-value" id="stat-available">0</span><span class="stat-label">projets disponibles</span></div>
+                <div class="stat-card"><span class="stat-value" id="stat-subjects">0</span><span class="stat-label">matières</span></div>
+                <div class="stat-card"><span class="stat-value" id="stat-documents">0</span><span class="stat-label">documents d'étude</span></div>
+            </div>
+
+            <div class="about-grid reveal">
+                <article class="glass-panel profile-panel">
+                    <div class="section-heading compact">
+                        <div>
+                            <span class="section-kicker">Profil</span>
+                            <h2><i class="fa-solid fa-user"></i> À propos de moi</h2>
+                        </div>
+                    </div>
+
+                    <div class="profile-header">
+                        <button class="profile-avatar" type="button" onclick="openProfileModal()" aria-label="Agrandir la photo de profil" data-tooltip="Agrandir la photo">
+                            <img src="image/pdp.png" alt="Leween Chauveau" class="profile-pic">
+                        </button>
+                        <div class="profile-titles">
+                            <h3 class="profile-name">Leween Chauveau</h3>
+                            <p class="profile-pseudo"><i class="fa-solid fa-at"></i> Tremble</p>
+                            <p class="profile-status"><i class="fa-solid fa-cake-candles"></i> 20 ans</p>
+                            <p class="profile-status"><i class="fa-solid fa-graduation-cap"></i> Étudiant en L3 de Mathématiques</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-bio">
+                        <p>Je poursuis un cursus d'études dans le domaine des mathématiques afin de devenir Enseignant chercheur. J'allie la rigueur de la logique mathématique à la créativité du développement logiciel. Ainsi en parallèle de mes études, je conçois des applications de bureau pratiques, des outils d'automatisation et des jeux.</p>
+                    </div>
+
+                    <div class="profile-tags-section">
+                        <h4 class="tags-title"><i class="fa-solid fa-code"></i> Compétences techniques</h4>
+                        <div class="tags-container">
+                            <span class="tag"><i class="fa-solid fa-square-root-variable"></i> Recherche Mathématique</span>
+                            <span class="tag"><i class="fa-brands fa-python"></i> Python</span>
+                            <span class="tag"><i class="fa-solid fa-code"></i> C#</span>
+                            <span class="tag"><i class="fa-solid fa-globe"></i> HTML & CSS</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-tags-section">
+                        <h4 class="tags-title"><i class="fa-solid fa-heart"></i> Passions & centres d'intérêt</h4>
+                        <div class="tags-container">
+                            <span class="tag"><i class="fa-solid fa-calculator"></i> Mathématiques</span>
+                            <span class="tag"><i class="fa-solid fa-atom"></i> Physique</span>
+                            <span class="tag"><i class="fa-solid fa-laptop-code"></i> Développement</span>
+                            <span class="tag"><i class="fa-solid fa-gamepad"></i> Jeux vidéo</span>
+                            <span class="tag"><i class="fa-solid fa-brain"></i> Culture générale</span>
+                            <span class="tag"><i class="fa-solid fa-music"></i> Musique</span>
+                            <span class="tag"><i class="fa-solid fa-film"></i> Films et séries</span>
+                            <span class="tag"><i class="fa-solid fa-microchip"></i> Hardware & Optimisation</span>
+                            <span class="tag"><i class="fa-solid fa-robot"></i> IA & Automatisation</span>
+                        </div>
+                    </div>
+                </article>
+
+                <aside class="glass-panel journey-panel">
+                    <div class="section-heading compact">
+                        <div>
+                            <span class="section-kicker">Direction</span>
+                            <h2><i class="fa-solid fa-route"></i> Mon fil conducteur</h2>
+                        </div>
+                    </div>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <span class="timeline-icon"><i class="fa-solid fa-graduation-cap"></i></span>
+                            <div><strong>Aujourd'hui</strong><h3>L3 de Mathématiques</h3><p>Approfondir les mathématiques et développer une démarche rigoureuse.</p></div>
+                        </div>
+                        <div class="timeline-item">
+                            <span class="timeline-icon"><i class="fa-solid fa-code"></i></span>
+                            <div><strong>En parallèle</strong><h3>Développement logiciel</h3><p>Créer des applications de bureau, des outils d'automatisation et des jeux.</p></div>
+                        </div>
+                        <div class="timeline-item">
+                            <span class="timeline-icon"><i class="fa-solid fa-bullseye"></i></span>
+                            <div><strong>Objectif</strong><h3>Enseignant chercheur</h3><p>Faire des mathématiques le cœur de mon parcours professionnel.</p></div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+
+            <section class="contact-section glass-panel reveal" aria-labelledby="contact-title">
+                <div class="section-heading compact">
+                    <div>
+                        <span class="section-kicker">Contact</span>
+                        <h2 id="contact-title"><i class="fa-solid fa-address-card"></i> Me contacter</h2>
+                    </div>
+                    <p>Cliquez sur une information pour la copier.</p>
+                </div>
+                <div class="contact-info">
+                    <button onclick="copyToClipboard('tremble_dev', 'Discord copié')" class="contact-item" data-tooltip="Copier l’identifiant Discord"><i class="fa-brands fa-discord"></i><span><small>Discord</small>tremble_dev</span></button>
+                    <button onclick="copyToClipboard('leween87220@gmail.com', 'E-mail copié')" class="contact-item" data-tooltip="Copier l’adresse e-mail"><i class="fa-solid fa-envelope"></i><span><small>E-mail</small>leween87220@gmail.com</span></button>
+                    <button onclick="copyToClipboard('leween.chauveau@etu.unilim.fr', 'E-mail universitaire copié')" class="contact-item" data-tooltip="Copier l’adresse universitaire"><i class="fa-solid fa-graduation-cap"></i><span><small>Université</small>leween.chauveau@etu.unilim.fr</span></button>
+                    <button onclick="copyToClipboard('0621627991', 'Téléphone copié')" class="contact-item" data-tooltip="Copier le numéro de téléphone"><i class="fa-solid fa-phone"></i><span><small>Téléphone</small>06 21 62 79 91</span></button>
+                    <a href="https://github.com/Tremble-e" target="_blank" rel="noopener noreferrer" class="contact-item contact-link" aria-label="Ouvrir mon profil GitHub" data-tooltip="Ouvrir le profil GitHub"><i class="fa-brands fa-github"></i><span><small>GitHub</small>Tremble-e</span><i class="fa-solid fa-arrow-up-right-from-square contact-external" aria-hidden="true"></i></a>
+                </div>
+            </section>
+        </section>
+
+        <!-- SERVICES -->
+        <section id="services" class="page-section" aria-labelledby="services-title">
+            <div class="section-heading reveal">
+                <div>
+                    <span class="section-kicker">Ce que je propose</span>
+                    <h1 id="services-title"><i class="fa-solid fa-handshake"></i> Mes Services</h1>
+                </div>
+                <p>Deux domaines complémentaires : transmettre les mathématiques et concevoir des outils numériques utiles.</p>
+            </div>
+
+            <div class="services-grid">
+                <article class="service-card reveal">
+                    <div class="service-icon"><i class="fa-solid fa-chalkboard-user"></i></div>
+                    <span class="service-number">01</span>
+                    <h2>Soutien en Mathématiques</h2>
+                    <p>Je propose des cours particuliers de mathématiques adaptés à votre niveau. Je mets l'accent sur la compréhension profonde des concepts et la rigueur du raisonnement.</p>
+                    <ul class="service-details">
+                        <li><i class="fa-solid fa-check"></i> Accompagnement sur mesure</li>
+                        <li><i class="fa-solid fa-video"></i> Disponible en visio</li>
+                        <li><i class="fa-solid fa-location-dot"></i> Présentiel possible autour de <strong>Limoges</strong></li>
+                    </ul>
+                </article>
+
+                <article class="service-card reveal">
+                    <div class="service-icon"><i class="fa-solid fa-laptop-code"></i></div>
+                    <span class="service-number">02</span>
+                    <h2>Développement d'Applications</h2>
+                    <p>Création d'outils numériques, de logiciels de bureau, de sites web et de scripts d'automatisation pensés pour répondre précisément à vos besoins pratiques.</p>
+                    <ul class="service-details">
+                        <li><i class="fa-solid fa-check"></i> Logiciels de bureau (Python, C#)</li>
+                        <li><i class="fa-solid fa-check"></i> Outils d'automatisation de tâches</li>
+                        <li><i class="fa-solid fa-check"></i> Interfaces claires et ergonomiques</li>
+                    </ul>
+                </article>
+            </div>
+        </section>
+
+        <!-- PROJETS -->
+        <section id="projects" class="page-section" aria-labelledby="projects-title">
+            <div class="section-heading reveal">
+                <div>
+                    <span class="section-kicker">Portfolio</span>
+                    <h1 id="projects-title"><i class="fa-solid fa-folder-open"></i> Mes Applications</h1>
+                </div>
+                <p>Applications, outils et jeux : sélectionnez une catégorie ou recherchez un projet.</p>
+            </div>
+
+            <div class="project-toolbar glass-panel reveal">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="project-search" type="search" placeholder="Rechercher un projet ou une fonctionnalité…" autocomplete="off" aria-label="Rechercher un projet">
+                </div>
+                <div class="filter-group" id="project-filters" aria-label="Filtrer les projets">
+                    <button class="filter-btn active" type="button" data-category="all">Tous</button>
+                    <button class="filter-btn" type="button" data-category="application">Applications</button>
+                    <button class="filter-btn" type="button" data-category="tool">Outils</button>
+                    <button class="filter-btn" type="button" data-category="game">Jeux</button>
+                </div>
+            </div>
+
+            <div id="projects-container" class="projects-grid" aria-live="polite"></div>
+            <div id="projects-empty" class="empty-state" hidden>
+                <i class="fa-regular fa-folder-open"></i>
+                <h2>Aucun projet trouvé</h2>
+                <p>Essayez une autre recherche ou une autre catégorie.</p>
+            </div>
+        </section>
+
+        <!-- ÉTUDES -->
+        <section id="courses" class="page-section" aria-labelledby="courses-title">
+            <div class="section-heading reveal">
+                <div>
+                    <span class="section-kicker">Bibliothèque personnelle</span>
+                    <h1 id="courses-title"><i class="fa-solid fa-graduation-cap"></i> Études</h1>
+                </div>
+                <p>Mes cours, exercices, fiches et formulaires classés par matière.</p>
+            </div>
+
+            <div class="study-overview reveal">
+                <div><strong id="study-subject-count">0</strong><span>Matières</span></div>
+                <div><strong id="study-lesson-count">0</strong><span>Cours</span></div>
+                <div><strong id="study-exercise-count">0</strong><span>Exercices</span></div>
+                <div><strong id="study-sheet-count">0</strong><span>Fiches</span></div>
+            </div>
+
+            <div class="course-search-panel glass-panel reveal">
+                <div class="search-box large">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="course-search" type="search" placeholder="Rechercher un cours, une fiche, une matière…" autocomplete="off" aria-label="Rechercher dans les ressources d'étude">
+                    <kbd data-tooltip="Placer le curseur dans cette recherche" data-tooltip-placement="bottom">Ctrl K</kbd>
+                </div>
+                <div id="course-search-results" class="course-search-results" hidden></div>
+            </div>
+
+            <div class="courses-submenu main-tabs reveal">
+                <button class="submenu-btn active" onclick="switchMainCourseTab('courses-content')" id="btn-tab-courses" type="button"><i class="fa-solid fa-folder-open"></i> Cours & Exercices</button>
+                <button class="submenu-btn" onclick="switchMainCourseTab('global-info-content')" id="btn-tab-global-info" type="button"><i class="fa-solid fa-circle-info"></i> Informations</button>
+            </div>
+
+            <div id="courses-content" class="reveal">
+                <div class="courses-layout">
+                    <aside class="subject-panel glass-panel">
+                        <div class="subject-panel-title"><span>Matières</span><small id="subject-total-label"></small></div>
+                        <div class="subject-selector" id="subject-list"></div>
+                    </aside>
+
+                    <div class="glass-panel course-content-panel">
+                        <div class="course-title-row">
+                            <div>
+                                <small>Matière sélectionnée</small>
+                                <h2 id="current-subject-title">Sélectionnez une matière</h2>
+                            </div>
+                        </div>
+
+                        <div class="courses-submenu subject-tabs">
+                            <button class="submenu-btn active" onclick="switchSubjectTab('lessons')" id="btn-tab-lessons" type="button"><i class="fa-solid fa-book-open"></i> Cours <span class="tab-count" id="count-lessons">0</span></button>
+                            <button class="submenu-btn" onclick="switchSubjectTab('exercises')" id="btn-tab-exercises" type="button"><i class="fa-solid fa-pen-ruler"></i> Exercices & TD <span class="tab-count" id="count-exercises">0</span></button>
+                            <button class="submenu-btn" onclick="switchSubjectTab('sheets')" id="btn-tab-sheets" type="button"><i class="fa-solid fa-file-lines"></i> Fiches & Formulaires <span class="tab-count" id="count-sheets">0</span></button>
+                        </div>
+
+                        <div id="subject-tab-lessons" class="pdf-box"><ul class="pdf-list" id="lessons-list"></ul></div>
+                        <div id="subject-tab-exercises" class="pdf-box" hidden><ul class="pdf-list" id="exercises-list"></ul></div>
+                        <div id="subject-tab-sheets" class="pdf-box" hidden><ul class="pdf-list" id="sheets-list"></ul></div>
+
+                        <div class="pdf-viewer-container" id="viewer-container" hidden>
+                            <div class="pdf-viewer-header">
+                                <span id="pdf-file-name"><i class="fa-solid fa-file"></i> Aucun fichier sélectionné</span>
+                                <div class="pdf-actions">
+                                    <a id="pdf-external-link" href="#" target="_blank" rel="noopener" class="text-link"><i class="fa-solid fa-up-right-from-square"></i> Ouvrir</a>
+                                    <button onclick="closePdf()" class="close-btn" type="button" aria-label="Fermer la prévisualisation" data-tooltip="Fermer la prévisualisation"><i class="fa-solid fa-xmark"></i></button>
+                                </div>
+                            </div>
+                            <iframe id="pdf-frame" class="pdf-frame" src="" title="Prévisualisation du document"></iframe>
+                            <img id="img-viewer" class="pdf-frame image-viewer" src="" alt="Prévisualisation" hidden>
+                            <div id="odt-viewer" class="pdf-frame odt-placeholder" hidden>
+                                <i class="fa-solid fa-file-word"></i>
+                                <p>La prévisualisation des fichiers <strong>.odt</strong> ou <strong>.docx</strong> n'est pas prise en charge directement.</p>
+                                <a id="odt-download-link" href="#" class="primary-btn inline-btn">Télécharger le fichier</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="global-info-content" hidden>
+                <div class="glass-panel">
+                    <div class="section-heading compact">
+                        <div><span class="section-kicker">Actualités</span><h2><i class="fa-solid fa-bullhorn"></i> Informations</h2></div>
+                    </div>
+                    <div class="general-info-content" id="general-info-container"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FORUM / COMMUNAUTÉ -->
+        <section id="forum" class="page-section" aria-labelledby="forum-title">
+            <div class="section-heading reveal">
+                <div>
+                    <span class="section-kicker">Communauté</span>
+                    <h1 id="forum-title"><i class="fa-solid fa-comments"></i> Forum</h1>
+                </div>
+                <p>Posez vos questions, échangez autour des mathématiques, du développement et des projets du site.</p>
+            </div>
+
+            <div class="forum-overview reveal" aria-label="Statistiques de la communauté">
+                <div><strong id="forum-stat-members">0</strong><span>Membres</span></div>
+                <div><strong id="forum-stat-topics">0</strong><span>Sujets</span></div>
+                <div><strong id="forum-stat-posts">0</strong><span>Messages</span></div>
+                <div><strong id="forum-stat-categories">0</strong><span>Catégories</span></div>
+                <div><strong id="forum-stat-online">0</strong><span>En ligne</span></div>
+            </div>
+            <div id="forum-online-members" class="forum-online-strip reveal" aria-live="polite"></div>
+
+            <div class="forum-toolbar glass-panel reveal">
+                <div class="forum-main-tabs" role="tablist" aria-label="Navigation du forum">
+                    <button id="forum-tab-discussions" class="forum-main-tab active" type="button" data-forum-view="discussions"><i class="fa-solid fa-message"></i> Discussions</button>
+                    <button id="forum-tab-members" class="forum-main-tab" type="button" data-forum-view="members"><i class="fa-solid fa-users"></i> Membres</button>
+                </div>
+                <div class="forum-toolbar-actions">
+                    <div class="search-box forum-search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input id="forum-search" type="search" placeholder="Rechercher une discussion…" autocomplete="off" aria-label="Rechercher sur le forum">
+                    </div>
+                    <button id="forum-new-topic-btn" type="button" class="primary-btn compact-btn"><i class="fa-solid fa-plus"></i> Nouveau sujet</button>
+                </div>
+            </div>
+
+            <div id="forum-breadcrumb" class="forum-breadcrumb reveal" hidden></div>
+            <div id="forum-content" class="forum-content reveal" aria-live="polite">
+                <div class="forum-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Chargement du forum…</span></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODALE PROFIL -->
+    <div id="profileModal" class="modal-overlay" onclick="closeProfileModal(event)" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+        <div class="modal-content profile-modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" onclick="closeProfileModal()" type="button" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <div class="modal-body">
+                <img src="image/pdp.png" alt="Chauveau Leween" class="modal-pic">
+                <h2 id="profile-modal-title" class="modal-name">Chauveau Leween</h2>
+                <p class="modal-pseudo"><i class="fa-solid fa-at"></i> Tremble</p>
+                <p class="modal-status"><i class="fa-solid fa-cake-candles"></i> 20 ans <span>•</span> <i class="fa-solid fa-graduation-cap"></i> Étudiant en L3 de Mathématiques</p>
+                <div class="modal-bio"><p>Je poursuis un cursus d'études dans le domaine des mathématiques afin de devenir Enseignant chercheur. J'allie la rigueur de la logique mathématique à la créativité du développement logiciel. Ainsi en parallèle de mes études, je conçois des applications de bureau pratiques, des outils d'automatisation et des jeux.</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE PROJET -->
+    <div id="projectModal" class="modal-overlay" onclick="closeProjectModal(event)" role="dialog" aria-modal="true" aria-labelledby="project-modal-title">
+        <div class="modal-content project-modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" onclick="closeProjectModal()" type="button" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <div id="project-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- COMPTE UTILISATEUR -->
+    <div id="accountModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
+        <div class="modal-content account-modal-content" onclick="event.stopPropagation()">
+            <button id="account-close-btn" class="modal-close-btn" type="button" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+
+            <div id="account-auth-view" class="account-view">
+                <div class="account-modal-icon"><i class="fa-solid fa-user-shield"></i></div>
+                <span class="section-kicker">Communauté</span>
+                <h2 id="account-modal-title">Votre compte</h2>
+                <p class="account-lead">Connectez-vous pour participer aux discussions et retrouver vos statistiques.</p>
+
+                <div class="account-auth-tabs" role="tablist" aria-label="Connexion ou inscription">
+                    <button id="account-tab-login" class="account-auth-tab active" type="button" data-auth-tab="login">Connexion</button>
+                    <button id="account-tab-register" class="account-auth-tab" type="button" data-auth-tab="register">Créer un compte</button>
+                </div>
+
+                <form id="account-login-form" class="account-form">
+                    <label class="field"><span>E-mail</span><input id="account-login-email" type="email" required autocomplete="email" placeholder="vous@exemple.fr"></label>
+                    <label class="field"><span>Mot de passe</span><input id="account-login-password" type="password" required autocomplete="current-password" minlength="6" placeholder="Votre mot de passe"></label>
+                    <div class="account-form-row"><button id="account-forgot-btn" type="button" class="text-link subtle-link">Mot de passe oublié ?</button></div>
+                    <button type="submit" class="primary-btn account-submit"><i class="fa-solid fa-right-to-bracket"></i> Se connecter</button>
+                </form>
+
+                <form id="account-register-form" class="account-form" hidden>
+                    <label class="field"><span>Pseudo public</span><input id="account-register-username" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_.-]+" placeholder="Ex. MathUser"><small>Lettres, chiffres, point, tiret et underscore.</small></label>
+                    <label class="field"><span>E-mail</span><input id="account-register-email" type="email" required autocomplete="email" placeholder="vous@exemple.fr"></label>
+                    <label class="field"><span>Mot de passe</span><input id="account-register-password" type="password" required autocomplete="new-password" minlength="8" placeholder="8 caractères minimum"></label>
+                    <button type="submit" class="primary-btn account-submit"><i class="fa-solid fa-user-plus"></i> Créer mon compte</button>
+                    <p class="account-confirm-note"><i class="fa-solid fa-envelope-circle-check"></i> Une confirmation par e-mail peut être demandée avant la première connexion.</p>
+                </form>
+
+                <form id="account-forgot-form" class="account-form" hidden>
+                    <button type="button" id="account-forgot-back" class="text-link subtle-link"><i class="fa-solid fa-arrow-left"></i> Retour</button>
+                    <h3>Réinitialiser le mot de passe</h3>
+                    <p class="form-help">Nous enverrons un lien de réinitialisation à votre adresse e-mail.</p>
+                    <label class="field"><span>E-mail</span><input id="account-forgot-email" type="email" required autocomplete="email" placeholder="vous@exemple.fr"></label>
+                    <button type="submit" class="primary-btn account-submit"><i class="fa-solid fa-paper-plane"></i> Envoyer le lien</button>
+                </form>
+                <p id="account-auth-message" class="account-message" role="status" aria-live="polite" hidden></p>
+            </div>
+
+            <div id="account-recovery-view" class="account-view" hidden>
+                <div class="account-modal-icon"><i class="fa-solid fa-key"></i></div>
+                <span class="section-kicker">Sécurité</span>
+                <h2>Nouveau mot de passe</h2>
+                <form id="account-recovery-form" class="account-form">
+                    <label class="field"><span>Nouveau mot de passe</span><input id="account-recovery-password" type="password" required minlength="8" autocomplete="new-password"></label>
+                    <button type="submit" class="primary-btn account-submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button>
+                </form>
+                <p id="account-recovery-message" class="account-message" role="status" aria-live="polite" hidden></p>
+            </div>
+
+            <div id="account-profile-view" class="account-view" hidden>
+                <div class="account-profile-head">
+                    <div id="account-profile-avatar-preview" class="member-avatar large"></div>
+                    <div><span class="section-kicker">Mon profil</span><h2 id="account-profile-title">Profil</h2><p id="account-profile-email" class="account-profile-email"></p></div>
+                </div>
+                <form id="account-profile-form" class="account-form">
+                    <label class="field"><span>Pseudo</span><input id="account-profile-username" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_.-]+"></label>
+                    <label class="field"><span>Biographie</span><textarea id="account-profile-bio" rows="4" maxlength="500" placeholder="Quelques mots sur vous…"></textarea></label>
+                    <label class="field"><span>Site / GitHub (facultatif)</span><input id="account-profile-website" type="url" placeholder="https://…"></label>
+                    <label class="field"><span>Avatar</span><input id="account-profile-avatar" type="file" accept=".png,.jpg,.jpeg,.webp,.gif"><small>5 Mo maximum.</small></label>
+                    <div class="account-v2-preferences">
+                        <strong><i class="fa-solid fa-sliders"></i> Préférences du forum</strong>
+                        <label class="preference-toggle"><input id="account-profile-private-messages" type="checkbox" checked><span>Autoriser les messages privés<small>Les autres membres pourront démarrer une conversation privée avec vous.</small></span></label>
+                        <label class="preference-toggle"><input id="account-profile-email-notifications" type="checkbox"><span>Recevoir les notifications du forum par e-mail<small>Optionnelle : nécessite l’activation du module e-mail fourni avec la V2.</small></span></label>
+                    </div>
+                    <div class="admin-form-actions"><button id="account-profile-cancel" type="button" class="secondary-btn">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
+                </form>
+                <p id="account-profile-message" class="account-message" role="status" aria-live="polite" hidden></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- CRÉATION D'UN SUJET -->
+    <div id="forumComposerModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="forum-composer-title">
+        <div class="modal-content forum-composer-modal" onclick="event.stopPropagation()">
+            <button id="forum-composer-close" class="modal-close-btn" type="button" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <span class="section-kicker">Nouvelle discussion</span>
+            <h2 id="forum-composer-title"><i class="fa-solid fa-pen-to-square"></i> Créer un sujet</h2>
+            <form id="forum-topic-form" class="forum-editor-form">
+                <label class="field"><span>Catégorie</span><select id="forum-topic-category" required></select></label>
+                <label class="field"><span>Titre</span><input id="forum-topic-title" required minlength="5" maxlength="180" placeholder="Un titre clair et précis"></label>
+                <label class="field"><span>Message</span>
+                    <div class="forum-editor-toolbar" data-editor-target="forum-topic-content">
+                        <button type="button" data-format="bold" data-tooltip="Gras"><i class="fa-solid fa-bold"></i></button>
+                        <button type="button" data-format="italic" data-tooltip="Italique"><i class="fa-solid fa-italic"></i></button>
+                        <button type="button" data-format="code" data-tooltip="Code"><i class="fa-solid fa-code"></i></button>
+                        <button type="button" data-format="math" data-tooltip="Formule mathématique"><i class="fa-solid fa-square-root-variable"></i></button>
+                        <button type="button" data-format="quote" data-tooltip="Citation"><i class="fa-solid fa-quote-left"></i></button>
+                        <button type="button" data-format="list" data-tooltip="Liste"><i class="fa-solid fa-list"></i></button>
+                    </div>
+                    <textarea id="forum-topic-content" required rows="9" maxlength="10000" placeholder="Écrivez votre message… Utilisez $...$ ou $$...$$ pour les formules mathématiques."></textarea>
+                </label>
+                <p class="forum-editor-hint"><i class="fa-solid fa-circle-info"></i> Mise en forme simple : **gras**, *italique*, `code`, citations et formules LaTeX entre $...$.</p>
+                <div class="admin-form-actions"><button id="forum-topic-cancel" type="button" class="secondary-btn">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-paper-plane"></i> Publier</button></div>
+                <p id="forum-topic-message" class="account-message" hidden></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- PROFIL PUBLIC D'UN MEMBRE -->
+    <div id="memberProfileModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="member-profile-title">
+        <div class="modal-content member-profile-modal" onclick="event.stopPropagation()">
+            <button id="member-profile-close" class="modal-close-btn" type="button" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <div id="member-profile-content"></div>
+        </div>
+    </div>
+
+    <!-- SIGNALEMENT -->
+    <div id="forumReportModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="forum-report-title">
+        <div class="modal-content report-modal" onclick="event.stopPropagation()">
+            <button id="forum-report-close" class="modal-close-btn" type="button" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <span class="section-kicker">Modération</span>
+            <h2 id="forum-report-title"><i class="fa-solid fa-flag"></i> Signaler un message</h2>
+            <form id="forum-report-form" class="account-form">
+                <input id="forum-report-post-id" type="hidden">
+                <label class="field"><span>Motif</span><select id="forum-report-reason" required><option value="spam">Spam</option><option value="abuse">Comportement inapproprié</option><option value="illegal">Contenu illégal</option><option value="offtopic">Hors sujet</option><option value="other">Autre</option></select></label>
+                <label class="field"><span>Précisions (facultatif)</span><textarea id="forum-report-details" rows="4" maxlength="1500"></textarea></label>
+                <div class="admin-form-actions"><button id="forum-report-cancel" type="button" class="secondary-btn">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-flag"></i> Envoyer</button></div>
+                <p id="forum-report-message" class="account-message" hidden></p>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- FORUM V2 : SÉLECTEUR DE RÉFÉRENCES -->
+    <div id="forumReferenceModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="forum-reference-title">
+        <div class="modal-content forum-reference-modal" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" type="button" data-v2-close-modal="forumReferenceModal" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <div class="forum-reference-head"><span class="section-kicker">Lien interne</span><h2 id="forum-reference-title"><i class="fa-solid fa-link"></i> Référencer le site</h2><p>Insérez une carte cliquable vers une application, un document, une matière, une information, une discussion, un message ou un membre.</p></div>
+            <div class="forum-reference-tools">
+                <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="forum-reference-search" type="search" placeholder="Rechercher…"></div>
+                <div class="forum-reference-filters">
+                    <button type="button" class="active" data-reference-filter="all">Tout</button><button type="button" data-reference-filter="project">Applications</button><button type="button" data-reference-filter="document">Documents</button><button type="button" data-reference-filter="subject">Matières</button><button type="button" data-reference-filter="info">Informations</button><button type="button" data-reference-filter="topic">Discussions</button><button type="button" data-reference-filter="post">Messages</button><button type="button" data-reference-filter="member">Membres</button>
+                </div>
+            </div>
+            <div id="forum-reference-results" class="forum-reference-results"></div>
+        </div>
+    </div>
+
+    <!-- FORUM V2 : PIÈCE JOINTE EXTERNE -->
+    <div id="forumAttachmentModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="forum-attachment-title">
+        <div class="modal-content forum-attachment-modal" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" type="button" data-v2-close-modal="forumAttachmentModal" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <span class="section-kicker">Partage externe</span><h2 id="forum-attachment-title"><i class="fa-solid fa-paperclip"></i> Ajouter une pièce jointe</h2>
+            <div class="external-hosting-note"><strong>Aucun fichier n’est envoyé dans Supabase.</strong> Hébergez votre image ou document ailleurs (Drive, OneDrive, Dropbox, GitHub, Imgur, ImgBB, serveur personnel…) puis collez son lien HTTPS ici. La base ne conservera que l’URL et le libellé.</div>
+            <form id="forum-attachment-form" class="account-form">
+                <label class="field"><span>Type</span><select id="forum-attachment-type"><option value="image">Image</option><option value="file">Document / fichier</option></select></label>
+                <label class="field"><span>Lien externe</span><input id="forum-attachment-url" type="url" required placeholder="https://…"></label>
+                <label class="field"><span>Nom / légende</span><input id="forum-attachment-label" maxlength="160" placeholder="Capture d’écran, corrigé, fichier source…"></label>
+                <p id="forum-attachment-message" class="account-message" hidden></p>
+                <div class="admin-form-actions"><button type="button" class="secondary-btn" data-v2-close-modal="forumAttachmentModal">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-plus"></i> Insérer</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- FORUM V2 : HISTORIQUE -->
+    <div id="forumHistoryModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="forum-history-title">
+        <div class="modal-content forum-history-modal" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" type="button" data-v2-close-modal="forumHistoryModal" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <span class="section-kicker">Versions</span><h2 id="forum-history-title"><i class="fa-solid fa-clock-rotate-left"></i> Historique du message</h2>
+            <div id="forum-history-list" class="forum-history-list"></div>
+        </div>
+    </div>
+
+    <!-- FORUM V2 : MESSAGES PRIVÉS -->
+    <div id="privateMessagesModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="private-messages-title">
+        <div class="modal-content private-messages-modal" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" type="button" data-v2-close-modal="privateMessagesModal" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <div class="private-messages-shell">
+                <aside class="private-thread-sidebar"><span class="section-kicker">Communauté</span><h2 id="private-messages-title">Messages privés</h2><div id="private-thread-list" class="private-thread-list"></div></aside>
+                <section id="private-message-pane" class="private-message-pane"><div class="private-chat-empty"><div><i class="fa-regular fa-paper-plane fa-2x"></i><h3>Sélectionnez une conversation</h3><p>Vous pouvez démarrer une conversation depuis le profil public d’un membre.</p></div></div></section>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORUM V2 : ÉDITION ADMIN D'UN SUJET -->
+    <div id="adminV2TopicModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-v2-topic-modal-title">
+        <div class="modal-content admin-v2-editor-modal" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" type="button" data-v2-close-modal="adminV2TopicModal" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <span class="section-kicker">Modération</span><h2 id="admin-v2-topic-modal-title">Modifier le sujet</h2>
+            <form id="admin-v2-topic-form" class="account-form">
+                <input id="admin-v2-topic-id" type="hidden"><label class="field"><span>Titre</span><input id="admin-v2-topic-title" required minlength="5" maxlength="180"></label><label class="field"><span>Catégorie</span><select id="admin-v2-topic-category" required></select></label>
+                <div class="admin-v2-checks"><label class="preference-toggle"><input id="admin-v2-topic-pinned" type="checkbox"><span>Épinglé</span></label><label class="preference-toggle"><input id="admin-v2-topic-locked" type="checkbox"><span>Verrouillé</span></label><label class="preference-toggle"><input id="admin-v2-topic-solved" type="checkbox"><span>Résolu</span></label></div>
+                <div class="admin-form-actions"><button type="button" class="secondary-btn" data-v2-close-modal="adminV2TopicModal">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- FORUM V2 : ÉDITION ADMIN D'UN MESSAGE -->
+    <div id="adminV2MessageModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-v2-message-modal-title">
+        <div class="modal-content admin-v2-editor-modal" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" type="button" data-v2-close-modal="adminV2MessageModal" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <span class="section-kicker">Modération</span><h2 id="admin-v2-message-modal-title">Modifier le message</h2>
+            <form id="admin-v2-message-form" class="account-form"><input id="admin-v2-message-id" type="hidden"><label class="field"><span>Contenu</span><textarea id="admin-v2-message-content" rows="10" maxlength="10000" required></textarea></label><div class="admin-form-actions"><button type="button" class="secondary-btn" data-v2-close-modal="adminV2MessageModal">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div></form>
+        </div>
+    </div>
+
+
+    <!-- ADMINISTRATION -->
+    <div id="adminModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+        <div class="modal-content admin-modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" id="admin-close-btn" type="button" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+
+            <div id="admin-login-view" class="admin-login-view">
+                <div class="admin-login-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <span class="section-kicker">Zone privée</span>
+                <h2 id="admin-modal-title">Administration</h2>
+                <p>La publication et la modification du contenu sont protégées par votre compte administrateur Supabase.</p>
+                <div id="admin-config-warning" class="admin-message warning" hidden>
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Supabase n’est pas encore configuré. Vérifiez le bloc <strong>SUPABASE_CONFIG</strong> dans <strong>script.js</strong>.</span>
+                </div>
+                <form id="admin-login-form" class="admin-login-form">
+                    <label for="admin-password">Mot de passe administrateur</label>
+                    <div class="password-field">
+                        <i class="fa-solid fa-key"></i>
+                        <input id="admin-password" name="password" type="password" required autocomplete="current-password" placeholder="Votre mot de passe">
+                        <button id="admin-password-toggle" type="button" class="password-toggle" aria-label="Afficher le mot de passe" data-tooltip="Afficher le mot de passe"><i class="fa-regular fa-eye"></i></button>
+                    </div>
+                    <button id="admin-login-btn" type="submit" class="primary-btn admin-login-btn"><i class="fa-solid fa-right-to-bracket"></i> Se connecter</button>
+                    <p id="admin-login-error" class="admin-form-error" hidden></p>
+                </form>
+                <p class="admin-security-note"><i class="fa-solid fa-lock"></i> Le mot de passe n’est jamais stocké dans les fichiers du site.</p>
+            </div>
+
+            <div id="admin-dashboard" class="admin-dashboard" hidden>
+                <header class="admin-header">
+                    <div>
+                        <span class="section-kicker">Gestion du site</span>
+                        <h2><i class="fa-solid fa-sliders"></i> Administration</h2>
+                        <p id="admin-session-label">Session administrateur active</p>
+                    </div>
+                    <button id="admin-logout-btn" type="button" class="secondary-btn compact-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> Déconnexion</button>
+                </header>
+
+
+                <div class="admin-tabs" role="tablist" aria-label="Sections d’administration">
+                    <button class="admin-tab active" type="button" data-admin-tab="documents"><i class="fa-solid fa-file-lines"></i><span>Documents</span></button>
+                    <button class="admin-tab" type="button" data-admin-tab="subjects"><i class="fa-solid fa-layer-group"></i><span>Matières</span></button>
+                    <button class="admin-tab" type="button" data-admin-tab="infos"><i class="fa-solid fa-bullhorn"></i><span>Informations</span></button>
+                    <button class="admin-tab" type="button" data-admin-tab="projects"><i class="fa-solid fa-laptop-code"></i><span>Applications</span></button>
+                    <button class="admin-tab" type="button" data-admin-tab="forum"><i class="fa-solid fa-comments"></i><span>Forum</span></button>
+                    <button class="admin-tab" type="button" data-admin-tab="users"><i class="fa-solid fa-users-gear"></i><span>Utilisateurs</span></button>
+                </div>
+
+                <section id="admin-panel-documents" class="admin-panel active">
+                    <div class="admin-panel-heading">
+                        <div><h3>Bibliothèque de cours</h3><p>Ajoutez, remplacez, déplacez ou supprimez les documents visibles dans la partie Études.</p></div>
+                        <button type="button" class="primary-btn compact-btn" data-admin-new="document"><i class="fa-solid fa-plus"></i> Ajouter un document</button>
+                    </div>
+                    <div class="admin-search-row">
+                        <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="admin-document-search" type="search" placeholder="Rechercher un document…"></div>
+                    </div>
+                    <div id="admin-document-list" class="admin-list"></div>
+
+                    <form id="admin-document-form" class="admin-editor" hidden>
+                        <input id="admin-doc-id" type="hidden">
+                        <input id="admin-doc-storage-path" type="hidden">
+                        <div class="admin-editor-header"><h4 id="admin-document-form-title">Ajouter un document</h4><button type="button" class="icon-btn" data-admin-cancel="document" aria-label="Fermer le formulaire" data-tooltip="Fermer le formulaire"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="admin-form-grid">
+                            <label class="field field-wide"><span>Titre</span><input id="admin-doc-title" required maxlength="180" placeholder="Ex. Chapitre 3 - Séries de Fourier"></label>
+                            <label class="field"><span>Matière</span><select id="admin-doc-subject" required></select></label>
+                            <label class="field"><span>Catégorie</span><select id="admin-doc-type" required><option value="lessons">Cours</option><option value="exercises">Exercices & TD</option><option value="sheets">Fiches & Formulaires</option></select></label>
+                            <label class="field"><span>Ordre</span><input id="admin-doc-order" type="number" min="0" step="1" value="0"></label>
+                            <label class="field checkbox-field"><input id="admin-doc-published" type="checkbox" checked><span>Visible sur le site</span></label>
+                            <label class="field field-wide"><span>Fichier</span><input id="admin-doc-file" type="file" accept=".pdf,.doc,.docx,.odt,.png,.jpg,.jpeg,.gif,.webp"><small>PDF, Word, ODT et images — 50 Mo maximum. Laissez vide pour conserver le fichier actuel.</small></label>
+                            <label class="field field-wide"><span>Ou URL du document</span><input id="admin-doc-url" type="text" placeholder="https://… ou laisser vide si vous importez un fichier"><small>Utile pour conserver/modifier les anciens documents hébergés dans le dépôt.</small></label>
+                        </div>
+                        <div class="admin-form-actions"><button type="button" class="secondary-btn" data-admin-cancel="document">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
+                    </form>
+                </section>
+
+                <section id="admin-panel-subjects" class="admin-panel" hidden>
+                    <div class="admin-panel-heading">
+                        <div><h3>Matières</h3><p>Gérez les catégories qui organisent vos cours, exercices et fiches.</p></div>
+                        <button type="button" class="primary-btn compact-btn" data-admin-new="subject"><i class="fa-solid fa-plus"></i> Ajouter une matière</button>
+                    </div>
+                    <div id="admin-subject-list" class="admin-list compact-list"></div>
+                    <form id="admin-subject-form" class="admin-editor" hidden>
+                        <input id="admin-subject-original-id" type="hidden">
+                        <div class="admin-editor-header"><h4 id="admin-subject-form-title">Ajouter une matière</h4><button type="button" class="icon-btn" data-admin-cancel="subject" aria-label="Fermer le formulaire" data-tooltip="Fermer le formulaire"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="admin-form-grid">
+                            <label class="field"><span>Identifiant court</span><input id="admin-subject-id" required maxlength="40" placeholder="Ex. analyse"><small>Utilisé en interne. Il ne pourra plus être modifié après création.</small></label>
+                            <label class="field"><span>Nom affiché</span><input id="admin-subject-name" required maxlength="120" placeholder="Analyse"></label>
+                            <label class="field"><span>Icône Font Awesome</span><input id="admin-subject-icon" maxlength="100" value="fa-solid fa-book" placeholder="fa-solid fa-book"></label>
+                            <label class="field"><span>Ordre</span><input id="admin-subject-order" type="number" min="0" step="1" value="0"></label>
+                            <label class="field checkbox-field"><input id="admin-subject-published" type="checkbox" checked><span>Visible sur le site</span></label>
+                        </div>
+                        <div class="admin-form-actions"><button type="button" class="secondary-btn" data-admin-cancel="subject">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
+                    </form>
+                </section>
+
+                <section id="admin-panel-infos" class="admin-panel" hidden>
+                    <div class="admin-panel-heading">
+                        <div><h3>Informations</h3><p>Publiez les annonces visibles dans l’onglet Informations de la bibliothèque.</p></div>
+                        <button type="button" class="primary-btn compact-btn" data-admin-new="info"><i class="fa-solid fa-plus"></i> Nouvelle information</button>
+                    </div>
+                    <div id="admin-info-list" class="admin-list"></div>
+                    <form id="admin-info-form" class="admin-editor" hidden>
+                        <input id="admin-info-id" type="hidden">
+                        <input id="admin-info-storage-path" type="hidden">
+                        <div class="admin-editor-header"><h4 id="admin-info-form-title">Nouvelle information</h4><button type="button" class="icon-btn" data-admin-cancel="info" aria-label="Fermer le formulaire" data-tooltip="Fermer le formulaire"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="admin-form-grid">
+                            <label class="field field-wide"><span>Titre</span><input id="admin-info-title" required maxlength="180" placeholder="Ex. Nouveau chapitre disponible"></label>
+                            <label class="field"><span>Icône Font Awesome</span><input id="admin-info-icon" maxlength="100" value="fa-solid fa-circle-info"></label>
+                            <label class="field"><span>Ordre</span><input id="admin-info-order" type="number" min="0" step="1" value="0"></label>
+                            <label class="field checkbox-field"><input id="admin-info-published" type="checkbox" checked><span>Publier maintenant</span></label>
+                            <label class="field field-wide"><span>Texte</span><textarea id="admin-info-text" required rows="5" maxlength="5000" placeholder="Votre information…"></textarea></label>
+                            <label class="field field-wide"><span>Image facultative</span><input id="admin-info-file" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg"><small>Laissez vide pour conserver l’image actuelle.</small></label>
+                            <label class="field field-wide"><span>Ou URL de l’image</span><input id="admin-info-image-url" type="text" placeholder="https://…"></label>
+                        </div>
+                        <div class="admin-form-actions"><button type="button" class="secondary-btn" data-admin-cancel="info">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
+                    </form>
+                </section>
+
+                <section id="admin-panel-projects" class="admin-panel" hidden>
+                    <div class="admin-panel-heading">
+                        <div><h3>Applications & projets</h3><p>Ajoutez facilement une application, un outil ou un jeu sans modifier le code.</p></div>
+                        <button type="button" class="primary-btn compact-btn" data-admin-new="project"><i class="fa-solid fa-plus"></i> Ajouter une application</button>
+                    </div>
+                    <div class="admin-search-row">
+                        <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="admin-project-search" type="search" placeholder="Rechercher une application…"></div>
+                    </div>
+                    <div id="admin-project-list" class="admin-list admin-project-list"></div>
+                    <form id="admin-project-form" class="admin-editor" hidden>
+                        <input id="admin-project-id" type="hidden">
+                        <input id="admin-project-storage-path" type="hidden">
+                        <div class="admin-editor-header"><h4 id="admin-project-form-title">Ajouter une application</h4><button type="button" class="icon-btn" data-admin-cancel="project" aria-label="Fermer le formulaire" data-tooltip="Fermer le formulaire"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="admin-form-grid">
+                            <label class="field field-wide"><span>Nom</span><input id="admin-project-name" required maxlength="120" placeholder="Nom de l’application"></label>
+                            <label class="field"><span>Catégorie</span><select id="admin-project-category"><option value="application">Application</option><option value="tool">Outil</option><option value="game">Jeu</option></select></label>
+                            <label class="field"><span>Statut</span><select id="admin-project-status"><option value="development">En développement</option><option value="available">Disponible</option><option value="prototype">Prototype</option><option value="archived">Archivé</option></select></label>
+                            <label class="field"><span>Icône de secours</span><input id="admin-project-icon" maxlength="100" value="fa-solid fa-laptop-code" placeholder="fa-solid fa-laptop-code"></label>
+                            <label class="field"><span>Ordre</span><input id="admin-project-order" type="number" min="0" step="1" value="0"></label>
+                            <label class="field checkbox-field"><input id="admin-project-published" type="checkbox" checked><span>Visible sur le site</span></label>
+                            <label class="field field-wide"><span>Description</span><textarea id="admin-project-description" required rows="3" maxlength="1200" placeholder="Description courte et claire"></textarea></label>
+                            <label class="field field-wide"><span>Tags</span><input id="admin-project-tags" maxlength="500" placeholder="Python, Windows, Audio"><small>Séparez les tags par des virgules.</small></label>
+                            <label class="field field-wide"><span>Fonctionnalités</span><textarea id="admin-project-features" rows="6" placeholder="Une fonctionnalité par ligne"></textarea></label>
+                            <label class="field field-wide"><span>Logo</span><input id="admin-project-logo-file" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.ico"><small>PNG, JPG, WEBP, SVG ou ICO. Laissez vide pour conserver le logo actuel.</small></label>
+                            <label class="field field-wide"><span>Ou URL du logo</span><input id="admin-project-logo-url" type="text" placeholder="image/application/MonApp.png ou https://…"></label>
+                            <label class="field field-wide"><span>Lien de téléchargement</span><input id="admin-project-app-url" type="url" placeholder="https://…"></label>
+                            <label class="field field-wide"><span>Lien du code source</span><input id="admin-project-dev-url" type="url" placeholder="https://github.com/…"></label>
+                        </div>
+                        <div class="admin-form-actions"><button type="button" class="secondary-btn" data-admin-cancel="project">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
+                    </form>
+                </section>
+
+                <section id="admin-panel-forum" class="admin-panel" hidden>
+                    <div class="admin-panel-heading">
+                        <div><h3>Forum & modération</h3><p>Gérez les catégories, sujets, messages, suppressions et signalements de la communauté.</p></div>
+                        <button id="admin-forum-new-category" type="button" class="primary-btn compact-btn"><i class="fa-solid fa-plus"></i> Nouvelle catégorie</button>
+                    </div>
+                    <div class="admin-community-stats" id="admin-forum-stats"></div>
+                    <div class="admin-forum-v2-tabs" role="tablist" aria-label="Gestion du forum">
+                        <button type="button" class="active" data-admin-forum-v2-tab="overview"><i class="fa-solid fa-chart-simple"></i> Vue d’ensemble</button>
+                        <button type="button" data-admin-forum-v2-tab="topics"><i class="fa-regular fa-comments"></i> Sujets</button>
+                        <button type="button" data-admin-forum-v2-tab="messages"><i class="fa-regular fa-message"></i> Messages</button>
+                    </div>
+                    <div data-admin-forum-v2-pane="overview">
+                    <div class="admin-forum-grid">
+                        <div>
+                            <div class="admin-subheading"><h4>Catégories</h4></div>
+                            <div id="admin-forum-category-list" class="admin-list compact-list"></div>
+                        </div>
+                        <div>
+                            <div class="admin-subheading"><h4>Signalements ouverts</h4></div>
+                            <div id="admin-forum-report-list" class="admin-list"></div>
+                        </div>
+                    </div>
+                    </div>
+
+                    <div data-admin-forum-v2-pane="topics" hidden>
+                        <div class="admin-v2-filter-row">
+                            <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="admin-v2-topic-search" type="search" placeholder="Rechercher un sujet…"></div>
+                            <div class="filter-group">
+                                <button type="button" class="active" data-admin-v2-topic-filter="active">Actifs</button>
+                                <button type="button" data-admin-v2-topic-filter="locked">Verrouillés</button>
+                                <button type="button" data-admin-v2-topic-filter="solved">Résolus</button>
+                                <button type="button" data-admin-v2-topic-filter="deleted">Supprimés</button>
+                                <button type="button" data-admin-v2-topic-filter="all">Tous</button>
+                            </div>
+                        </div>
+                        <div id="admin-v2-topic-list" class="admin-v2-forum-list"></div>
+                    </div>
+
+                    <div data-admin-forum-v2-pane="messages" hidden>
+                        <div class="admin-v2-filter-row">
+                            <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="admin-v2-message-search" type="search" placeholder="Rechercher dans les messages…"></div>
+                            <div class="filter-group">
+                                <button type="button" class="active" data-admin-v2-message-filter="visible">Visibles</button>
+                                <button type="button" data-admin-v2-message-filter="deleted">Supprimés</button>
+                                <button type="button" data-admin-v2-message-filter="all">Tous</button>
+                            </div>
+                        </div>
+                        <div id="admin-v2-message-list" class="admin-v2-forum-list"></div>
+                    </div>
+
+                    <form id="admin-forum-category-form" class="admin-editor" hidden>
+                        <input id="admin-forum-category-id" type="hidden">
+                        <div class="admin-editor-header"><h4 id="admin-forum-category-title">Nouvelle catégorie</h4><button id="admin-forum-category-cancel-x" type="button" class="icon-btn" aria-label="Fermer" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="admin-form-grid">
+                            <label class="field"><span>Identifiant (slug)</span><input id="admin-forum-category-slug" required maxlength="60" pattern="[a-z0-9-]+" placeholder="mathematiques"></label>
+                            <label class="field"><span>Nom</span><input id="admin-forum-category-name" required maxlength="100"></label>
+                            <label class="field"><span>Icône Font Awesome</span><input id="admin-forum-category-icon" maxlength="100" value="fa-solid fa-comments"></label>
+                            <label class="field"><span>Ordre</span><input id="admin-forum-category-order" type="number" min="0" step="1" value="0"></label>
+                            <label class="field checkbox-field"><input id="admin-forum-category-active" type="checkbox" checked><span>Catégorie visible</span></label>
+                            <label class="field field-wide"><span>Description</span><textarea id="admin-forum-category-description" rows="3" maxlength="500"></textarea></label>
+                        </div>
+                        <div class="admin-form-actions"><button id="admin-forum-category-cancel" type="button" class="secondary-btn">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
+                    </form>
+                </section>
+
+                <section id="admin-panel-users" class="admin-panel" hidden>
+                    <div class="admin-panel-heading">
+                        <div><h3>Utilisateurs</h3><p>Consultez l’activité, attribuez le rôle de modérateur ou suspendez un compte.</p></div>
+                    </div>
+                    <div class="admin-search-row"><div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="admin-user-search" type="search" placeholder="Rechercher un membre…"></div></div>
+                    <div id="admin-user-list" class="admin-list admin-user-list"></div>
+                </section>
+
+
+                <div id="admin-operation-status" class="admin-operation-status" role="status" aria-live="polite"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="site-tooltip" class="site-tooltip" role="tooltip" hidden></div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"><i class="fa-solid fa-check"></i><span>Copié dans le presse-papiers !</span></div>
+
+    <footer>
+        <div class="footer-content">
+            <div><strong>Leween Chauveau</strong><span>Mathématiques & Développement</span></div>
+            <button type="button" data-go="about" class="back-top" data-tooltip="Revenir à l’accueil"><i class="fa-solid fa-arrow-up"></i> Retour en haut</button>
+            <p>© <span id="current-year">2026</span> — Tremble</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+    <script src="script.js"></script>
+    <script src="forum.js"></script>
+    <script src="forum_v2.js"></script>
+</body>
+</html>
