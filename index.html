@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Portfolio de Leween Chauveau : mathématiques, développement d'applications, projets et ressources d'études.">
+    <meta name="author" content="Leween Chauveau">
+    <meta name="theme-color" content="#0b1120">
+    <meta property="og:title" content="Leween Chauveau — Mathématiques & Développement">
+    <meta property="og:description" content="Portfolio, applications et ressources mathématiques.">
+    <meta property="og:type" content="website">
+    <title>Leween Chauveau — Mathématiques & Développement</title>
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Cpath d='M18 19h26M18 45h26M25 13l-9 19 9 19M39 13l9 19-9 19' stroke='%233b82f6' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Aller au contenu</a>
+
+    <canvas id="particles-canvas" aria-hidden="true"></canvas>
+    <div class="bg-animation" aria-hidden="true">
+        <div class="shape shape1"></div>
+        <div class="shape shape2"></div>
+        <div class="shape shape3"></div>
+    </div>
+
+    <nav class="site-nav" aria-label="Navigation principale">
+        <div class="nav-content">
+            <button class="brand" type="button" data-go="about" aria-label="Retour à l'accueil">
+                <span class="brand-mark"><i class="fa-solid fa-code"></i></span>
+                <span class="brand-text">
+                    <strong>Mathématiques</strong>
+                    <small>& Développement</small>
+                </span>
+            </button>
+
+            <button id="mobile-menu-btn" class="icon-btn mobile-menu-btn" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-menu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <div id="nav-menu" class="nav-menu">
+                <ul>
+                    <li><button class="nav-btn active" type="button" data-target="about"><i class="fa-solid fa-user"></i><span>À propos</span></button></li>
+                    <li><button class="nav-btn" type="button" data-target="services"><i class="fa-solid fa-briefcase"></i><span>Services</span></button></li>
+                    <li><button class="nav-btn" type="button" data-target="projects"><i class="fa-solid fa-layer-group"></i><span>Projets</span></button></li>
+                    <li><button class="nav-btn" type="button" data-target="courses"><i class="fa-solid fa-graduation-cap"></i><span>Études</span></button></li>
+                </ul>
+
+                <div class="nav-tools">
+                    <div class="theme-wrapper">
+                        <button id="theme-picker-btn" class="icon-btn" type="button" aria-label="Choisir la couleur d'accent" aria-expanded="false" title="Couleur d'accent">
+                            <i class="fa-solid fa-palette"></i>
+                        </button>
+                        <div id="theme-popover" class="theme-popover" role="menu" aria-label="Couleur d'accent">
+                            <button type="button" class="theme-swatch blue" data-theme="blue" aria-label="Bleu"></button>
+                            <button type="button" class="theme-swatch violet" data-theme="violet" aria-label="Violet"></button>
+                            <button type="button" class="theme-swatch green" data-theme="green" aria-label="Vert"></button>
+                            <button type="button" class="theme-swatch pink" data-theme="pink" aria-label="Rose"></button>
+                        </div>
+                    </div>
+                    <button id="motion-toggle" class="icon-btn" type="button" aria-label="Désactiver les animations" title="Animations">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </button>
+                    <button id="admin-open-btn" class="icon-btn admin-nav-btn" type="button" aria-label="Ouvrir l’administration" title="Administration">
+                        <i class="fa-solid fa-lock"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main id="main-content">
+        <!-- À PROPOS / ACCUEIL -->
+        <section id="about" class="page-section active" aria-labelledby="about-title">
+            <div class="hero reveal">
+                <div class="hero-content">
+                    <p class="eyebrow"><span class="status-dot"></span> Portfolio personnel</p>
+                    <h1 id="about-title">Leween Chauveau</h1>
+                    <p class="hero-subtitle">Mathématiques <span>×</span> Développement</p>
+                    <p class="hero-rotating" aria-live="polite"><span id="rotating-text">Étudiant en L3 de Mathématiques</span></p>
+                    <p class="hero-description">
+                        J'allie la rigueur des mathématiques à la créativité du développement logiciel pour concevoir des outils, des applications et des projets utiles.
+                    </p>
+                    <div class="hero-actions">
+                        <button class="primary-btn" type="button" data-go="projects"><i class="fa-solid fa-layer-group"></i> Découvrir mes projets</button>
+                        <button class="secondary-btn" type="button" data-go="courses"><i class="fa-solid fa-book-open"></i> Explorer mes ressources</button>
+                    </div>
+                </div>
+
+                <div class="hero-visual" aria-hidden="true">
+                    <div class="hero-orbit orbit-one"></div>
+                    <div class="hero-orbit orbit-two"></div>
+                    <div class="hero-avatar-wrap">
+                        <img src="image/pdp.png" alt="" class="hero-avatar">
+                    </div>
+                    <span class="floating-badge badge-math"><i class="fa-solid fa-square-root-variable"></i> Maths</span>
+                    <span class="floating-badge badge-code"><i class="fa-brands fa-python"></i> Python</span>
+                    <span class="floating-badge badge-build"><i class="fa-solid fa-laptop-code"></i> Création</span>
+                </div>
+            </div>
+
+            <div class="stats-grid reveal" aria-label="Quelques chiffres">
+                <div class="stat-card"><span class="stat-value" id="stat-projects">0</span><span class="stat-label">projets présentés</span></div>
+                <div class="stat-card"><span class="stat-value" id="stat-available">0</span><span class="stat-label">projets disponibles</span></div>
+                <div class="stat-card"><span class="stat-value" id="stat-subjects">0</span><span class="stat-label">matières</span></div>
+                <div class="stat-card"><span class="stat-value" id="stat-documents">0</span><span class="stat-label">documents d'étude</span></div>
+            </div>
+
+            <div class="about-grid reveal">
+                <article class="glass-panel profile-panel">
+                    <div class="section-heading compact">
+                        <div>
+                            <span class="section-kicker">Profil</span>
+                            <h2><i class="fa-solid fa-user"></i> À propos de moi</h2>
+                        </div>
+                    </div>
+
+                    <div class="profile-header">
+                        <button class="profile-avatar" type="button" onclick="openProfileModal()" title="Cliquer pour agrandir" aria-label="Agrandir la photo de profil">
+                            <img src="image/pdp.png" alt="Chauveau Leween" class="profile-pic">
+                        </button>
+                        <div class="profile-titles">
+                            <h3 class="profile-name">Chauveau Leween</h3>
+                            <p class="profile-pseudo"><i class="fa-solid fa-at"></i> Tremble</p>
+                            <p class="profile-status"><i class="fa-solid fa-cake-candles"></i> 20 ans</p>
+                            <p class="profile-status"><i class="fa-solid fa-graduation-cap"></i> Étudiant en L3 de Mathématiques</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-bio">
+                        <p>Je poursuis un cursus d'études dans le domaine des mathématiques afin de devenir Enseignant chercheur. J'allie la rigueur de la logique mathématique à la créativité du développement logiciel. Ainsi en parallèle de mes études, je conçois des applications de bureau pratiques, des outils d'automatisation et des jeux.</p>
+                    </div>
+
+                    <div class="profile-tags-section">
+                        <h4 class="tags-title"><i class="fa-solid fa-code"></i> Compétences techniques</h4>
+                        <div class="tags-container">
+                            <span class="tag"><i class="fa-solid fa-square-root-variable"></i> Recherche Mathématique</span>
+                            <span class="tag"><i class="fa-brands fa-python"></i> Python</span>
+                            <span class="tag"><i class="fa-solid fa-code"></i> C#</span>
+                            <span class="tag"><i class="fa-solid fa-globe"></i> HTML & CSS</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-tags-section">
+                        <h4 class="tags-title"><i class="fa-solid fa-heart"></i> Passions & centres d'intérêt</h4>
+                        <div class="tags-container">
+                            <span class="tag"><i class="fa-solid fa-calculator"></i> Mathématiques</span>
+                            <span class="tag"><i class="fa-solid fa-atom"></i> Physique</span>
+                            <span class="tag"><i class="fa-solid fa-laptop-code"></i> Développement</span>
+                            <span class="tag"><i class="fa-solid fa-gamepad"></i> Jeux vidéo</span>
+                            <span class="tag"><i class="fa-solid fa-brain"></i> Culture générale</span>
+                            <span class="tag"><i class="fa-solid fa-music"></i> Musique</span>
+                            <span class="tag"><i class="fa-solid fa-film"></i> Films et séries</span>
+                            <span class="tag"><i class="fa-solid fa-microchip"></i> Hardware & Optimisation</span>
+                            <span class="tag"><i class="fa-solid fa-robot"></i> IA & Automatisation</span>
+                        </div>
+                    </div>
+                </article>
+
+                <aside class="glass-panel journey-panel">
+                    <div class="section-heading compact">
+                        <div>
+                            <span class="section-kicker">Direction</span>
+                            <h2><i class="fa-solid fa-route"></i> Mon fil conducteur</h2>
+                        </div>
+                    </div>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <span class="timeline-icon"><i class="fa-solid fa-graduation-cap"></i></span>
+                            <div><strong>Aujourd'hui</strong><h3>L3 de Mathématiques</h3><p>Approfondir les mathématiques et développer une démarche rigoureuse.</p></div>
+                        </div>
+                        <div class="timeline-item">
+                            <span class="timeline-icon"><i class="fa-solid fa-code"></i></span>
+                            <div><strong>En parallèle</strong><h3>Développement logiciel</h3><p>Créer des applications de bureau, des outils d'automatisation et des jeux.</p></div>
+                        </div>
+                        <div class="timeline-item">
+                            <span class="timeline-icon"><i class="fa-solid fa-bullseye"></i></span>
+                            <div><strong>Objectif</strong><h3>Enseignant chercheur</h3><p>Faire des mathématiques le cœur de mon parcours professionnel.</p></div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+
+            <section class="contact-section glass-panel reveal" aria-labelledby="contact-title">
+                <div class="section-heading compact">
+                    <div>
+                        <span class="section-kicker">Contact</span>
+                        <h2 id="contact-title"><i class="fa-solid fa-address-card"></i> Me contacter</h2>
+                    </div>
+                    <p>Cliquez sur une information pour la copier.</p>
+                </div>
+                <div class="contact-info">
+                    <button onclick="copyToClipboard('tremble_dev', 'Discord copié')" class="contact-item"><i class="fa-brands fa-discord"></i><span><small>Discord</small>tremble_dev</span></button>
+                    <button onclick="copyToClipboard('leween87220@gmail.com', 'E-mail copié')" class="contact-item"><i class="fa-solid fa-envelope"></i><span><small>E-mail</small>leween87220@gmail.com</span></button>
+                    <button onclick="copyToClipboard('leween.chauveau@etu.unilim.fr', 'E-mail universitaire copié')" class="contact-item"><i class="fa-solid fa-graduation-cap"></i><span><small>Université</small>leween.chauveau@etu.unilim.fr</span></button>
+                    <button onclick="copyToClipboard('0621627991', 'Téléphone copié')" class="contact-item"><i class="fa-solid fa-phone"></i><span><small>Téléphone</small>06 21 62 79 91</span></button>
+                    <a href="https://github.com/Tremble-e" target="_blank" rel="noopener noreferrer" class="contact-item contact-link" aria-label="Ouvrir mon profil GitHub"><i class="fa-brands fa-github"></i><span><small>GitHub</small>Tremble-e</span><i class="fa-solid fa-arrow-up-right-from-square contact-external" aria-hidden="true"></i></a>
+                </div>
+            </section>
+        </section>
+
+        <!-- SERVICES -->
+        <section id="services" class="page-section" aria-labelledby="services-title">
+            <div class="section-heading reveal">
+                <div>
+                    <span class="section-kicker">Ce que je propose</span>
+                    <h1 id="services-title"><i class="fa-solid fa-handshake"></i> Mes Services</h1>
+                </div>
+                <p>Deux domaines complémentaires : transmettre les mathématiques et concevoir des outils numériques utiles.</p>
+            </div>
+
+            <div class="services-grid">
+                <article class="service-card reveal">
+                    <div class="service-icon"><i class="fa-solid fa-chalkboard-user"></i></div>
+                    <span class="service-number">01</span>
+                    <h2>Soutien en Mathématiques</h2>
+                    <p>Je propose des cours particuliers de mathématiques adaptés à votre niveau. Je mets l'accent sur la compréhension profonde des concepts et la rigueur du raisonnement.</p>
+                    <ul class="service-details">
+                        <li><i class="fa-solid fa-check"></i> Accompagnement sur mesure</li>
+                        <li><i class="fa-solid fa-video"></i> Disponible en visio</li>
+                        <li><i class="fa-solid fa-location-dot"></i> Présentiel possible autour de <strong>Limoges</strong></li>
+                    </ul>
+                </article>
+
+                <article class="service-card reveal">
+                    <div class="service-icon"><i class="fa-solid fa-laptop-code"></i></div>
+                    <span class="service-number">02</span>
+                    <h2>Développement d'Applications</h2>
+                    <p>Création d'outils numériques, de logiciels de bureau et de scripts d'automatisation pensés pour répondre précisément à vos besoins pratiques.</p>
+                    <ul class="service-details">
+                        <li><i class="fa-solid fa-check"></i> Logiciels de bureau (Python, C#)</li>
+                        <li><i class="fa-solid fa-check"></i> Outils d'automatisation de tâches</li>
+                        <li><i class="fa-solid fa-check"></i> Interfaces claires et ergonomiques</li>
+                    </ul>
+                </article>
+            </div>
+        </section>
+
+        <!-- PROJETS -->
+        <section id="projects" class="page-section" aria-labelledby="projects-title">
+            <div class="section-heading reveal">
+                <div>
+                    <span class="section-kicker">Portfolio</span>
+                    <h1 id="projects-title"><i class="fa-solid fa-folder-open"></i> Mes Applications</h1>
+                </div>
+                <p>Applications, outils et jeux : sélectionnez une catégorie ou recherchez un projet.</p>
+            </div>
+
+            <div class="project-toolbar glass-panel reveal">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="project-search" type="search" placeholder="Rechercher un projet ou une fonctionnalité…" autocomplete="off" aria-label="Rechercher un projet">
+                </div>
+                <div class="filter-group" id="project-filters" aria-label="Filtrer les projets">
+                    <button class="filter-btn active" type="button" data-category="all">Tous</button>
+                    <button class="filter-btn" type="button" data-category="application">Applications</button>
+                    <button class="filter-btn" type="button" data-category="tool">Outils</button>
+                    <button class="filter-btn" type="button" data-category="game">Jeux</button>
+                </div>
+            </div>
+
+            <div id="projects-container" class="projects-grid" aria-live="polite"></div>
+            <div id="projects-empty" class="empty-state" hidden>
+                <i class="fa-regular fa-folder-open"></i>
+                <h2>Aucun projet trouvé</h2>
+                <p>Essayez une autre recherche ou une autre catégorie.</p>
+            </div>
+        </section>
+
+        <!-- ÉTUDES -->
+        <section id="courses" class="page-section" aria-labelledby="courses-title">
+            <div class="section-heading reveal">
+                <div>
+                    <span class="section-kicker">Bibliothèque personnelle</span>
+                    <h1 id="courses-title"><i class="fa-solid fa-graduation-cap"></i> Études</h1>
+                </div>
+                <p>Mes cours, exercices, fiches et formulaires classés par matière.</p>
+            </div>
+
+            <div class="study-overview reveal">
+                <div><strong id="study-subject-count">0</strong><span>Matières</span></div>
+                <div><strong id="study-lesson-count">0</strong><span>Cours</span></div>
+                <div><strong id="study-exercise-count">0</strong><span>Exercices</span></div>
+                <div><strong id="study-sheet-count">0</strong><span>Fiches</span></div>
+            </div>
+
+            <div class="course-search-panel glass-panel reveal">
+                <div class="search-box large">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="course-search" type="search" placeholder="Rechercher un cours, une fiche, une matière…" autocomplete="off" aria-label="Rechercher dans les ressources d'étude">
+                    <kbd>Ctrl K</kbd>
+                </div>
+                <div id="course-search-results" class="course-search-results" hidden></div>
+            </div>
+
+            <div class="courses-submenu main-tabs reveal">
+                <button class="submenu-btn active" onclick="switchMainCourseTab('courses-content')" id="btn-tab-courses" type="button"><i class="fa-solid fa-folder-open"></i> Cours & Exercices</button>
+                <button class="submenu-btn" onclick="switchMainCourseTab('global-info-content')" id="btn-tab-global-info" type="button"><i class="fa-solid fa-circle-info"></i> Informations</button>
+            </div>
+
+            <div id="courses-content" class="reveal">
+                <div class="courses-layout">
+                    <aside class="subject-panel glass-panel">
+                        <div class="subject-panel-title"><span>Matières</span><small id="subject-total-label"></small></div>
+                        <div class="subject-selector" id="subject-list"></div>
+                    </aside>
+
+                    <div class="glass-panel course-content-panel">
+                        <div class="course-title-row">
+                            <div>
+                                <small>Matière sélectionnée</small>
+                                <h2 id="current-subject-title">Sélectionnez une matière</h2>
+                            </div>
+                        </div>
+
+                        <div class="courses-submenu subject-tabs">
+                            <button class="submenu-btn active" onclick="switchSubjectTab('lessons')" id="btn-tab-lessons" type="button"><i class="fa-solid fa-book-open"></i> Cours <span class="tab-count" id="count-lessons">0</span></button>
+                            <button class="submenu-btn" onclick="switchSubjectTab('exercises')" id="btn-tab-exercises" type="button"><i class="fa-solid fa-pen-ruler"></i> Exercices & TD <span class="tab-count" id="count-exercises">0</span></button>
+                            <button class="submenu-btn" onclick="switchSubjectTab('sheets')" id="btn-tab-sheets" type="button"><i class="fa-solid fa-file-lines"></i> Fiches & Formulaires <span class="tab-count" id="count-sheets">0</span></button>
+                        </div>
+
+                        <div id="subject-tab-lessons" class="pdf-box"><ul class="pdf-list" id="lessons-list"></ul></div>
+                        <div id="subject-tab-exercises" class="pdf-box" hidden><ul class="pdf-list" id="exercises-list"></ul></div>
+                        <div id="subject-tab-sheets" class="pdf-box" hidden><ul class="pdf-list" id="sheets-list"></ul></div>
+
+                        <div class="pdf-viewer-container" id="viewer-container" hidden>
+                            <div class="pdf-viewer-header">
+                                <span id="pdf-file-name"><i class="fa-solid fa-file"></i> Aucun fichier sélectionné</span>
+                                <div class="pdf-actions">
+                                    <a id="pdf-external-link" href="#" target="_blank" rel="noopener" class="text-link"><i class="fa-solid fa-up-right-from-square"></i> Ouvrir</a>
+                                    <button onclick="closePdf()" class="close-btn" type="button" title="Fermer la prévisualisation" aria-label="Fermer la prévisualisation"><i class="fa-solid fa-xmark"></i></button>
+                                </div>
+                            </div>
+                            <iframe id="pdf-frame" class="pdf-frame" src="" title="Prévisualisation du document"></iframe>
+                            <img id="img-viewer" class="pdf-frame image-viewer" src="" alt="Prévisualisation" hidden>
+                            <div id="odt-viewer" class="pdf-frame odt-placeholder" hidden>
+                                <i class="fa-solid fa-file-word"></i>
+                                <p>La prévisualisation des fichiers <strong>.odt</strong> ou <strong>.docx</strong> n'est pas prise en charge directement.</p>
+                                <a id="odt-download-link" href="#" class="primary-btn inline-btn">Télécharger le fichier</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="global-info-content" hidden>
+                <div class="glass-panel">
+                    <div class="section-heading compact">
+                        <div><span class="section-kicker">Actualités</span><h2><i class="fa-solid fa-bullhorn"></i> Informations</h2></div>
+                    </div>
+                    <div class="general-info-content" id="general-info-container"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODALE PROFIL -->
+    <div id="profileModal" class="modal-overlay" onclick="closeProfileModal(event)" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+        <div class="modal-content profile-modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" onclick="closeProfileModal()" type="button" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <div class="modal-body">
+                <img src="image/pdp.png" alt="Chauveau Leween" class="modal-pic">
+                <h2 id="profile-modal-title" class="modal-name">Chauveau Leween</h2>
+                <p class="modal-pseudo"><i class="fa-solid fa-at"></i> Tremble</p>
+                <p class="modal-status"><i class="fa-solid fa-cake-candles"></i> 20 ans <span>•</span> <i class="fa-solid fa-graduation-cap"></i> Étudiant en L3 de Mathématiques</p>
+                <div class="modal-bio"><p>Je poursuis un cursus d'études dans le domaine des mathématiques afin de devenir Enseignant chercheur. J'allie la rigueur de la logique mathématique à la créativité du développement logiciel. Ainsi en parallèle de mes études, je conçois des applications de bureau pratiques, des outils d'automatisation et des jeux.</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE PROJET -->
+    <div id="projectModal" class="modal-overlay" onclick="closeProjectModal(event)" role="dialog" aria-modal="true" aria-labelledby="project-modal-title">
+        <div class="modal-content project-modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" onclick="closeProjectModal()" type="button" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <div id="project-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- ADMINISTRATION -->
+    <div id="adminModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+        <div class="modal-content admin-modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close-btn" id="admin-close-btn" type="button" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+
+            <div id="admin-login-view" class="admin-login-view">
+                <div class="admin-login-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <span class="section-kicker">Zone privée</span>
+                <h2 id="admin-modal-title">Administration</h2>
+                <p>La publication et la modification du contenu sont protégées par votre compte administrateur Supabase.</p>
+                <div id="admin-config-warning" class="admin-message warning" hidden>
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Supabase n’est pas encore configuré dans <strong>script.js</strong>. Consultez le fichier <strong>INSTALLATION_SUPABASE.md</strong>.</span>
+                </div>
+                <form id="admin-login-form" class="admin-login-form">
+                    <label for="admin-password">Mot de passe administrateur</label>
+                    <div class="password-field">
+                        <i class="fa-solid fa-key"></i>
+                        <input id="admin-password" name="password" type="password" required autocomplete="current-password" placeholder="Votre mot de passe">
+                        <button id="admin-password-toggle" type="button" class="password-toggle" aria-label="Afficher le mot de passe"><i class="fa-regular fa-eye"></i></button>
+                    </div>
+                    <button id="admin-login-btn" type="submit" class="primary-btn admin-login-btn"><i class="fa-solid fa-right-to-bracket"></i> Se connecter</button>
+                    <p id="admin-login-error" class="admin-form-error" hidden></p>
+                </form>
+                <p class="admin-security-note"><i class="fa-solid fa-lock"></i> Le mot de passe n’est jamais stocké dans les fichiers du site.</p>
+            </div>
+
+            <div id="admin-dashboard" class="admin-dashboard" hidden>
+                <header class="admin-header">
+                    <div>
+                        <span class="section-kicker">Gestion du site</span>
+                        <h2><i class="fa-solid fa-sliders"></i> Administration</h2>
+                        <p id="admin-session-label">Session administrateur active</p>
+                    </div>
+                    <button id="admin-logout-btn" type="button" class="secondary-btn compact-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> Déconnexion</button>
+                </header>
+
+                <div id="admin-seed-banner" class="admin-seed-banner" hidden>
+                    <div>
+                        <strong><i class="fa-solid fa-database"></i> Première configuration</strong>
+                        <p>La base est prête mais vide. Importez en un clic les projets et les ressources actuellement présents dans votre site.</p>
+                    </div>
+                    <button id="admin-seed-btn" type="button" class="primary-btn"><i class="fa-solid fa-cloud-arrow-up"></i> Importer le contenu actuel</button>
+                </div>
+
+                <div class="admin-tabs" role="tablist" aria-label="Sections d’administration">
+                    <button class="admin-tab active" type="button" data-admin-tab="documents"><i class="fa-solid fa-file-lines"></i><span>Documents</span></button>
+                    <button class="admin-tab" type="button" data-admin-tab="subjects"><i class="fa-solid fa-layer-group"></i><span>Matières</span></button>
+                    <button class="admin-tab" type="button" data-admin-tab="infos"><i class="fa-solid fa-bullhorn"></i><span>Informations</span></button>
+                    <button class="admin-tab" type="button" data-admin-tab="projects"><i class="fa-solid fa-laptop-code"></i><span>Applications</span></button>
+                </div>
+
+                <section id="admin-panel-documents" class="admin-panel active">
+                    <div class="admin-panel-heading">
+                        <div><h3>Bibliothèque de cours</h3><p>Ajoutez, remplacez, déplacez ou supprimez les documents visibles dans la partie Études.</p></div>
+                        <button type="button" class="primary-btn compact-btn" data-admin-new="document"><i class="fa-solid fa-plus"></i> Ajouter un document</button>
+                    </div>
+                    <div class="admin-search-row">
+                        <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="admin-document-search" type="search" placeholder="Rechercher un document…"></div>
+                    </div>
+                    <div id="admin-document-list" class="admin-list"></div>
+
+                    <form id="admin-document-form" class="admin-editor" hidden>
+                        <input id="admin-doc-id" type="hidden">
+                        <input id="admin-doc-storage-path" type="hidden">
+                        <div class="admin-editor-header"><h4 id="admin-document-form-title">Ajouter un document</h4><button type="button" class="icon-btn" data-admin-cancel="document" aria-label="Fermer le formulaire"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="admin-form-grid">
+                            <label class="field field-wide"><span>Titre</span><input id="admin-doc-title" required maxlength="180" placeholder="Ex. Chapitre 3 - Séries de Fourier"></label>
+                            <label class="field"><span>Matière</span><select id="admin-doc-subject" required></select></label>
+                            <label class="field"><span>Catégorie</span><select id="admin-doc-type" required><option value="lessons">Cours</option><option value="exercises">Exercices & TD</option><option value="sheets">Fiches & Formulaires</option></select></label>
+                            <label class="field"><span>Ordre</span><input id="admin-doc-order" type="number" min="0" step="1" value="0"></label>
+                            <label class="field checkbox-field"><input id="admin-doc-published" type="checkbox" checked><span>Visible sur le site</span></label>
+                            <label class="field field-wide"><span>Fichier</span><input id="admin-doc-file" type="file" accept=".pdf,.doc,.docx,.odt,.png,.jpg,.jpeg,.gif,.webp"><small>PDF, Word, ODT et images — 50 Mo maximum. Laissez vide pour conserver le fichier actuel.</small></label>
+                            <label class="field field-wide"><span>Ou URL du document</span><input id="admin-doc-url" type="text" placeholder="https://… ou laisser vide si vous importez un fichier"><small>Utile pour conserver/modifier les anciens documents hébergés dans le dépôt.</small></label>
+                        </div>
+                        <div class="admin-form-actions"><button type="button" class="secondary-btn" data-admin-cancel="document">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
+                    </form>
+                </section>
+
+                <section id="admin-panel-subjects" class="admin-panel" hidden>
+                    <div class="admin-panel-heading">
+                        <div><h3>Matières</h3><p>Gérez les catégories qui organisent vos cours, exercices et fiches.</p></div>
+                        <button type="button" class="primary-btn compact-btn" data-admin-new="subject"><i class="fa-solid fa-plus"></i> Ajouter une matière</button>
+                    </div>
+                    <div id="admin-subject-list" class="admin-list compact-list"></div>
+                    <form id="admin-subject-form" class="admin-editor" hidden>
+                        <input id="admin-subject-original-id" type="hidden">
+                        <div class="admin-editor-header"><h4 id="admin-subject-form-title">Ajouter une matière</h4><button type="button" class="icon-btn" data-admin-cancel="subject" aria-label="Fermer le formulaire"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="admin-form-grid">
+                            <label class="field"><span>Identifiant court</span><input id="admin-subject-id" required maxlength="40" placeholder="Ex. analyse"><small>Utilisé en interne. Il ne pourra plus être modifié après création.</small></label>
+                            <label class="field"><span>Nom affiché</span><input id="admin-subject-name" required maxlength="120" placeholder="Analyse"></label>
+                            <label class="field"><span>Icône Font Awesome</span><input id="admin-subject-icon" maxlength="100" value="fa-solid fa-book" placeholder="fa-solid fa-book"></label>
+                            <label class="field"><span>Ordre</span><input id="admin-subject-order" type="number" min="0" step="1" value="0"></label>
+                            <label class="field checkbox-field"><input id="admin-subject-published" type="checkbox" checked><span>Visible sur le site</span></label>
+                        </div>
+                        <div class="admin-form-actions"><button type="button" class="secondary-btn" data-admin-cancel="subject">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
+                    </form>
+                </section>
+
+                <section id="admin-panel-infos" class="admin-panel" hidden>
+                    <div class="admin-panel-heading">
+                        <div><h3>Informations</h3><p>Publiez les annonces visibles dans l’onglet Informations de la bibliothèque.</p></div>
+                        <button type="button" class="primary-btn compact-btn" data-admin-new="info"><i class="fa-solid fa-plus"></i> Nouvelle information</button>
+                    </div>
+                    <div id="admin-info-list" class="admin-list"></div>
+                    <form id="admin-info-form" class="admin-editor" hidden>
+                        <input id="admin-info-id" type="hidden">
+                        <input id="admin-info-storage-path" type="hidden">
+                        <div class="admin-editor-header"><h4 id="admin-info-form-title">Nouvelle information</h4><button type="button" class="icon-btn" data-admin-cancel="info" aria-label="Fermer le formulaire"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="admin-form-grid">
+                            <label class="field field-wide"><span>Titre</span><input id="admin-info-title" required maxlength="180" placeholder="Ex. Nouveau chapitre disponible"></label>
+                            <label class="field"><span>Icône Font Awesome</span><input id="admin-info-icon" maxlength="100" value="fa-solid fa-circle-info"></label>
+                            <label class="field"><span>Ordre</span><input id="admin-info-order" type="number" min="0" step="1" value="0"></label>
+                            <label class="field checkbox-field"><input id="admin-info-published" type="checkbox" checked><span>Publier maintenant</span></label>
+                            <label class="field field-wide"><span>Texte</span><textarea id="admin-info-text" required rows="5" maxlength="5000" placeholder="Votre information…"></textarea></label>
+                            <label class="field field-wide"><span>Image facultative</span><input id="admin-info-file" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg"><small>Laissez vide pour conserver l’image actuelle.</small></label>
+                            <label class="field field-wide"><span>Ou URL de l’image</span><input id="admin-info-image-url" type="text" placeholder="https://…"></label>
+                        </div>
+                        <div class="admin-form-actions"><button type="button" class="secondary-btn" data-admin-cancel="info">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
+                    </form>
+                </section>
+
+                <section id="admin-panel-projects" class="admin-panel" hidden>
+                    <div class="admin-panel-heading">
+                        <div><h3>Applications & projets</h3><p>Ajoutez facilement une application, un outil ou un jeu sans modifier le code.</p></div>
+                        <button type="button" class="primary-btn compact-btn" data-admin-new="project"><i class="fa-solid fa-plus"></i> Ajouter une application</button>
+                    </div>
+                    <div class="admin-search-row">
+                        <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="admin-project-search" type="search" placeholder="Rechercher une application…"></div>
+                    </div>
+                    <div id="admin-project-list" class="admin-list admin-project-list"></div>
+                    <form id="admin-project-form" class="admin-editor" hidden>
+                        <input id="admin-project-id" type="hidden">
+                        <input id="admin-project-storage-path" type="hidden">
+                        <div class="admin-editor-header"><h4 id="admin-project-form-title">Ajouter une application</h4><button type="button" class="icon-btn" data-admin-cancel="project" aria-label="Fermer le formulaire"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="admin-form-grid">
+                            <label class="field field-wide"><span>Nom</span><input id="admin-project-name" required maxlength="120" placeholder="Nom de l’application"></label>
+                            <label class="field"><span>Catégorie</span><select id="admin-project-category"><option value="application">Application</option><option value="tool">Outil</option><option value="game">Jeu</option></select></label>
+                            <label class="field"><span>Statut</span><select id="admin-project-status"><option value="development">En développement</option><option value="available">Disponible</option><option value="prototype">Prototype</option><option value="archived">Archivé</option></select></label>
+                            <label class="field"><span>Icône de secours</span><input id="admin-project-icon" maxlength="100" value="fa-solid fa-laptop-code" placeholder="fa-solid fa-laptop-code"></label>
+                            <label class="field"><span>Ordre</span><input id="admin-project-order" type="number" min="0" step="1" value="0"></label>
+                            <label class="field checkbox-field"><input id="admin-project-published" type="checkbox" checked><span>Visible sur le site</span></label>
+                            <label class="field field-wide"><span>Description</span><textarea id="admin-project-description" required rows="3" maxlength="1200" placeholder="Description courte et claire"></textarea></label>
+                            <label class="field field-wide"><span>Tags</span><input id="admin-project-tags" maxlength="500" placeholder="Python, Windows, Audio"><small>Séparez les tags par des virgules.</small></label>
+                            <label class="field field-wide"><span>Fonctionnalités</span><textarea id="admin-project-features" rows="6" placeholder="Une fonctionnalité par ligne"></textarea></label>
+                            <label class="field field-wide"><span>Logo</span><input id="admin-project-logo-file" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.ico"><small>PNG, JPG, WEBP, SVG ou ICO. Laissez vide pour conserver le logo actuel.</small></label>
+                            <label class="field field-wide"><span>Ou URL du logo</span><input id="admin-project-logo-url" type="text" placeholder="image/application/MonApp.png ou https://…"></label>
+                            <label class="field field-wide"><span>Lien de téléchargement</span><input id="admin-project-app-url" type="url" placeholder="https://…"></label>
+                            <label class="field field-wide"><span>Lien du code source</span><input id="admin-project-dev-url" type="url" placeholder="https://github.com/…"></label>
+                        </div>
+                        <div class="admin-form-actions"><button type="button" class="secondary-btn" data-admin-cancel="project">Annuler</button><button type="submit" class="primary-btn"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
+                    </form>
+                </section>
+
+                <div id="admin-operation-status" class="admin-operation-status" role="status" aria-live="polite"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"><i class="fa-solid fa-check"></i><span>Copié dans le presse-papiers !</span></div>
+
+    <footer>
+        <div class="footer-content">
+            <div><strong>Leween Chauveau</strong><span>Mathématiques & Développement</span></div>
+            <button type="button" data-go="about" class="back-top"><i class="fa-solid fa-arrow-up"></i> Retour en haut</button>
+            <p>© <span id="current-year">2026</span> — Tremble</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script.js"></script>
+</body>
+</html>
