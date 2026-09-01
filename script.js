@@ -928,11 +928,11 @@ function updateStats() {
 /* ==========================================================
    TEXTE ROTATIF DU HERO
 ========================================================== */
-const rotatingMessages = [
-    'Étudiant en L3 de Mathématiques',
-    "Créateur d'applications de bureau",
-    "Concepteur d'outils d'automatisation",
-    'Développement, jeux et expérimentation'
+const = [
+    'Explorer de nouvelles idées',
+    "Apprendre en créant",
+    "Donner vie à des projets",
+    'Expérimenter pour progresser'
 ];
 
 function buildRotatingLetters(element, text) {
