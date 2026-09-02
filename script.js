@@ -1527,7 +1527,7 @@ function renderServiceAvailabilityStat() {
         card.classList.toggle('is-available', available);
         card.classList.toggle('is-unavailable', !available);
     }
-    if (status) status.textContent = available ? 'Service disponible' : 'Service indisponible';
+    if (status) status.textContent = available ? 'Services disponibles' : 'Services indisponibles';
     if (note) note.textContent = portfolioSettings.servicesStatusText || (available ? 'Services disponibles actuellement' : 'Services indisponibles temporairement');
 }
 
