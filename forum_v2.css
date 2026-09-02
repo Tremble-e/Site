@@ -500,7 +500,7 @@ select:-webkit-autofill {
     }
     .private-message-form .primary-btn { width: 100%; }
     .notification-popover {
-        left: 10px;
+         10px;
         right: 10px;
         width: auto;
     }
@@ -594,7 +594,7 @@ select:-webkit-autofill {
     align-items: center;
     gap: .7rem;
     border: 1px solid rgba(var(--accent-rgb), .23);
-    border-left: 3px solid var(--accent-color);
+    border- 3px solid var(--accent-color);
     border-radius: 11px;
     background: rgba(var(--accent-rgb), .055);
     color: inherit;
@@ -672,7 +672,7 @@ select:-webkit-autofill {
     margin: .15rem 0 .7rem;
     padding: .72rem .78rem;
     border: 1px solid rgba(var(--accent-rgb), .22);
-    border-left: 3px solid var(--accent-color);
+    border- 3px solid var(--accent-color);
     border-radius: 11px;
     background: rgba(var(--accent-rgb), .055);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
@@ -798,11 +798,11 @@ select:-webkit-autofill {
 .private-chat-identity > div { min-width: 0; display: flex; flex-direction: column; }
 .private-chat-identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .private-chat-head-tools { display: flex; align-items: center; gap: .65rem; flex-shrink: 0; }
-.private-head-avatars { display: flex; align-items: center; padding-left: .35rem; }
+.private-head-avatars { display: flex; align-items: center; padding- .35rem; }
 .private-head-avatars .member-avatar.tiny {
     width: 28px;
     height: 28px;
-    margin-left: -.35rem;
+    margin- -.35rem;
     border: 2px solid var(--bg-elevated);
     font-size: .62rem;
     box-shadow: 0 3px 10px rgba(0,0,0,.22);
@@ -810,7 +810,7 @@ select:-webkit-autofill {
 .private-head-more {
     min-width: 28px;
     height: 28px;
-    margin-left: -.25rem;
+    margin- -.25rem;
     padding: 0 .35rem;
     display: grid;
     place-items: center;
@@ -1387,9 +1387,9 @@ select:-webkit-autofill {
 .private-chat-presence-label { display: inline-flex; align-items: center; gap: .35rem; }
 .private-chat-presence-label::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #64748b; }
 .private-chat-presence-label.is-online::before { background: var(--success); box-shadow: 0 0 8px rgba(34,197,94,.5); }
-.private-head-avatar-presence { margin-left: -.35rem; }
-.private-head-avatar-presence:first-child { margin-left: 0; }
-.private-head-avatar-presence .member-avatar.tiny { margin-left: 0; }
+.private-head-avatar-presence { margin- -.35rem; }
+.private-head-avatar-presence:first-child { margin- 0; }
+.private-head-avatar-presence .member-avatar.tiny { margin- 0; }
 .private-head-avatar-presence .private-presence-dot { width: 8px; height: 8px; border-width: 1.5px; }
 .private-group-avatar-presence .private-presence-dot { right: -2px; bottom: 1px; }
 .private-author-online-dot { width: 6px; height: 6px; display: inline-block; margin-right: .35rem; border-radius: 50%; background: var(--success); box-shadow: 0 0 7px rgba(34,197,94,.48); vertical-align: middle; }
@@ -1470,8 +1470,8 @@ select:-webkit-autofill {
 .forum-members-directory-modal > .modal-close-btn {
     position: absolute;
     top: .75rem;
-    left: .75rem;
-    right: auto;
+    right: .75rem;
+    left: auto;
     z-index: 30;
     float: none;
     margin: 0;
