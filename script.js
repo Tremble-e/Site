@@ -552,7 +552,7 @@ document.querySelectorAll('#project-filters .filter-btn').forEach(button => {
    INFORMATIONS — ÉTUDES / PROJETS + ABONNEMENTS
 ========================================================== */
 function infoSectionLabel(section) {
-    return section === 'projects' ? 'Applications & projets' : 'Études';
+    return section === 'projects' ? 'Projets' : 'Études';
 }
 
 function formatInfoDate(value) {
