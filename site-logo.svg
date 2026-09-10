@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Tremble — Mathématiques &amp; Développement</title>
+  <desc id="desc">Emblème géométrique bleu et violet associant code et mathématiques.</desc>
+  <defs>
+    <linearGradient id="bg" x1="78" y1="52" x2="442" y2="470" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#13284b"/>
+      <stop offset="0.47" stop-color="#0b1730"/>
+      <stop offset="1" stop-color="#090f22"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="75" y1="62" x2="434" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38bdf8"/>
+      <stop offset="0.48" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="118" y1="160" x2="393" y2="350" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7dd3fc"/>
+      <stop offset="0.48" stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#c4b5fd"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(256 236) rotate(90) scale(225)">
+      <stop stop-color="#3b82f6" stop-opacity=".24"/>
+      <stop offset="1" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="clip"><rect x="28" y="28" width="456" height="456" rx="118"/></clipPath>
+  </defs>
+
+  <rect x="28" y="28" width="456" height="456" rx="118" fill="url(#bg)"/>
+  <g clip-path="url(#clip)">
+    <rect x="28" y="28" width="456" height="456" fill="url(#glow)"/>
+    <path d="M46 154C146 81 338 70 466 133" fill="none" stroke="#ffffff" stroke-opacity=".055" stroke-width="2"/>
+    <path d="M47 361C164 434 354 431 474 352" fill="none" stroke="#8b5cf6" stroke-opacity=".09" stroke-width="2"/>
+    <g opacity=".055" stroke="#e2e8f0" stroke-width="1">
+      <path d="M92 64V448M148 64V448M204 64V448M260 64V448M316 64V448M372 64V448M428 64V448"/>
+      <path d="M64 92H448M64 148H448M64 204H448M64 260H448M64 316H448M64 372H448M64 428H448"/>
+    </g>
+  </g>
+  <rect x="30.5" y="30.5" width="451" height="451" rx="115.5" fill="none" stroke="url(#edge)" stroke-width="5"/>
+  <rect x="60" y="60" width="392" height="392" rx="92" fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="2"/>
+
+  <g fill="none" stroke="url(#mark)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" filter="url(#shadow)">
+    <path d="M188 166L116 256L188 346"/>
+    <path d="M324 166L396 256L324 346"/>
+  </g>
+
+  <path d="M190 257C211 216 239 211 263 251C287 291 310 297 331 257C310 217 287 223 263 263C239 303 211 298 190 257Z"
+        fill="none" stroke="url(#mark)" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <circle cx="256" cy="111" r="7" fill="#7dd3fc"/>
+  <circle cx="401" cy="365" r="6" fill="#a78bfa"/>
+  <circle cx="111" cy="367" r="5" fill="#60a5fa"/>
+</svg>
