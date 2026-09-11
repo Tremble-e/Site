@@ -1,0 +1,322 @@
+#planning {
+    --planning-day-min: 148px;
+}
+
+.planning-heading {
+    margin-bottom: 1.25rem;
+}
+
+.planning-status-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.planning-status-card {
+    display: flex;
+    gap: .9rem;
+    align-items: center;
+    padding: 1rem 1.1rem;
+    min-width: 0;
+}
+
+.planning-status-card > div:last-child {
+    display: grid;
+    min-width: 0;
+}
+
+.planning-status-card span,
+.planning-status-card small {
+    color: var(--text-muted, #94a3b8);
+}
+
+.planning-status-card strong {
+    margin: .08rem 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.planning-status-icon {
+    display: grid;
+    place-items: center;
+    width: 2.65rem;
+    height: 2.65rem;
+    flex: 0 0 2.65rem;
+    border-radius: .9rem;
+    color: var(--accent, #3b82f6);
+    background: color-mix(in srgb, var(--accent, #3b82f6) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 24%, transparent);
+}
+
+.planning-alert {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    margin: 1rem 0;
+    padding: 1rem 1.1rem;
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--accent, #3b82f6) 10%, var(--panel-bg, rgba(15,23,42,.72)));
+    border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 28%, transparent);
+}
+
+.planning-alert > i {
+    font-size: 1.35rem;
+    color: var(--accent, #3b82f6);
+}
+
+.planning-alert > div {
+    flex: 1;
+    min-width: 0;
+}
+
+.planning-alert p {
+    margin: .25rem 0 0;
+    color: var(--text-muted, #94a3b8);
+}
+
+.planning-alert-warning {
+    background: rgba(245, 158, 11, .09);
+    border-color: rgba(245, 158, 11, .28);
+}
+
+.planning-alert-warning > i {
+    color: #f59e0b;
+}
+
+.planning-toolbar {
+    display: grid;
+    grid-template-columns: auto minmax(180px, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    padding: .85rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.planning-week-navigation,
+.planning-actions {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+}
+
+.planning-period {
+    display: grid;
+    text-align: center;
+}
+
+.planning-period span {
+    color: var(--text-muted, #94a3b8);
+    font-size: .9rem;
+}
+
+.planning-loading {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.15rem;
+    margin-bottom: 1rem;
+}
+
+.planning-loading p {
+    margin: .18rem 0 0;
+    color: var(--text-muted, #94a3b8);
+}
+
+.planning-spinner {
+    width: 1.55rem;
+    height: 1.55rem;
+    flex: 0 0 1.55rem;
+    border: 3px solid color-mix(in srgb, var(--accent, #3b82f6) 25%, transparent);
+    border-top-color: var(--accent, #3b82f6);
+    border-radius: 50%;
+    animation: planning-spin .75s linear infinite;
+}
+
+@keyframes planning-spin {
+    to { transform: rotate(360deg); }
+}
+
+.planning-week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(var(--planning-day-min), 1fr));
+    gap: .75rem;
+    overflow-x: auto;
+    padding-bottom: .4rem;
+    scroll-snap-type: x proximity;
+}
+
+.planning-day {
+    min-height: 240px;
+    padding: .8rem;
+    border-radius: 1rem;
+    scroll-snap-align: start;
+    background: var(--glass-bg, rgba(15,23,42,.58));
+    border: 1px solid var(--glass-border, rgba(148,163,184,.15));
+    backdrop-filter: blur(15px);
+}
+
+.planning-day.is-today {
+    border-color: color-mix(in srgb, var(--accent, #3b82f6) 55%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent, #3b82f6) 15%, transparent);
+}
+
+.planning-day-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: 0 .1rem .65rem;
+}
+
+.planning-day-header strong {
+    text-transform: capitalize;
+}
+
+.planning-day-header span {
+    font-size: .8rem;
+    color: var(--text-muted, #94a3b8);
+}
+
+.planning-day-events {
+    display: grid;
+    gap: .55rem;
+}
+
+.planning-event {
+    position: relative;
+    padding: .65rem .7rem .65rem .78rem;
+    border-radius: .8rem;
+    background: color-mix(in srgb, var(--accent, #3b82f6) 8%, rgba(15,23,42,.42));
+    border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 19%, rgba(148,163,184,.1));
+    overflow: hidden;
+}
+
+.planning-event::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--accent, #3b82f6);
+}
+
+.planning-event-time {
+    display: block;
+    margin-bottom: .18rem;
+    color: var(--accent, #60a5fa);
+    font-weight: 700;
+    font-size: .78rem;
+}
+
+.planning-event-title {
+    display: block;
+    line-height: 1.22;
+    font-size: .9rem;
+}
+
+.planning-event-type {
+    display: inline-flex;
+    margin-left: .32rem;
+    padding: .08rem .3rem;
+    border-radius: .35rem;
+    vertical-align: .08rem;
+    font-size: .65rem;
+    font-weight: 700;
+    color: var(--accent, #60a5fa);
+    background: color-mix(in srgb, var(--accent, #3b82f6) 14%, transparent);
+}
+
+.planning-event-meta {
+    display: grid;
+    gap: .14rem;
+    margin-top: .4rem;
+    color: var(--text-muted, #94a3b8);
+    font-size: .72rem;
+}
+
+.planning-event-meta span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.planning-no-event {
+    display: grid;
+    place-items: center;
+    min-height: 92px;
+    color: var(--text-muted, #94a3b8);
+    font-size: .8rem;
+    text-align: center;
+}
+
+.planning-empty {
+    padding: 2rem;
+    text-align: center;
+}
+
+.planning-empty > i {
+    font-size: 2rem;
+    color: var(--accent, #3b82f6);
+}
+
+.planning-empty h2 {
+    margin: .7rem 0 .3rem;
+}
+
+.planning-empty p {
+    margin: 0;
+    color: var(--text-muted, #94a3b8);
+}
+
+@media (max-width: 980px) {
+    .planning-status-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .planning-toolbar {
+        grid-template-columns: 1fr;
+    }
+
+    .planning-period {
+        order: -1;
+    }
+
+    .planning-week-navigation,
+    .planning-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 640px) {
+    .planning-week-grid {
+        display: block;
+        overflow: visible;
+    }
+
+    .planning-day {
+        min-height: auto;
+        margin-bottom: .75rem;
+    }
+
+    .planning-alert {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .planning-alert .secondary-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .planning-actions > button {
+        flex: 1 1 140px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .planning-spinner {
+        animation-duration: 1.8s;
+    }
+}
