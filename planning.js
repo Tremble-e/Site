@@ -7,7 +7,7 @@
     const CACHE_KEY_PREFIX = 'planilim-ade-annual-payload-v2:';
     const SUPABASE_TABLE = 'user_planning_cache';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/mon-emploi-du-temps-extension-v3.3.0.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/mon-emploi-du-temps-extension-v3.4.1.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const SLOT_MINUTES = 15;
@@ -198,7 +198,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'mon-emploi-du-temps-extension-v3.3.0.zip';
+        link.download = 'mon-emploi-du-temps-extension-v3.4.1.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -350,6 +350,109 @@
         }
     }
 
+    async function clearCloudPayload() {
+        if (!state.user?.id) return true;
+        const client = getSupabase();
+        if (!client) return false;
+
+        try {
+            const { error } = await client
+                .from(SUPABASE_TABLE)
+                .delete()
+                .eq('user_id', state.user.id);
+            if (error) throw error;
+            state.cloudAvailable = true;
+            state.cloudLoaded = false;
+            return true;
+        } catch (error) {
+            state.cloudAvailable = false;
+            console.warn('Suppression du planning dans Supabase impossible :', error);
+            return false;
+        }
+    }
+
+    function clearLocalPlanningData() {
+        if (state.user?.id) {
+            try {
+                localStorage.removeItem(userCacheKey(state.user.id));
+                const filterKey = planningFilterStorageKey();
+                if (filterKey) localStorage.removeItem(filterKey);
+            } catch (error) {
+                console.warn('Suppression du cache local impossible :', error);
+            }
+        }
+        try { localStorage.removeItem(LEGACY_CACHE_KEY); } catch {}
+
+        state.payload = null;
+        state.cloudLoaded = false;
+        state.currentWeekStart = mondayOf(new Date());
+        state.mobileSelectedDate = toIsoDate(new Date());
+        state.filterCatalogSignature = '';
+        state.filters = {
+            kinds: { cm: true, td: true, tp: true, exam: true, other: true },
+            selectedCourses: new Set(),
+            courseMode: 'hide',
+            excludedEvents: new Set(),
+            showExcludedEvents: false
+        };
+    }
+
+    async function clearPlanningCompletely() {
+        if (!state.user) return;
+
+        const confirmed = window.siteConfirm
+            ? await window.siteConfirm({
+                title: 'Vider mon emploi du temps ?',
+                message: 'Toutes les données de votre emploi du temps seront supprimées.',
+                detail: 'La sauvegarde de votre compte, le cache local et la configuration de synchronisation seront remis à zéro. Vous pourrez ensuite choisir un nouvel emploi du temps.',
+                confirmLabel: 'Vider et recommencer',
+                danger: true
+            })
+            : window.confirm('Vider complètement votre emploi du temps et recommencer à zéro ?');
+
+        if (!confirmed) return;
+
+        setLoading(true, 'Remise à zéro…', 'Suppression de votre emploi du temps et de la configuration de synchronisation.');
+
+        let extensionReset = !state.extensionDetected;
+        let cloudReset = false;
+
+        try {
+            if (state.extensionDetected) {
+                try {
+                    const result = await requestExtension('PLANILIM_ADE_CLEAR', { timeout: 10000 });
+                    extensionReset = Boolean(result?.ok);
+                } catch (error) {
+                    console.warn('Réinitialisation de l’extension impossible :', error);
+                    extensionReset = false;
+                }
+            }
+
+            cloudReset = await clearCloudPayload();
+            clearLocalPlanningData();
+
+            state.status = null;
+            if (state.extensionDetected) {
+                try {
+                    state.status = await requestExtension('PLANILIM_ADE_STATUS', { timeout: 5000 });
+                } catch {
+                    state.status = null;
+                }
+            }
+
+            renderPlanningFilters(true);
+            renderWeek();
+            updateConnectionUi();
+
+            const message = extensionReset && cloudReset
+                ? 'Emploi du temps vidé. Vous pouvez repartir de zéro.'
+                : 'Emploi du temps local vidé. Certaines données distantes n’ont pas pu être réinitialisées.';
+            if (typeof window.showToast === 'function') window.showToast(message);
+        } finally {
+            setLoading(false);
+        }
+    }
+
     function syncState() {
         return state.status?.v3?.syncState || state.status?.academicSyncStatus || null;
     }
@@ -366,6 +469,7 @@
         const lastSync = byId('planning-last-sync');
         const count = byId('planning-course-count');
         const authWarning = byId('planning-auth-warning');
+        const clearButton = byId('planning-clear-data');
         if (!title || !button) return;
 
         const cache = state.status?.academicSyncCacheSummary || null;
@@ -378,6 +482,17 @@
             ['syncing', 'preparing_fresh_base', 'running'].includes(syncStateName);
 
         if (authWarning) authWarning.hidden = !authRequired;
+        if (clearButton) {
+            const hasSomethingToClear = Boolean(
+                state.payload ||
+                state.cloudLoaded ||
+                configured ||
+                cache?.updatedAt ||
+                setupState
+            );
+            clearButton.hidden = !hasSomethingToClear;
+            clearButton.disabled = running || state.busy;
+        }
 
         if (!state.extensionDetected) {
             if (state.waitingForInstall) {
@@ -408,24 +523,25 @@
             button.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se reconnecter';
             button.dataset.action = 'connect';
             button.disabled = false;
-        } else if (['waiting_for_ade', 'waiting_for_login', 'needs_week_change'].includes(setupState)) {
-            title.textContent = 'En attente de l’affichage du planning';
-            detail.textContent = 'Connectez-vous si nécessaire puis affichez le planning que vous voulez utiliser. La détection est automatique.';
-            button.innerHTML = '<i class="fa-regular fa-hourglass-half"></i> En attente du planning…';
+        } else if (['waiting_for_ade', 'waiting_for_login'].includes(setupState)) {
+            title.textContent = 'En attente de votre emploi du temps';
+            detail.textContent = 'Connectez-vous si nécessaire puis affichez l’emploi du temps que vous souhaitez synchroniser. Rien ne changera avant votre validation.';
+            button.innerHTML = '<i class="fa-regular fa-hourglass-half"></i> En attente de l’emploi du temps…';
             button.dataset.action = 'busy';
             button.disabled = true;
-        } else if (!configured) {
-            title.textContent = 'Prêt à synchroniser';
-            detail.textContent = 'Le site va ouvrir la page universitaire. Connectez-vous puis affichez simplement le planning souhaité.';
-            button.innerHTML = '<i class="fa-solid fa-link"></i> Démarrer la synchronisation';
-            button.dataset.action = 'connect';
-            button.disabled = false;
         } else if (setupState === 'detected') {
-            const planningInfo = state.status?.profile?.planningLabel || (state.status?.profile?.resourceId != null ? `Planning #${state.status.profile.resourceId}` : 'Planning détecté');
-            title.textContent = 'Planning détecté';
-            detail.textContent = `${planningInfo} est prêt. Vérifiez qu’il s’agit du bon planning puis lancez la synchronisation.`;
-            button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser mon emploi du temps';
+            const setup = state.status?.v3?.setupState || {};
+            const planningInfo = setup.planningLabel || (setup.resourceId != null ? `Emploi du temps #${setup.resourceId}` : 'Emploi du temps détecté');
+            title.textContent = 'Emploi du temps détecté';
+            detail.textContent = `${planningInfo} est affiché. Vérifiez qu’il s’agit du bon emploi du temps avant de continuer.`;
+            button.innerHTML = '<i class="fa-solid fa-check"></i> Valider et synchroniser';
             button.dataset.action = 'sync';
+            button.disabled = false;
+        } else if (!configured) {
+            title.textContent = 'Choisir mon emploi du temps';
+            detail.textContent = 'Ouvrez la page universitaire, connectez-vous si nécessaire puis affichez l’emploi du temps que vous souhaitez utiliser.';
+            button.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Choisir mon emploi du temps';
+            button.dataset.action = 'connect';
             button.disabled = false;
         } else if (cache?.updatedAt) {
             title.textContent = 'Emploi du temps synchronisé';
@@ -434,10 +550,10 @@
             button.dataset.action = 'sync';
             button.disabled = false;
         } else {
-            const planningInfo = state.status?.profile?.planningLabel || (state.status?.profile?.resourceId != null ? `Planning #${state.status.profile.resourceId}` : 'Planning détecté');
-            title.textContent = 'Planning détecté';
-            detail.textContent = `${planningInfo} est prêt. Lancez la première synchronisation.`;
-            button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser mon emploi du temps';
+            const planningInfo = state.status?.profile?.planningLabel || (state.status?.profile?.resourceId != null ? `Emploi du temps #${state.status.profile.resourceId}` : 'Emploi du temps détecté');
+            title.textContent = 'Emploi du temps détecté';
+            detail.textContent = `${planningInfo} est prêt. Vérifiez-le puis lancez la synchronisation.`;
+            button.innerHTML = '<i class="fa-solid fa-check"></i> Valider et synchroniser';
             button.dataset.action = 'sync';
             button.disabled = false;
         }
@@ -1069,12 +1185,12 @@
     }
 
     async function connectAde() {
-        setLoading(true, 'Ouverture de la page universitaire…', 'Une page ADE va s’ouvrir. Connectez-vous à UNILIM si nécessaire.');
+        setLoading(true, 'Ouverture de la page universitaire…', 'Connectez-vous si nécessaire puis affichez l’emploi du temps à synchroniser.');
         try {
             await requestExtension('PLANILIM_ADE_CONNECT', { timeout: 20000 });
             await requestStatusAndPayload({ persistIfCloudEmpty: true });
         } catch (error) {
-            console.warn('Connexion ADE en attente :', error);
+            console.warn('Connexion universitaire en attente :', error);
         } finally {
             setLoading(false);
         }
@@ -1097,7 +1213,7 @@
             updateConnectionUi();
             renderWeek();
         } catch (error) {
-            console.error('Synchronisation ADE impossible :', error);
+            console.error('Synchronisation impossible :', error);
         } finally {
             setLoading(false);
         }
@@ -1180,6 +1296,7 @@
         });
         byId('planning-primary-action')?.addEventListener('click', primaryAction);
         byId('planning-open-tutorial')?.addEventListener('click', openTutorial);
+        byId('planning-clear-data')?.addEventListener('click', clearPlanningCompletely);
         byId('planning-tutorial-close')?.addEventListener('click', closeTutorial);
         byId('planning-tutorial-modal')?.addEventListener('click', event => {
             if (event.target === event.currentTarget) closeTutorial();

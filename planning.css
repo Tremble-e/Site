@@ -1169,3 +1169,30 @@
 .planning-day-event:hover .planning-event-selection,
 .planning-event-selection:has(input:focus-visible),
 .planning-event-selection:has(input:not(:checked)) { opacity: 1; }
+
+
+/* v2.17.1 — lisibilité de l'axe horaire et remise à zéro */
+.planning-time-cell.is-hour span,
+.planning-day-time.is-hour span {
+    color: var(--text-soft, #e2e8f0);
+    opacity: 1;
+    font-weight: 600;
+}
+
+.planning-time-cell.is-first span,
+.planning-day-time.is-first span {
+    color: var(--text-soft, #e2e8f0);
+    opacity: 1;
+    position: relative;
+    z-index: 9;
+}
+
+.planning-clear-btn {
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .planning-clear-btn {
+        width: 100%;
+    }
+}
