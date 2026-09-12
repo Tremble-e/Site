@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="style.css?v=2.9.5">
     <link rel="stylesheet" href="forum.css?v=2.9.5">
     <link rel="stylesheet" href="forum_v2.css?v=2.9.5">
-    <link rel="stylesheet" href="planning.css?v=2.15.0">
+    <link rel="stylesheet" href="planning.css?v=2.16.0">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 </head>
 <body>
@@ -598,14 +598,14 @@
                     <span class="section-kicker">Université</span>
                     <h1 id="planning-title"><i class="fa-regular fa-calendar-days"></i> Mon emploi du temps</h1>
                 </div>
-                <p>Votre planning ADE, disponible sur Planilim et sauvegardé sur votre compte.</p>
+                <p>Consultez et synchronisez votre emploi du temps universitaire, sauvegardé sur votre compte.</p>
             </div>
 
             <div class="glass-panel planning-connect-panel">
                 <div class="planning-connect-icon"><i class="fa-solid fa-calendar-check"></i></div>
                 <div class="planning-connect-copy">
                     <strong id="planning-connection-title">Vérification du planning…</strong>
-                    <p id="planning-connection-detail">Planilim recherche l’extension ADE et vos dernières données synchronisées.</p>
+                    <p id="planning-connection-detail">Vérification de l’extension de synchronisation et de vos dernières données enregistrées.</p>
                 </div>
                 <div class="planning-connect-actions">
                     <button id="planning-primary-action" class="primary-btn compact-btn" type="button" data-action="busy" disabled>
@@ -618,7 +618,7 @@
             </div>
 
             <div class="planning-account-meta" aria-live="polite">
-                <span id="planning-cloud-status"><i class="fa-solid fa-cloud"></i> Compte Planilim</span>
+                <span id="planning-cloud-status"><i class="fa-solid fa-cloud"></i> Mon compte</span>
                 <span id="planning-last-sync"><i class="fa-regular fa-clock"></i> Jamais synchronisé</span>
                 <span id="planning-course-count"><i class="fa-solid fa-book-open"></i> 0 cours</span>
             </div>
@@ -627,7 +627,7 @@
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <div>
                     <strong>Connexion universitaire requise</strong>
-                    <p>La session ADE a expiré. Utilisez le bouton de reconnexion ci-dessus ; Planilim reprendra ensuite automatiquement.</p>
+                    <p>La session universitaire a expiré. Utilisez le bouton de reconnexion ci-dessus ; la détection reprendra ensuite automatiquement.</p>
                 </div>
             </div>
 
@@ -728,7 +728,7 @@
                 <span class="planning-spinner" aria-hidden="true"></span>
                 <div>
                     <strong id="planning-loading-title">Synchronisation en cours…</strong>
-                    <p id="planning-loading-detail">ADE est interrogé directement par l’extension.</p>
+                    <p id="planning-loading-detail">La synchronisation est gérée directement par l’extension.</p>
                 </div>
             </div>
 
@@ -751,7 +751,7 @@
             <div id="planning-empty" class="glass-panel planning-empty" hidden>
                 <i class="fa-regular fa-calendar-xmark"></i>
                 <h2>Aucun cours cette semaine</h2>
-                <p>Cette semaine est vide dans le planning ADE actuellement synchronisé.</p>
+                <p>Cette semaine est vide dans l’emploi du temps actuellement synchronisé.</p>
             </div>
         </section>
 
@@ -760,8 +760,8 @@
                 <button id="planning-tutorial-close" class="modal-close-btn" type="button" aria-label="Fermer le tutoriel" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
                 <div class="planning-tutorial-header">
                     <span class="section-kicker">Guide pas à pas</span>
-                    <h2 id="planning-tutorial-title">Installer l’extension Planilim</h2>
-                    <p>Suivez ces étapes dans Brave ou Chrome pour relier ADE à votre compte Planilim. Les captures d’écran seront ajoutées ensuite aux emplacements prévus.</p>
+                    <h2 id="planning-tutorial-title">Installer l’extension de synchronisation</h2>
+                    <p>Suivez ces étapes dans Brave ou Chrome pour relier votre planning universitaire à votre compte. Les captures d’écran seront ajoutées ensuite aux emplacements prévus.</p>
                 </div>
                 <div class="planning-tutorial-body">
                     <section class="planning-tutorial-step">
@@ -773,7 +773,7 @@
                                 <li>Vous pouvez supprimer le <strong>fichier ZIP</strong> après extraction.</li>
                                 <li>En revanche, il faut <strong>conserver le dossier extrait</strong> tant que l’extension est installée.</li>
                             </ul>
-                            <div class="planning-tutorial-note important"><i class="fa-solid fa-folder-open"></i><div><strong>À retenir</strong><span>Placez le dossier extrait dans un endroit que vous ne supprimerez pas, par exemple <em>Documents\Planilim\Extension</em>. Brave charge l’extension directement depuis ce dossier.</span></div></div>
+                            <div class="planning-tutorial-note important"><i class="fa-solid fa-folder-open"></i><div><strong>À retenir</strong><span>Placez le dossier extrait dans un endroit que vous ne supprimerez pas, par exemple <em>Documents\MonEmploiDuTemps\Extension</em>. Brave charge l’extension directement depuis ce dossier.</span></div></div>
                             <div class="planning-tutorial-shot placeholder" data-shot="01-download-extract"><span>Capture à intégrer : téléchargement du ZIP puis dossier extrait</span></div>
                         </div>
                     </section>
@@ -804,7 +804,7 @@
                         <div class="planning-tutorial-step-index">4</div>
                         <div class="planning-tutorial-step-content">
                             <h3>Charger le dossier de l’extension</h3>
-                            <p>Cliquez sur <strong>Charger l’extension non empaquetée</strong>, puis sélectionnez le <strong>dossier extrait</strong> de Planilim ADE Bridge.</p>
+                            <p>Cliquez sur <strong>Charger l’extension non empaquetée</strong>, puis sélectionnez le <strong>dossier extrait</strong> de l’extension.</p>
                             <div class="planning-tutorial-shot placeholder" data-shot="04-load-unpacked"><span>Capture à intégrer : bouton de chargement + sélection du dossier</span></div>
                         </div>
                     </section>
@@ -813,8 +813,8 @@
                         <div class="planning-tutorial-step-index">5</div>
                         <div class="planning-tutorial-step-content">
                             <h3>Vérifier que l’extension est bien active</h3>
-                            <p>Une fois l’extension chargée, revenez sur Planilim. Le bouton se met à jour automatiquement et propose ensuite <strong>Connecter ADE</strong> ou <strong>Synchroniser mon emploi du temps</strong>.</p>
-                            <p>La détection fonctionne aussi dans la version de Planilim installée sur le PC. Si nécessaire, utilisez le bouton <strong>Revérifier maintenant</strong> : vous n’avez pas besoin de retélécharger l’extension.</p>
+                            <p>Une fois l’extension chargée, revenez sur le site. Le bouton se met à jour automatiquement et propose ensuite <strong>Démarrer la synchronisation</strong> ou <strong>Synchroniser mon emploi du temps</strong>.</p>
+                            <p>La détection fonctionne aussi dans la version installée sur le PC. Si nécessaire, utilisez le bouton <strong>Revérifier maintenant</strong> : vous n’avez pas besoin de retélécharger l’extension.</p>
                             <div class="planning-tutorial-shot placeholder" data-shot="05-extension-enabled"><span>Capture à intégrer : extension visible et activée</span></div>
                         </div>
                     </section>
@@ -822,14 +822,14 @@
                     <section class="planning-tutorial-step">
                         <div class="planning-tutorial-step-index">6</div>
                         <div class="planning-tutorial-step-content">
-                            <h3>Connecter ADE puis lancer la synchronisation</h3>
-                            <p>Sur Planilim :</p>
+                            <h3>Ouvrir la page universitaire puis lancer la synchronisation</h3>
+                            <p>Sur cette page :</p>
                             <ul>
-                                <li>cliquez sur <strong>Connecter ADE</strong> ;</li>
+                                <li>cliquez sur <strong>Démarrer la synchronisation</strong> ;</li>
                                 <li>connectez-vous à votre compte universitaire si demandé ;</li>
                                 <li>revenez ensuite dans l’onglet planning et cliquez sur <strong>Synchroniser mon emploi du temps</strong>.</li>
                             </ul>
-                            <div class="planning-tutorial-shot placeholder" data-shot="06-connect-sync"><span>Capture à intégrer : bouton Connecter ADE puis synchronisation</span></div>
+                            <div class="planning-tutorial-shot placeholder" data-shot="06-connect-sync"><span>Capture à intégrer : bouton Démarrer la synchronisation puis synchronisation</span></div>
                         </div>
                     </section>
                 </div>
@@ -1578,7 +1578,7 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
     <script src="script.js?v=2.13.0"></script>
-    <script src="planning.js?v=2.15.0"></script>
+    <script src="planning.js?v=2.16.0"></script>
     <script src="forum.js?v=2.9.5"></script>
     <script src="forum_v2.js?v=2.9.5"></script>
 </body>

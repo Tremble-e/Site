@@ -7,7 +7,7 @@
     const CACHE_KEY_PREFIX = 'planilim-ade-annual-payload-v2:';
     const SUPABASE_TABLE = 'user_planning_cache';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-ade-bridge-v3.2.0.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/mon-emploi-du-temps-extension-v3.3.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const SLOT_MINUTES = 15;
@@ -198,7 +198,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-ade-bridge-v3.2.0.zip';
+        link.download = 'mon-emploi-du-temps-extension-v3.3.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -382,15 +382,15 @@
         if (!state.extensionDetected) {
             if (state.waitingForInstall) {
                 title.textContent = 'Détection de l’extension en cours';
-                detail.textContent = 'Installez l’extension dans Brave puis revenez ici : Planilim la détecte automatiquement.';
+                detail.textContent = 'Installez l’extension dans Brave puis revenez ici : la détection se fera automatiquement.';
                 button.innerHTML = '<i class="fa-solid fa-rotate"></i> Revérifier maintenant';
                 button.dataset.action = 'probe';
                 button.disabled = false;
             } else {
-                title.textContent = 'Extension Planilim requise';
+                title.textContent = 'Extension de synchronisation requise';
                 detail.textContent = state.payload
-                    ? 'Votre planning sauvegardé reste disponible. Installez l’extension pour le mettre à jour depuis ADE.'
-                    : 'Installez l’extension pour connecter votre emploi du temps ADE.';
+                    ? 'Votre emploi du temps sauvegardé reste disponible. Installez l’extension pour le mettre à jour.'
+                    : 'Installez l’extension pour connecter votre emploi du temps.';
                 if (isStandaloneApp()) detail.textContent += ' La détection reprend automatiquement après installation.';
                 button.innerHTML = '<i class="fa-solid fa-puzzle-piece"></i> Télécharger l’extension';
                 button.dataset.action = 'install';
@@ -398,30 +398,30 @@
             }
         } else if (running) {
             title.textContent = 'Synchronisation en cours';
-            detail.textContent = 'Planilim récupère l’année universitaire. Gardez ADE ouvert jusqu’à la fin.';
+            detail.textContent = 'Récupération de l’année universitaire en cours. Gardez la page universitaire ouverte jusqu’à la fin.';
             button.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i> Synchronisation…';
             button.dataset.action = 'busy';
             button.disabled = true;
         } else if (authRequired) {
-            title.textContent = 'Reconnexion universitaire nécessaire';
-            detail.textContent = 'Votre session UNILIM a expiré. Reconnectez-vous à ADE puis affichez le planning souhaité.';
-            button.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se reconnecter à ADE';
+            title.textContent = 'Reconnexion nécessaire';
+            detail.textContent = 'Votre session universitaire a expiré. Reconnectez-vous puis affichez le planning souhaité.';
+            button.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se reconnecter';
             button.dataset.action = 'connect';
             button.disabled = false;
         } else if (['waiting_for_ade', 'waiting_for_login', 'needs_week_change'].includes(setupState)) {
-            title.textContent = 'En attente de l’affichage du planning ADE';
-            detail.textContent = 'Dans ADE, connectez-vous si nécessaire puis affichez le planning que vous voulez utiliser. La détection est automatique.';
+            title.textContent = 'En attente de l’affichage du planning';
+            detail.textContent = 'Connectez-vous si nécessaire puis affichez le planning que vous voulez utiliser. La détection est automatique.';
             button.innerHTML = '<i class="fa-regular fa-hourglass-half"></i> En attente du planning…';
             button.dataset.action = 'busy';
             button.disabled = true;
         } else if (!configured) {
-            title.textContent = 'Connecter votre planning ADE';
-            detail.textContent = 'Planilim va ouvrir ADE. Connectez-vous puis affichez simplement le planning souhaité.';
-            button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser mon emploi du temps';
+            title.textContent = 'Prêt à synchroniser';
+            detail.textContent = 'Le site va ouvrir la page universitaire. Connectez-vous puis affichez simplement le planning souhaité.';
+            button.innerHTML = '<i class="fa-solid fa-link"></i> Démarrer la synchronisation';
             button.dataset.action = 'connect';
             button.disabled = false;
         } else if (setupState === 'detected') {
-            const planningInfo = state.status?.profile?.planningLabel || (state.status?.profile?.resourceId != null ? `Planning ADE #${state.status.profile.resourceId}` : 'Planning ADE');
+            const planningInfo = state.status?.profile?.planningLabel || (state.status?.profile?.resourceId != null ? `Planning #${state.status.profile.resourceId}` : 'Planning détecté');
             title.textContent = 'Planning détecté';
             detail.textContent = `${planningInfo} est prêt. Vérifiez qu’il s’agit du bon planning puis lancez la synchronisation.`;
             button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser mon emploi du temps';
@@ -429,12 +429,12 @@
             button.disabled = false;
         } else if (cache?.updatedAt) {
             title.textContent = 'Emploi du temps synchronisé';
-            detail.textContent = `${cache?.eventCount ?? state.payload?.events?.length ?? 0} cours sont disponibles. Vous pouvez fermer ADE.`;
+            detail.textContent = `${cache?.eventCount ?? state.payload?.events?.length ?? 0} cours sont disponibles. Vous pouvez fermer la page universitaire.`;
             button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser à nouveau';
             button.dataset.action = 'sync';
             button.disabled = false;
         } else {
-            const planningInfo = state.status?.profile?.planningLabel || (state.status?.profile?.resourceId != null ? `Planning ADE #${state.status.profile.resourceId}` : 'Planning ADE');
+            const planningInfo = state.status?.profile?.planningLabel || (state.status?.profile?.resourceId != null ? `Planning #${state.status.profile.resourceId}` : 'Planning détecté');
             title.textContent = 'Planning détecté';
             detail.textContent = `${planningInfo} est prêt. Lancez la première synchronisation.`;
             button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser mon emploi du temps';
@@ -451,12 +451,12 @@
         }
         if (cloud) {
             cloud.innerHTML = state.cloudAvailable
-                ? `<i class="fa-solid fa-cloud-check"></i> ${state.cloudLoaded ? 'Sauvegardé sur votre compte' : 'Sauvegarde cloud prête'}`
+                ? `<i class="fa-solid fa-cloud-check"></i> ${state.cloudLoaded ? 'Sauvegardé sur votre compte' : 'Sauvegarde prête'}`
                 : '<i class="fa-solid fa-cloud-exclamation"></i> Stockage cloud à configurer';
         }
     }
 
-    function setLoading(active, title = 'Synchronisation en cours…', detail = 'ADE est interrogé directement par l’extension.') {
+    function setLoading(active, title = 'Synchronisation en cours…', detail = 'La synchronisation est gérée directement par l’extension.') {
         state.busy = active;
         const box = byId('planning-loading');
         if (box) {
@@ -1050,7 +1050,7 @@
                 if (emptyText) emptyText.textContent = 'Modifiez ou réinitialisez les filtres pour réafficher les cours de cette semaine.';
             } else {
                 if (emptyTitle) emptyTitle.textContent = 'Aucun cours cette semaine';
-                if (emptyText) emptyText.textContent = 'Cette semaine est vide dans le planning ADE actuellement synchronisé.';
+                if (emptyText) emptyText.textContent = 'Cette semaine est vide dans l’emploi du temps actuellement synchronisé.';
             }
         }
     }
@@ -1069,7 +1069,7 @@
     }
 
     async function connectAde() {
-        setLoading(true, 'Connexion à ADE…', 'Une fenêtre ADE va s’ouvrir. Connectez-vous à UNILIM si nécessaire.');
+        setLoading(true, 'Ouverture de la page universitaire…', 'Une page ADE va s’ouvrir. Connectez-vous à UNILIM si nécessaire.');
         try {
             await requestExtension('PLANILIM_ADE_CONNECT', { timeout: 20000 });
             await requestStatusAndPayload({ persistIfCloudEmpty: true });
@@ -1081,7 +1081,7 @@
     }
 
     async function syncNow() {
-        setLoading(true, 'Synchronisation de l’emploi du temps…', 'Planilim vérifie automatiquement l’année universitaire dans ADE.');
+        setLoading(true, 'Synchronisation de l’emploi du temps…', 'L’année universitaire est récupérée automatiquement.');
         try {
             const result = await requestExtension('PLANILIM_ADE_FULL_SYNC', { timeout: SYNC_TIMEOUT });
             let payload = payloadFromBridgeResult(result?.payload || result);

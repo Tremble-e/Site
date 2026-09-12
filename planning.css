@@ -982,7 +982,7 @@
     .planning-tutorial-copy-row button { width: 100%; }
 }
 
-/* v2.15 — sélections de cours cohérentes avec l'interface Planilim */
+/* v2.16 — sélections de cours cohérentes avec l’interface */
 .planning-course-filter-item input,
 .planning-check-option input,
 .planning-event-selection input {
