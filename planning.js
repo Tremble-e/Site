@@ -7,7 +7,7 @@
     const CACHE_KEY_PREFIX = 'planilim-ade-annual-payload-v2:';
     const SUPABASE_TABLE = 'user_planning_cache';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/mon-emploi-du-temps-extension-v3.4.1.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/mon-emploi-du-temps-extension-v3.5.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const SLOT_MINUTES = 15;
@@ -198,7 +198,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'mon-emploi-du-temps-extension-v3.4.1.zip';
+        link.download = 'mon-emploi-du-temps-extension-v3.5.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -497,7 +497,7 @@
         if (!state.extensionDetected) {
             if (state.waitingForInstall) {
                 title.textContent = 'Détection de l’extension en cours';
-                detail.textContent = 'Installez l’extension dans Brave puis revenez ici : la détection se fera automatiquement.';
+                detail.textContent = 'Installez l’extension dans votre navigateur puis revenez ici : la détection se fera automatiquement.';
                 button.innerHTML = '<i class="fa-solid fa-rotate"></i> Revérifier maintenant';
                 button.dataset.action = 'probe';
                 button.disabled = false;
@@ -521,6 +521,12 @@
             title.textContent = 'Reconnexion nécessaire';
             detail.textContent = 'Votre session universitaire a expiré. Reconnectez-vous puis affichez le planning souhaité.';
             button.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se reconnecter';
+            button.dataset.action = 'connect';
+            button.disabled = false;
+        } else if (setupState === 'ade_closed' || (['waiting_for_ade', 'waiting_for_login', 'detected'].includes(setupState) && state.status?.selectedAdeOpen === false)) {
+            title.textContent = 'ADE fermé';
+            detail.textContent = 'ADE a été fermé avant la validation. La sélection a été annulée.';
+            button.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Recommencer';
             button.dataset.action = 'connect';
             button.disabled = false;
         } else if (['waiting_for_ade', 'waiting_for_login'].includes(setupState)) {
@@ -840,6 +846,9 @@
         let end = ends.length ? Math.max(DEFAULT_DAY_END, Math.ceil(Math.max(...ends) / 60) * 60) : DEFAULT_DAY_END;
         start = Math.max(0, start);
         end = Math.min(24 * 60, end);
+        // Garde une petite marge avant la première heure pleine : le premier
+        // repère horaire est alors rendu exactement comme les suivants.
+        if (start > 0 && start % 60 === 0) start = Math.max(0, start - SLOT_MINUTES);
         if (end <= start) end = Math.min(24 * 60, start + 60);
         return { start, end };
     }
