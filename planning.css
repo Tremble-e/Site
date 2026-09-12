@@ -1171,7 +1171,7 @@
 .planning-event-selection:has(input:not(:checked)) { opacity: 1; }
 
 
-/* v2.17.1 — lisibilité de l'axe horaire et remise à zéro */
+/* v2.17.2 — lisibilité de l'axe horaire et remise à zéro */
 .planning-time-cell.is-hour span,
 .planning-day-time.is-hour span {
     color: var(--text-soft, #e2e8f0);
@@ -1179,12 +1179,20 @@
     font-weight: 600;
 }
 
+.planning-time-cell.is-first,
+.planning-day-time.is-first {
+    z-index: 12;
+}
+
 .planning-time-cell.is-first span,
 .planning-day-time.is-first span {
-    color: var(--text-soft, #e2e8f0);
-    opacity: 1;
+    color: #f8fafc !important;
+    opacity: 1 !important;
+    visibility: visible !important;
     position: relative;
-    z-index: 9;
+    z-index: 13;
+    filter: none !important;
+    text-shadow: 0 0 0 #f8fafc;
 }
 
 .planning-clear-btn {

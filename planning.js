@@ -404,7 +404,7 @@
             ? await window.siteConfirm({
                 title: 'Vider mon emploi du temps ?',
                 message: 'Toutes les données de votre emploi du temps seront supprimées.',
-                detail: 'La sauvegarde de votre compte, le cache local et la configuration de synchronisation seront remis à zéro. Vous pourrez ensuite choisir un nouvel emploi du temps.',
+                detail: 'Les données de votre emploi du temps, le cache local et la configuration de synchronisation seront remis à zéro. Vous pourrez ensuite choisir un nouvel emploi du temps.',
                 confirmLabel: 'Vider et recommencer',
                 danger: true
             })
@@ -504,7 +504,7 @@
             } else {
                 title.textContent = 'Extension de synchronisation requise';
                 detail.textContent = state.payload
-                    ? 'Votre emploi du temps sauvegardé reste disponible. Installez l’extension pour le mettre à jour.'
+                    ? 'Votre emploi du temps reste disponible. Installez l’extension pour le mettre à jour.'
                     : 'Installez l’extension pour connecter votre emploi du temps.';
                 if (isStandaloneApp()) detail.textContent += ' La détection reprend automatiquement après installation.';
                 button.innerHTML = '<i class="fa-solid fa-puzzle-piece"></i> Télécharger l’extension';
@@ -513,7 +513,7 @@
             }
         } else if (running) {
             title.textContent = 'Synchronisation en cours';
-            detail.textContent = 'Récupération de l’année universitaire en cours. Gardez la page universitaire ouverte jusqu’à la fin.';
+            detail.textContent = 'Récupération de l’année universitaire en cours. Gardez ADE ouvert jusqu’à la fin.';
             button.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i> Synchronisation…';
             button.dataset.action = 'busy';
             button.disabled = true;
@@ -539,13 +539,13 @@
             button.disabled = false;
         } else if (!configured) {
             title.textContent = 'Choisir mon emploi du temps';
-            detail.textContent = 'Ouvrez la page universitaire, connectez-vous si nécessaire puis affichez l’emploi du temps que vous souhaitez utiliser.';
+            detail.textContent = 'Ouvrez ADE, connectez-vous si nécessaire puis affichez l’emploi du temps que vous souhaitez utiliser.';
             button.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Choisir mon emploi du temps';
             button.dataset.action = 'connect';
             button.disabled = false;
         } else if (cache?.updatedAt) {
             title.textContent = 'Emploi du temps synchronisé';
-            detail.textContent = `${cache?.eventCount ?? state.payload?.events?.length ?? 0} cours sont disponibles. Vous pouvez fermer la page universitaire.`;
+            detail.textContent = `${cache?.eventCount ?? state.payload?.events?.length ?? 0} cours sont disponibles. Vous pouvez fermer ADE.`;
             button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser à nouveau';
             button.dataset.action = 'sync';
             button.disabled = false;
@@ -566,9 +566,8 @@
                 : 'Jamais synchronisé';
         }
         if (cloud) {
-            cloud.innerHTML = state.cloudAvailable
-                ? `<i class="fa-solid fa-cloud-check"></i> ${state.cloudLoaded ? 'Sauvegardé sur votre compte' : 'Sauvegarde prête'}`
-                : '<i class="fa-solid fa-cloud-exclamation"></i> Stockage cloud à configurer';
+            cloud.hidden = true;
+            cloud.textContent = '';
         }
     }
 
@@ -1185,7 +1184,7 @@
     }
 
     async function connectAde() {
-        setLoading(true, 'Ouverture de la page universitaire…', 'Connectez-vous si nécessaire puis affichez l’emploi du temps à synchroniser.');
+        setLoading(true, 'Ouverture d’ADE…', 'Connectez-vous si nécessaire puis affichez l’emploi du temps à synchroniser.');
         try {
             await requestExtension('PLANILIM_ADE_CONNECT', { timeout: 20000 });
             await requestStatusAndPayload({ persistIfCloudEmpty: true });
