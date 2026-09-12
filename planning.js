@@ -12,7 +12,7 @@
     const SYNC_TIMEOUT = 180000;
     const SLOT_MINUTES = 15;
     const DEFAULT_DAY_START = 8 * 60;
-    const DEFAULT_DAY_END = 18 * 60;
+    const DEFAULT_DAY_END = 19 * 60;
     const STATUS_POLL_MS = 12000;
     const INSTALL_PROBE_MS = 1500;
     const INSTALL_PROBE_DURATION_MS = 120000;
@@ -24,6 +24,7 @@
         payload: null,
         currentWeekStart: null,
         mobileSelectedDate: null,
+        viewMode: 'week',
         pending: new Map(),
         initialized: false,
         user: null,
@@ -540,6 +541,53 @@
         return { start, end };
     }
 
+    function isCompactPlanning() {
+        return window.matchMedia?.('(max-width: 900px)')?.matches || false;
+    }
+
+    function effectiveViewMode() {
+        return isCompactPlanning() ? 'day' : state.viewMode;
+    }
+
+    function applyViewMode() {
+        const section = byId('planning');
+        if (!section) return;
+        const mode = effectiveViewMode();
+        section.classList.toggle('planning-view-day', mode === 'day');
+        section.classList.toggle('planning-view-week', mode === 'week');
+
+        const weekButton = byId('planning-view-week');
+        const dayButton = byId('planning-view-day');
+        if (weekButton) {
+            weekButton.classList.toggle('is-active', state.viewMode === 'week');
+            weekButton.setAttribute('aria-pressed', String(state.viewMode === 'week'));
+        }
+        if (dayButton) {
+            dayButton.classList.toggle('is-active', state.viewMode === 'day');
+            dayButton.setAttribute('aria-pressed', String(state.viewMode === 'day'));
+        }
+    }
+
+    function computeWeekSlotHeight(slotCount) {
+        const viewport = Math.max(560, window.innerHeight || 760);
+        const budget = Math.max(430, Math.min(590, viewport - 230));
+        return Math.max(10.5, Math.min(14, budget / Math.max(1, slotCount)));
+    }
+
+    function currentMinuteOfDay() {
+        const now = new Date();
+        return now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+    }
+
+    function nowLineMarkup(bounds, className = '') {
+        const minute = currentMinuteOfDay();
+        if (minute < bounds.start || minute > bounds.end) return '';
+        const slot = (minute - bounds.start) / SLOT_MINUTES;
+        const now = new Date();
+        const label = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        return `<div class="planning-now-line ${className}" style="--planning-now-slot:${slot}"><span>${label}</span></div>`;
+    }
+
     function assignOverlapLanes(events) {
         const sorted = [...events]
             .map(event => ({ event, start: parseTime(event.start) ?? 0, end: parseTime(event.end) ?? 0 }))
@@ -615,27 +663,36 @@
         `;
     }
 
-    function mobileCardMarkup(event) {
+    function dayEventMarkup(event, bounds, overlap) {
+        const start = parseTime(event.start);
+        const end = parseTime(event.end);
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return '';
+        const startSlot = Math.max(0, Math.floor((start - bounds.start) / SLOT_MINUTES));
+        const endSlot = Math.max(startSlot + 1, Math.ceil((end - bounds.start) / SLOT_MINUTES));
         const kind = courseKind(event);
         const roomLine = [event.room, event.building].filter(Boolean).join(' · ');
+        const lane = overlap?.lane ?? 0;
+        const laneCount = overlap?.laneCount ?? 1;
+        const laneWidth = 100 / laneCount;
+        const laneLeft = lane * laneWidth;
+        const duration = end - start;
+        const sizeClass = duration < 75 ? 'is-short' : duration < 105 ? 'is-medium' : 'is-long';
         return `
-            <article class="planning-mobile-card planning-event-${kind}">
-                <div class="planning-mobile-card-topline">
-                    <div class="planning-mobile-time-wrap">
-                        <span class="planning-mobile-time">${escapePlanning(event.start || '—')} – ${escapePlanning(event.end || '—')}</span>
-                        <span class="planning-mobile-duration">${escapePlanning(typeLabel(event))}</span>
-                    </div>
+            <article class="planning-day-event planning-event-${kind} ${sizeClass}"
+                style="grid-column:2;grid-row:${startSlot + 1}/${endSlot + 1};--lane-width:${laneWidth}%;--lane-left:${laneLeft}%;">
+                <div class="planning-day-event-topline">
+                    <span class="planning-day-event-time">${escapePlanning(event.start || '—')}–${escapePlanning(event.end || '—')}</span>
+                    <span class="planning-day-event-type">${escapePlanning(typeLabel(event))}</span>
                 </div>
-                <strong class="planning-mobile-title">${escapePlanning(event.title || 'Cours')}</strong>
-                <div class="planning-mobile-meta">
+                <strong class="planning-day-event-title">${escapePlanning(event.title || 'Cours')}</strong>
+                <div class="planning-day-event-meta">
                     ${event.teacher ? `<span><i class="fa-solid fa-user"></i>${escapePlanning(event.teacher)}</span>` : ''}
                     ${roomLine ? `<span><i class="fa-solid fa-location-dot"></i>${escapePlanning(roomLine)}</span>` : ''}
                 </div>
-            </article>
-        `;
+            </article>`;
     }
 
-    function renderMobileAgenda(firstDate) {
+    function renderDayTimeline(firstDate) {
         const tabs = byId('planning-mobile-day-tabs');
         const agenda = byId('planning-mobile-agenda');
         const label = byId('planning-mobile-selected-label');
@@ -659,13 +716,34 @@
 
         const selectedDate = state.mobileSelectedDate;
         const events = eventsForDate(selectedDate);
-        if (label) {
-            label.textContent = `${formatDate(selectedDate, { weekday: 'long', day: 'numeric', month: 'long' })}`;
+        if (label) label.textContent = `${formatDate(selectedDate, { weekday: 'long', day: 'numeric', month: 'long' })}`;
+
+        const bounds = computeDayBounds(events);
+        const slotCount = Math.ceil((bounds.end - bounds.start) / SLOT_MINUTES);
+        const lanes = assignOverlapLanes(events);
+        let background = '';
+        let labels = '';
+        for (let slot = 0; slot < slotCount; slot += 1) {
+            const minute = bounds.start + slot * SLOT_MINUTES;
+            const major = minute % 60 === 0;
+            const half = minute % 60 === 30;
+            const lunch = minute >= 12 * 60 && minute < 13 * 60;
+            labels += `<div class="planning-day-time ${major ? 'is-hour' : half ? 'is-half' : ''} ${slot === 0 ? 'is-first' : ''}" style="grid-column:1;grid-row:${slot + 1}">${major ? `<span>${formatMinutes(minute)}</span>` : ''}</div>`;
+            background += `<div class="planning-day-slot ${major ? 'is-hour' : half ? 'is-half' : ''} ${lunch ? 'is-lunch' : ''}" style="grid-column:2;grid-row:${slot + 1}"></div>`;
         }
 
-        agenda.innerHTML = events.length
-            ? events.map(mobileCardMarkup).join('')
-            : `<div class="planning-mobile-empty"><i class="fa-regular fa-calendar"></i><span>Aucun cours pour cette journée.</span></div>`;
+        const eventsMarkup = events.map(event => dayEventMarkup(event, bounds, lanes.get(event))).join('');
+        const nowMarkup = selectedDate === today ? nowLineMarkup(bounds, 'planning-now-line-day') : '';
+        const daySlotHeight = isCompactPlanning() ? 15 : 14;
+
+        agenda.innerHTML = `
+            <div class="planning-day-timeline ${events.length ? '' : 'is-empty'}" style="--planning-day-slot-height:${daySlotHeight}px;grid-template-rows:repeat(${slotCount}, var(--planning-day-slot-height));">
+                ${background}
+                ${labels}
+                ${eventsMarkup}
+                ${nowMarkup}
+                <div class="planning-day-end-label"><span>${formatMinutes(bounds.end)}</span></div>
+            </div>`;
     }
 
     function renderWeek() {
@@ -679,6 +757,7 @@
         const firstDate = state.currentWeekStart;
         if (!firstDate) return;
 
+        applyViewMode();
         const weekNumber = isoWeekNumber(firstDate);
         if (label) label.textContent = weekNumber ? `Semaine ${weekNumber}` : 'Semaine';
         if (range) range.textContent = formatWeekRange(firstDate);
@@ -690,7 +769,8 @@
         const allEvents = dayEvents.flat();
         const bounds = computeDayBounds(allEvents);
         const slotCount = Math.ceil((bounds.end - bounds.start) / SLOT_MINUTES);
-        const rowTemplate = `64px repeat(${slotCount}, var(--planning-slot-height))`;
+        const weekSlotHeight = computeWeekSlotHeight(slotCount);
+        const rowTemplate = `var(--planning-header-height) repeat(${slotCount}, var(--planning-slot-height))`;
 
         const headers = dayNames.map((name, index) => {
             const date = dates[index];
@@ -707,7 +787,7 @@
             const major = minute % 60 === 0;
             const half = minute % 60 === 30;
             const lunch = minute >= 12 * 60 && minute < 13 * 60;
-            timeLabels += `<div class="planning-time-cell ${major ? 'is-hour' : half ? 'is-half' : ''} ${lunch ? 'is-lunch' : ''}" style="grid-column:1;grid-row:${row}">${major ? `<span>${formatMinutes(minute)}</span>` : ''}</div>`;
+            timeLabels += `<div class="planning-time-cell ${major ? 'is-hour' : half ? 'is-half' : ''} ${lunch ? 'is-lunch' : ''} ${slot === 0 ? 'is-first' : ''}" style="grid-column:1;grid-row:${row}">${major ? `<span>${formatMinutes(minute)}</span>` : ''}</div>`;
             for (let day = 0; day < 7; day += 1) {
                 const date = dates[day];
                 backgrounds += `<div class="planning-slot ${major ? 'is-hour' : half ? 'is-half' : ''} ${lunch ? 'is-lunch' : ''} ${date === today ? 'is-today' : ''} ${day >= 5 ? 'is-weekend' : ''}" style="grid-column:${day + 2};grid-row:${row}"></div>`;
@@ -719,6 +799,8 @@
             return events.map(event => eventMarkup(event, dayIndex, bounds, lanes.get(event))).join('');
         }).join('');
 
+        const nowMarkup = dates.includes(today) ? nowLineMarkup(bounds, 'planning-now-line-week') : '';
+        grid.style.setProperty('--planning-slot-height', `${weekSlotHeight.toFixed(2)}px`);
         grid.style.gridTemplateRows = rowTemplate;
         grid.innerHTML = `
             <div class="planning-corner" style="grid-column:1;grid-row:1"><span>Heure</span></div>
@@ -726,16 +808,25 @@
             ${backgrounds}
             ${timeLabels}
             ${eventsMarkup}
+            ${nowMarkup}
+            <div class="planning-time-end-label"><span>${formatMinutes(bounds.end)}</span></div>
         `;
 
-        renderMobileAgenda(firstDate);
+        renderDayTimeline(firstDate);
 
         if (empty) empty.hidden = allEvents.length !== 0;
     }
 
     function moveWeek(delta) {
-        state.currentWeekStart = addDays(state.currentWeekStart || mondayOf(new Date()), 7 * delta);
-        state.mobileSelectedDate = null;
+        if (effectiveViewMode() === 'day') {
+            const current = state.mobileSelectedDate || toIsoDate(new Date());
+            const next = addDays(current, delta);
+            state.mobileSelectedDate = next;
+            state.currentWeekStart = mondayOf(next);
+        } else {
+            state.currentWeekStart = addDays(state.currentWeekStart || mondayOf(new Date()), 7 * delta);
+            state.mobileSelectedDate = null;
+        }
         renderWeek();
     }
 
@@ -858,7 +949,25 @@
             const button = event.target.closest('.planning-mobile-day');
             if (!button) return;
             state.mobileSelectedDate = button.dataset.date || null;
-            if (state.currentWeekStart) renderMobileAgenda(state.currentWeekStart);
+            if (state.currentWeekStart) renderDayTimeline(state.currentWeekStart);
+        });
+
+        byId('planning-view-week')?.addEventListener('click', () => {
+            state.viewMode = 'week';
+            renderWeek();
+        });
+        byId('planning-view-day')?.addEventListener('click', () => {
+            state.viewMode = 'day';
+            ensureMobileSelectedDate(state.currentWeekStart || mondayOf(new Date()));
+            renderWeek();
+        });
+
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            window.clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(() => {
+                if (state.user && isPlanningActive()) renderWeek();
+            }, 140);
         });
 
         document.querySelectorAll('[data-copy-extension-url]').forEach(button => {
@@ -912,6 +1021,11 @@
             updateConnectionUi();
             await requestStatusAndPayload({ persistIfCloudEmpty: true });
         }
+
+        window.setInterval(() => {
+            if (!state.user || !isPlanningActive() || document.visibilityState === 'hidden') return;
+            renderWeek();
+        }, 60000);
 
         window.setInterval(() => {
             if (!state.user || !isPlanningActive() || state.busy || document.visibilityState === 'hidden') return;
