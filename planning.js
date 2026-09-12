@@ -7,12 +7,15 @@
     const CACHE_KEY_PREFIX = 'planilim-ade-annual-payload-v2:';
     const SUPABASE_TABLE = 'user_planning_cache';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-ade-bridge-v3.1.0.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-ade-bridge-v3.1.1.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const SLOT_MINUTES = 15;
     const DEFAULT_DAY_START = 8 * 60;
     const DEFAULT_DAY_END = 18 * 60;
+    const STATUS_POLL_MS = 12000;
+    const INSTALL_PROBE_MS = 1500;
+    const INSTALL_PROBE_DURATION_MS = 120000;
 
     const state = {
         extensionDetected: false,
@@ -20,12 +23,17 @@
         status: null,
         payload: null,
         currentWeekStart: null,
+        mobileSelectedDate: null,
         pending: new Map(),
         initialized: false,
         user: null,
         cloudAvailable: true,
         cloudLoaded: false,
-        busy: false
+        busy: false,
+        bridgeProbePromise: null,
+        installProbeTimer: null,
+        installProbeDeadline: 0,
+        waitingForInstall: false
     };
 
     const byId = id => document.getElementById(id);
@@ -37,6 +45,18 @@
 
     function getSupabase() {
         return window.getSiteSupabase?.() || null;
+    }
+
+    function isPlanningActive() {
+        return byId('planning')?.classList.contains('active') || false;
+    }
+
+    function isStandaloneApp() {
+        return window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+    }
+
+    function syncBodyModalState() {
+        document.body.classList.toggle('modal-open', Boolean(document.querySelector('.modal-overlay.active')));
     }
 
     function userCacheKey(userId) {
@@ -102,6 +122,10 @@
         return toIsoDate(date);
     }
 
+    function weekDates(firstDate) {
+        return Array.from({ length: 7 }, (_, index) => addDays(firstDate, index));
+    }
+
     function formatDate(iso, options) {
         const date = parseIsoDate(iso);
         if (!date) return '—';
@@ -151,6 +175,27 @@
             .replaceAll("'", '&#039;');
     }
 
+    function extensionInstallUrl() {
+        return EXTENSION_STORE_URL || new URL(EXTENSION_PACKAGE_URL, window.location.href).href;
+    }
+
+    function launchExtensionInstall() {
+        const url = extensionInstallUrl();
+        if (EXTENSION_STORE_URL) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+            return;
+        }
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'planilim-ade-bridge-v3.1.1.zip';
+        link.rel = 'noopener';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+
     function requestExtension(type, { timeout = BRIDGE_TIMEOUT } = {}) {
         return new Promise((resolve, reject) => {
             const requestId = randomId();
@@ -164,6 +209,38 @@
         });
     }
 
+    function stopInstallProbe(found = false) {
+        if (state.installProbeTimer) {
+            window.clearInterval(state.installProbeTimer);
+            state.installProbeTimer = null;
+        }
+        state.installProbeDeadline = 0;
+        state.waitingForInstall = false;
+        if (found) updateConnectionUi();
+    }
+
+    function startInstallProbe() {
+        stopInstallProbe();
+        state.waitingForInstall = true;
+        state.installProbeDeadline = Date.now() + INSTALL_PROBE_DURATION_MS;
+        updateConnectionUi();
+
+        const probe = () => {
+            if (!state.user) {
+                stopInstallProbe();
+                return;
+            }
+            if (Date.now() > state.installProbeDeadline || state.extensionDetected) {
+                stopInstallProbe(state.extensionDetected);
+                return;
+            }
+            requestStatusAndPayload({ persistIfCloudEmpty: true }).catch(() => {});
+        };
+
+        state.installProbeTimer = window.setInterval(probe, INSTALL_PROBE_MS);
+        probe();
+    }
+
     window.addEventListener('message', event => {
         if (event.source !== window || event.origin !== window.location.origin) return;
         const data = event.data || {};
@@ -172,6 +249,7 @@
         if (data.type === 'PLANILIM_ADE_BRIDGE_READY') {
             state.extensionDetected = true;
             state.extensionVersion = data.payload?.version || null;
+            stopInstallProbe(true);
             updateConnectionUi();
             requestStatusAndPayload({ persistIfCloudEmpty: true }).catch(console.warn);
             return;
@@ -189,6 +267,7 @@
         }
 
         state.extensionDetected = true;
+        stopInstallProbe(true);
         pending.resolve(data.payload);
     });
 
@@ -291,13 +370,24 @@
         if (authWarning) authWarning.hidden = !authRequired;
 
         if (!state.extensionDetected) {
-            title.textContent = 'Extension Planilim requise';
-            detail.textContent = state.payload
-                ? 'Votre planning sauvegardé reste disponible. Installez l’extension pour le mettre à jour depuis ADE.'
-                : 'Installez l’extension pour connecter votre emploi du temps ADE.';
-            button.innerHTML = '<i class="fa-solid fa-puzzle-piece"></i> Télécharger l’extension';
-            button.dataset.action = 'install';
-            button.disabled = false;
+            if (state.waitingForInstall) {
+                title.textContent = 'Détection de l’extension en cours';
+                detail.textContent = 'Installez l’extension dans Brave puis revenez ici : Planilim la détecte automatiquement, même dans la version installée du site.';
+                button.innerHTML = '<i class="fa-solid fa-rotate"></i> Revérifier maintenant';
+                button.dataset.action = 'probe';
+                button.disabled = false;
+            } else {
+                title.textContent = 'Extension Planilim requise';
+                detail.textContent = state.payload
+                    ? 'Votre planning sauvegardé reste disponible. Installez l’extension pour le mettre à jour depuis ADE.'
+                    : 'Installez l’extension pour connecter votre emploi du temps ADE.';
+                if (isStandaloneApp()) {
+                    detail.textContent += ' Si la fenêtre installée de Brave ne réagit pas immédiatement, la détection reprend automatiquement dès que l’extension est ajoutée.';
+                }
+                button.innerHTML = '<i class="fa-solid fa-puzzle-piece"></i> Télécharger l’extension';
+                button.dataset.action = 'install';
+                button.disabled = false;
+            }
         } else if (running) {
             title.textContent = 'Synchronisation en cours';
             detail.textContent = 'ADE est interrogé automatiquement. Le planning sera actualisé dès que la synchronisation est terminée.';
@@ -356,33 +446,44 @@
     }
 
     async function requestStatusAndPayload({ persistIfCloudEmpty = false } = {}) {
-        if (!state.user) return;
-        try {
-            state.status = await requestExtension('PLANILIM_ADE_STATUS');
-            state.extensionDetected = true;
-            state.extensionVersion = state.status?.extensionVersion || state.extensionVersion;
-        } catch {
-            state.extensionDetected = false;
-            state.status = null;
+        if (!state.user) return null;
+        if (state.bridgeProbePromise) return state.bridgeProbePromise;
+
+        state.bridgeProbePromise = (async () => {
+            try {
+                state.status = await requestExtension('PLANILIM_ADE_STATUS');
+                state.extensionDetected = true;
+                state.extensionVersion = state.status?.extensionVersion || state.extensionVersion;
+            } catch {
+                state.extensionDetected = false;
+                state.status = null;
+                updateConnectionUi();
+                renderWeek();
+                return null;
+            }
+
+            try {
+                const result = await requestExtension('PLANILIM_ADE_GET_PAYLOAD', { timeout: 10000 });
+                const payload = payloadFromBridgeResult(result);
+                if (payload) {
+                    saveLocalPayload(payload);
+                    if (persistIfCloudEmpty && !state.cloudLoaded) await persistPayloadToCloud(payload);
+                }
+            } catch (error) {
+                if (error?.message !== 'EXTENSION_TIMEOUT') console.warn('Payload ADE indisponible :', error);
+            }
+
+            ensureCurrentWeek();
             updateConnectionUi();
             renderWeek();
-            return;
-        }
+            return state.status;
+        })();
 
         try {
-            const result = await requestExtension('PLANILIM_ADE_GET_PAYLOAD', { timeout: 10000 });
-            const payload = payloadFromBridgeResult(result);
-            if (payload) {
-                saveLocalPayload(payload);
-                if (persistIfCloudEmpty && !state.cloudLoaded) await persistPayloadToCloud(payload);
-            }
-        } catch (error) {
-            if (error?.message !== 'EXTENSION_TIMEOUT') console.warn('Payload ADE indisponible :', error);
+            return await state.bridgeProbePromise;
+        } finally {
+            state.bridgeProbePromise = null;
         }
-
-        ensureCurrentWeek();
-        updateConnectionUi();
-        renderWeek();
     }
 
     function ensureCurrentWeek() {
@@ -396,6 +497,14 @@
         if (todayWeek < payload.syncRange.firstDate) state.currentWeekStart = mondayOf(payload.syncRange.firstDate);
         else if (todayWeek > payload.syncRange.lastDate) state.currentWeekStart = mondayOf(payload.syncRange.lastDate);
         else state.currentWeekStart = todayWeek;
+    }
+
+    function ensureMobileSelectedDate(firstDate) {
+        const dates = weekDates(firstDate);
+        if (!dates.includes(state.mobileSelectedDate)) {
+            const today = toIsoDate(new Date());
+            state.mobileSelectedDate = dates.includes(today) ? today : firstDate;
+        }
     }
 
     function eventsForDate(date) {
@@ -475,8 +584,7 @@
         const startRow = startSlot + 2;
         const endRow = endSlot + 2;
         const kind = courseKind(event);
-        const roomParts = [event.room, event.building].filter(Boolean);
-        const meta = [event.teacher, roomParts.join(' · ')].filter(Boolean);
+        const roomLine = [event.room, event.building].filter(Boolean).join(' · ');
         const lane = overlap?.lane ?? 0;
         const laneCount = overlap?.laneCount ?? 1;
         const laneWidth = 100 / laneCount;
@@ -487,7 +595,7 @@
             event.type || '',
             event.group || '',
             event.teacher || '',
-            roomParts.join(' · ')
+            roomLine
         ].filter(Boolean).join(' · ');
 
         return `
@@ -499,9 +607,65 @@
                     <span class="planning-event-type">${escapePlanning(typeLabel(event))}</span>
                 </div>
                 <strong class="planning-event-title">${escapePlanning(event.title || 'Cours')}</strong>
-                ${meta.length ? `<div class="planning-event-meta">${meta.map(item => `<span>${escapePlanning(item)}</span>`).join('')}</div>` : ''}
+                <div class="planning-event-meta">
+                    ${event.teacher ? `<span>${escapePlanning(event.teacher)}</span>` : ''}
+                    ${roomLine ? `<span>${escapePlanning(roomLine)}</span>` : ''}
+                </div>
             </article>
         `;
+    }
+
+    function mobileCardMarkup(event) {
+        const kind = courseKind(event);
+        const roomLine = [event.room, event.building].filter(Boolean).join(' · ');
+        return `
+            <article class="planning-mobile-card planning-event-${kind}">
+                <div class="planning-mobile-card-topline">
+                    <div class="planning-mobile-time-wrap">
+                        <span class="planning-mobile-time">${escapePlanning(event.start || '—')} – ${escapePlanning(event.end || '—')}</span>
+                        <span class="planning-mobile-duration">${escapePlanning(typeLabel(event))}</span>
+                    </div>
+                </div>
+                <strong class="planning-mobile-title">${escapePlanning(event.title || 'Cours')}</strong>
+                <div class="planning-mobile-meta">
+                    ${event.teacher ? `<span><i class="fa-solid fa-user"></i>${escapePlanning(event.teacher)}</span>` : ''}
+                    ${roomLine ? `<span><i class="fa-solid fa-location-dot"></i>${escapePlanning(roomLine)}</span>` : ''}
+                </div>
+            </article>
+        `;
+    }
+
+    function renderMobileAgenda(firstDate) {
+        const tabs = byId('planning-mobile-day-tabs');
+        const agenda = byId('planning-mobile-agenda');
+        const label = byId('planning-mobile-selected-label');
+        if (!tabs || !agenda) return;
+
+        ensureMobileSelectedDate(firstDate);
+        const today = toIsoDate(new Date());
+        const dates = weekDates(firstDate);
+        const shortDayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+        tabs.innerHTML = dates.map((date, index) => {
+            const courseCount = eventsForDate(date).length;
+            return `
+                <button type="button" class="planning-mobile-day ${date === state.mobileSelectedDate ? 'is-selected' : ''} ${date === today ? 'is-today' : ''} ${index >= 5 ? 'is-weekend' : ''}" data-date="${date}">
+                    <span class="planning-mobile-day-name">${shortDayNames[index]}</span>
+                    <strong>${formatDate(date, { day: '2-digit' })}</strong>
+                    <small>${formatDate(date, { month: '2-digit' })}</small>
+                    <span class="planning-mobile-day-count ${courseCount ? 'has-courses' : ''}">${courseCount ? `${courseCount} cours` : 'Libre'}</span>
+                </button>`;
+        }).join('');
+
+        const selectedDate = state.mobileSelectedDate;
+        const events = eventsForDate(selectedDate);
+        if (label) {
+            label.textContent = `${formatDate(selectedDate, { weekday: 'long', day: 'numeric', month: 'long' })}`;
+        }
+
+        agenda.innerHTML = events.length
+            ? events.map(mobileCardMarkup).join('')
+            : `<div class="planning-mobile-empty"><i class="fa-regular fa-calendar"></i><span>Aucun cours pour cette journée.</span></div>`;
     }
 
     function renderWeek() {
@@ -521,15 +685,16 @@
 
         const today = toIsoDate(new Date());
         const dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-        const dayEvents = Array.from({ length: 7 }, (_, index) => eventsForDate(addDays(firstDate, index)));
+        const dates = weekDates(firstDate);
+        const dayEvents = dates.map(date => eventsForDate(date));
         const allEvents = dayEvents.flat();
         const bounds = computeDayBounds(allEvents);
         const slotCount = Math.ceil((bounds.end - bounds.start) / SLOT_MINUTES);
-        const rowTemplate = `58px repeat(${slotCount}, var(--planning-slot-height))`;
+        const rowTemplate = `64px repeat(${slotCount}, var(--planning-slot-height))`;
 
         const headers = dayNames.map((name, index) => {
-            const date = addDays(firstDate, index);
-            return `<div class="planning-day-head ${date === today ? 'is-today' : ''}" style="grid-column:${index + 2};grid-row:1">
+            const date = dates[index];
+            return `<div class="planning-day-head ${date === today ? 'is-today' : ''} ${index >= 5 ? 'is-weekend' : ''}" style="grid-column:${index + 2};grid-row:1">
                 <strong>${name}</strong><span>${formatDate(date, { day: '2-digit', month: '2-digit' })}</span>
             </div>`;
         }).join('');
@@ -541,9 +706,11 @@
             const row = slot + 2;
             const major = minute % 60 === 0;
             const half = minute % 60 === 30;
-            timeLabels += `<div class="planning-time-cell ${major ? 'is-hour' : half ? 'is-half' : ''}" style="grid-column:1;grid-row:${row}">${major ? `<span>${formatMinutes(minute)}</span>` : ''}</div>`;
+            const lunch = minute >= 12 * 60 && minute < 13 * 60;
+            timeLabels += `<div class="planning-time-cell ${major ? 'is-hour' : half ? 'is-half' : ''} ${lunch ? 'is-lunch' : ''}" style="grid-column:1;grid-row:${row}">${major ? `<span>${formatMinutes(minute)}</span>` : ''}</div>`;
             for (let day = 0; day < 7; day += 1) {
-                backgrounds += `<div class="planning-slot ${major ? 'is-hour' : half ? 'is-half' : ''}" style="grid-column:${day + 2};grid-row:${row}"></div>`;
+                const date = dates[day];
+                backgrounds += `<div class="planning-slot ${major ? 'is-hour' : half ? 'is-half' : ''} ${lunch ? 'is-lunch' : ''} ${date === today ? 'is-today' : ''} ${day >= 5 ? 'is-weekend' : ''}" style="grid-column:${day + 2};grid-row:${row}"></div>`;
             }
         }
 
@@ -561,16 +728,15 @@
             ${eventsMarkup}
         `;
 
+        renderMobileAgenda(firstDate);
+
         if (empty) empty.hidden = allEvents.length !== 0;
     }
 
     function moveWeek(delta) {
         state.currentWeekStart = addDays(state.currentWeekStart || mondayOf(new Date()), 7 * delta);
+        state.mobileSelectedDate = null;
         renderWeek();
-    }
-
-    function extensionInstallUrl() {
-        return EXTENSION_STORE_URL || new URL(EXTENSION_PACKAGE_URL, window.location.href).href;
     }
 
     async function connectAde() {
@@ -611,12 +777,30 @@
     async function primaryAction() {
         const action = byId('planning-primary-action')?.dataset.action;
         if (action === 'busy') return;
+        if (action === 'probe') {
+            await requestStatusAndPayload({ persistIfCloudEmpty: true });
+            return;
+        }
         if (action === 'install' || !state.extensionDetected) {
-            window.location.href = extensionInstallUrl();
+            startInstallProbe();
+            launchExtensionInstall();
             return;
         }
         if (action === 'sync') await syncNow();
         else await connectAde();
+    }
+
+    function openTutorial() {
+        const modal = byId('planning-tutorial-modal');
+        if (!modal) return;
+        modal.classList.add('active');
+        syncBodyModalState();
+        byId('planning-tutorial-close')?.focus();
+    }
+
+    function closeTutorial() {
+        byId('planning-tutorial-modal')?.classList.remove('active');
+        syncBodyModalState();
     }
 
     function setPlanningAccess(user) {
@@ -628,6 +812,9 @@
         if (!state.user) {
             state.payload = null;
             state.cloudLoaded = false;
+            state.currentWeekStart = null;
+            state.mobileSelectedDate = null;
+            stopInstallProbe();
             if (byId('planning')?.classList.contains('active')) {
                 document.querySelector('.nav-btn[data-target="about"]')?.click();
             }
@@ -655,9 +842,52 @@
         byId('planning-next-week')?.addEventListener('click', () => moveWeek(1));
         byId('planning-today')?.addEventListener('click', () => {
             state.currentWeekStart = mondayOf(new Date());
+            state.mobileSelectedDate = toIsoDate(new Date());
             renderWeek();
         });
         byId('planning-primary-action')?.addEventListener('click', primaryAction);
+        byId('planning-open-tutorial')?.addEventListener('click', openTutorial);
+        byId('planning-tutorial-close')?.addEventListener('click', closeTutorial);
+        byId('planning-tutorial-modal')?.addEventListener('click', event => {
+            if (event.target === event.currentTarget) closeTutorial();
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && byId('planning-tutorial-modal')?.classList.contains('active')) closeTutorial();
+        });
+        byId('planning-mobile-day-tabs')?.addEventListener('click', event => {
+            const button = event.target.closest('.planning-mobile-day');
+            if (!button) return;
+            state.mobileSelectedDate = button.dataset.date || null;
+            if (state.currentWeekStart) renderMobileAgenda(state.currentWeekStart);
+        });
+
+        document.querySelectorAll('[data-copy-extension-url]').forEach(button => {
+            button.addEventListener('click', async () => {
+                const value = button.dataset.copyExtensionUrl || '';
+                if (!value) return;
+                const original = button.innerHTML;
+                try {
+                    await navigator.clipboard.writeText(value);
+                    button.innerHTML = '<i class="fa-solid fa-check"></i> Copié';
+                } catch {
+                    window.prompt('Copiez cette adresse :', value);
+                }
+                window.setTimeout(() => { button.innerHTML = original; }, 1600);
+            });
+        });
+
+        const refreshFromFocus = () => {
+            if (!state.user) return;
+            if (document.visibilityState === 'hidden') return;
+            if (!isPlanningActive() && !state.waitingForInstall) return;
+            requestStatusAndPayload({ persistIfCloudEmpty: true }).catch(() => {});
+        };
+
+        window.addEventListener('focus', refreshFromFocus);
+        window.addEventListener('pageshow', refreshFromFocus);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') refreshFromFocus();
+        });
     }
 
     async function init() {
@@ -684,9 +914,9 @@
         }
 
         window.setInterval(() => {
-            if (!state.user || !document.getElementById('planning')?.classList.contains('active')) return;
-            if (state.extensionDetected) requestStatusAndPayload().catch(() => {});
-        }, 6000);
+            if (!state.user || !isPlanningActive() || state.busy || document.visibilityState === 'hidden') return;
+            requestStatusAndPayload({ persistIfCloudEmpty: true }).catch(() => {});
+        }, STATUS_POLL_MS);
     }
 
     const previousAccountChanged = window.onSiteAccountChanged;
@@ -701,6 +931,7 @@
     window.planilimPlanning = {
         refresh: requestStatusAndPayload,
         render: renderWeek,
-        onAccountChanged
+        onAccountChanged,
+        openTutorial
     };
 })();

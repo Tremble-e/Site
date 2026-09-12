@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="style.css?v=2.9.5">
     <link rel="stylesheet" href="forum.css?v=2.9.5">
     <link rel="stylesheet" href="forum_v2.css?v=2.9.5">
-    <link rel="stylesheet" href="planning.css?v=2.11.0">
+    <link rel="stylesheet" href="planning.css?v=2.12.1">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 </head>
 <body>
@@ -607,9 +607,14 @@
                     <strong id="planning-connection-title">Vérification du planning…</strong>
                     <p id="planning-connection-detail">Planilim recherche l’extension ADE et vos dernières données synchronisées.</p>
                 </div>
-                <button id="planning-primary-action" class="primary-btn compact-btn" type="button" data-action="busy" disabled>
-                    <i class="fa-solid fa-arrows-rotate"></i> Chargement…
-                </button>
+                <div class="planning-connect-actions">
+                    <button id="planning-primary-action" class="primary-btn compact-btn" type="button" data-action="busy" disabled>
+                        <i class="fa-solid fa-arrows-rotate"></i> Chargement…
+                    </button>
+                    <button id="planning-open-tutorial" class="secondary-btn compact-btn planning-help-btn" type="button">
+                        <i class="fa-regular fa-circle-question"></i> Tutoriel d’installation
+                    </button>
+                </div>
             </div>
 
             <div class="planning-account-meta" aria-live="polite">
@@ -648,6 +653,7 @@
                     <span class="planning-legend-item cm"><span class="planning-legend-dot"></span> CM</span>
                     <span class="planning-legend-item td"><span class="planning-legend-dot"></span> TD</span>
                     <span class="planning-legend-item tp"><span class="planning-legend-dot"></span> TP</span>
+                    <span class="planning-legend-item exam"><span class="planning-legend-dot"></span> Examen</span>
                     <span class="planning-legend-item other"><span class="planning-legend-dot"></span> Autre</span>
                 </div>
             </div>
@@ -660,6 +666,18 @@
                 </div>
             </div>
 
+            <div class="planning-mobile-panel glass-panel">
+                <div class="planning-mobile-head">
+                    <div>
+                        <span class="section-kicker">Vue mobile</span>
+                        <strong id="planning-mobile-selected-label">—</strong>
+                    </div>
+                    <p>Affichage simplifié jour par jour pour les téléphones.</p>
+                </div>
+                <div id="planning-mobile-day-tabs" class="planning-mobile-day-tabs" aria-label="Choisir un jour"></div>
+                <div id="planning-mobile-agenda" class="planning-mobile-agenda" aria-live="polite"></div>
+            </div>
+
             <div class="planning-timetable-shell">
                 <div id="planning-week-grid" class="planning-week-grid" aria-live="polite"></div>
             </div>
@@ -670,6 +688,87 @@
                 <p>Cette semaine est vide dans le planning ADE actuellement synchronisé.</p>
             </div>
         </section>
+
+        <div id="planning-tutorial-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="planning-tutorial-title">
+            <div class="modal-content planning-tutorial-modal" onclick="event.stopPropagation()">
+                <button id="planning-tutorial-close" class="modal-close-btn" type="button" aria-label="Fermer le tutoriel" data-tooltip="Fermer"><i class="fa-solid fa-xmark"></i></button>
+                <div class="planning-tutorial-header">
+                    <span class="section-kicker">Guide pas à pas</span>
+                    <h2 id="planning-tutorial-title">Installer l’extension Planilim</h2>
+                    <p>Suivez ces étapes dans Brave ou Chrome pour relier ADE à votre compte Planilim. Les captures d’écran seront ajoutées ensuite aux emplacements prévus.</p>
+                </div>
+                <div class="planning-tutorial-body">
+                    <section class="planning-tutorial-step">
+                        <div class="planning-tutorial-step-index">1</div>
+                        <div class="planning-tutorial-step-content">
+                            <h3>Télécharger puis extraire l’extension</h3>
+                            <p>Cliquez sur <strong>Télécharger l’extension</strong>, récupérez le fichier ZIP puis extrayez-le dans un dossier dédié sur votre ordinateur.</p>
+                            <ul>
+                                <li>Vous pouvez supprimer le <strong>fichier ZIP</strong> après extraction.</li>
+                                <li>En revanche, il faut <strong>conserver le dossier extrait</strong> tant que l’extension est installée.</li>
+                            </ul>
+                            <div class="planning-tutorial-note important"><i class="fa-solid fa-folder-open"></i><div><strong>À retenir</strong><span>Placez le dossier extrait dans un endroit que vous ne supprimerez pas, par exemple <em>Documents\Planilim\Extension</em>. Brave charge l’extension directement depuis ce dossier.</span></div></div>
+                            <div class="planning-tutorial-shot placeholder" data-shot="01-download-extract"><span>Capture à intégrer : téléchargement du ZIP puis dossier extrait</span></div>
+                        </div>
+                    </section>
+
+                    <section class="planning-tutorial-step">
+                        <div class="planning-tutorial-step-index">2</div>
+                        <div class="planning-tutorial-step-content">
+                            <h3>Ouvrir la page des extensions</h3>
+                            <p>Dans Brave, ouvrez <strong>brave://extensions</strong> dans la barre d’adresse. Dans Chrome, utilisez <strong>chrome://extensions</strong>.</p>
+                            <div class="planning-tutorial-copy-row">
+                                <button type="button" class="secondary-btn compact-btn" data-copy-extension-url="brave://extensions"><i class="fa-regular fa-copy"></i> Copier brave://extensions</button>
+                                <button type="button" class="secondary-btn compact-btn" data-copy-extension-url="chrome://extensions"><i class="fa-regular fa-copy"></i> Copier chrome://extensions</button>
+                            </div>
+                            <div class="planning-tutorial-shot placeholder" data-shot="02-extensions-page"><span>Capture à intégrer : page des extensions ouverte</span></div>
+                        </div>
+                    </section>
+
+                    <section class="planning-tutorial-step">
+                        <div class="planning-tutorial-step-index">3</div>
+                        <div class="planning-tutorial-step-content">
+                            <h3>Activer le mode développeur</h3>
+                            <p>Activez le bouton <strong>Mode développeur</strong> en haut de la page des extensions.</p>
+                            <div class="planning-tutorial-shot placeholder" data-shot="03-developer-mode"><span>Capture à intégrer : bouton “Mode développeur”</span></div>
+                        </div>
+                    </section>
+
+                    <section class="planning-tutorial-step">
+                        <div class="planning-tutorial-step-index">4</div>
+                        <div class="planning-tutorial-step-content">
+                            <h3>Charger le dossier de l’extension</h3>
+                            <p>Cliquez sur <strong>Charger l’extension non empaquetée</strong>, puis sélectionnez le <strong>dossier extrait</strong> de Planilim ADE Bridge.</p>
+                            <div class="planning-tutorial-shot placeholder" data-shot="04-load-unpacked"><span>Capture à intégrer : bouton de chargement + sélection du dossier</span></div>
+                        </div>
+                    </section>
+
+                    <section class="planning-tutorial-step">
+                        <div class="planning-tutorial-step-index">5</div>
+                        <div class="planning-tutorial-step-content">
+                            <h3>Vérifier que l’extension est bien active</h3>
+                            <p>Une fois l’extension chargée, revenez sur Planilim. Le bouton se met à jour automatiquement et propose ensuite <strong>Connecter ADE</strong> ou <strong>Synchroniser mon emploi du temps</strong>.</p>
+                            <p>La détection fonctionne aussi dans la version de Planilim installée sur le PC. Si nécessaire, utilisez le bouton <strong>Revérifier maintenant</strong> : vous n’avez pas besoin de retélécharger l’extension.</p>
+                            <div class="planning-tutorial-shot placeholder" data-shot="05-extension-enabled"><span>Capture à intégrer : extension visible et activée</span></div>
+                        </div>
+                    </section>
+
+                    <section class="planning-tutorial-step">
+                        <div class="planning-tutorial-step-index">6</div>
+                        <div class="planning-tutorial-step-content">
+                            <h3>Connecter ADE puis lancer la synchronisation</h3>
+                            <p>Sur Planilim :</p>
+                            <ul>
+                                <li>cliquez sur <strong>Connecter ADE</strong> ;</li>
+                                <li>connectez-vous à votre compte universitaire si demandé ;</li>
+                                <li>revenez ensuite dans l’onglet planning et cliquez sur <strong>Synchroniser mon emploi du temps</strong>.</li>
+                            </ul>
+                            <div class="planning-tutorial-shot placeholder" data-shot="06-connect-sync"><span>Capture à intégrer : bouton Connecter ADE puis synchronisation</span></div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
 
         <section id="forum" class="page-section" aria-labelledby="forum-title">
             <div class="section-heading reveal">
@@ -1412,8 +1511,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-    <script src="script.js?v=2.11.0"></script>
-    <script src="planning.js?v=2.11.0"></script>
+    <script src="script.js?v=2.12.1"></script>
+    <script src="planning.js?v=2.12.1"></script>
     <script src="forum.js?v=2.9.5"></script>
     <script src="forum_v2.js?v=2.9.5"></script>
 </body>
