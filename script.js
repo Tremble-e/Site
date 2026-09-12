@@ -368,8 +368,16 @@ window.addEventListener('resize', () => {
 }, { passive: true });
 
 /* Navigation */
+function isSectionAvailable(sectionId) {
+    if (sectionId !== 'planning') return true;
+    const button = navButtons.find(item => item.dataset.target === 'planning');
+    const item = button?.closest('li');
+    return Boolean(item && !item.hidden);
+}
+
 function activateSection(target, { updateHash = false, scroll = true } = {}) {
-    const sectionId = VALID_SECTIONS.includes(target) ? target : 'about';
+    const requestedSection = VALID_SECTIONS.includes(target) ? target : 'about';
+    const sectionId = isSectionAvailable(requestedSection) ? requestedSection : 'about';
 
     navButtons.forEach(btn => {
         const active = btn.dataset.target === sectionId;

@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="style.css?v=2.9.5">
     <link rel="stylesheet" href="forum.css?v=2.9.5">
     <link rel="stylesheet" href="forum_v2.css?v=2.9.5">
-    <link rel="stylesheet" href="planning.css?v=2.10.0">
+    <link rel="stylesheet" href="planning.css?v=2.11.0">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 </head>
 <body>
@@ -56,7 +56,7 @@
                     <li><button class="nav-btn" type="button" data-target="services"><i class="fa-solid fa-briefcase"></i><span>Services</span></button></li>
                     <li><button class="nav-btn" type="button" data-target="projects"><i class="fa-solid fa-layer-group"></i><span>Projets</span></button></li>
                     <li><button class="nav-btn" type="button" data-target="courses"><i class="fa-solid fa-graduation-cap"></i><span>Études</span></button></li>
-                    <li><button class="nav-btn" type="button" data-target="planning"><i class="fa-regular fa-calendar-days"></i><span>Planning</span></button></li>
+                    <li hidden><button class="nav-btn" type="button" data-target="planning"><i class="fa-regular fa-calendar-days"></i><span>Planning</span></button></li>
                     <li><button class="nav-btn" type="button" data-target="forum"><i class="fa-solid fa-comments"></i><span>Forum</span></button></li>
                 </ul>
 
@@ -596,56 +596,33 @@
             <div class="section-heading planning-heading">
                 <div>
                     <span class="section-kicker">Université</span>
-                    <h1 id="planning-title"><i class="fa-regular fa-calendar-days"></i> Mon planning</h1>
+                    <h1 id="planning-title"><i class="fa-regular fa-calendar-days"></i> Mon emploi du temps</h1>
                 </div>
-                <p>Votre emploi du temps ADE, synchronisé automatiquement par l’extension Planilim.</p>
+                <p>Votre planning ADE, disponible sur Planilim et sauvegardé sur votre compte.</p>
             </div>
 
-            <div class="planning-status-grid">
-                <article class="glass-panel planning-status-card">
-                    <div class="planning-status-icon"><i class="fa-solid fa-plug"></i></div>
-                    <div>
-                        <span>Extension</span>
-                        <strong id="planning-extension-status">Recherche…</strong>
-                        <small id="planning-extension-detail">Connexion à Planilim ADE Bridge.</small>
-                    </div>
-                </article>
-
-                <article class="glass-panel planning-status-card">
-                    <div class="planning-status-icon"><i class="fa-solid fa-arrows-rotate"></i></div>
-                    <div>
-                        <span>Synchronisation</span>
-                        <strong id="planning-sync-status">—</strong>
-                        <small id="planning-sync-detail">Aucune information reçue.</small>
-                    </div>
-                </article>
-
-                <article class="glass-panel planning-status-card">
-                    <div class="planning-status-icon"><i class="fa-solid fa-database"></i></div>
-                    <div>
-                        <span>Cache</span>
-                        <strong id="planning-cache-status">—</strong>
-                        <small id="planning-cache-detail">Le site conserve une copie locale pour l’affichage hors ligne.</small>
-                    </div>
-                </article>
+            <div class="glass-panel planning-connect-panel">
+                <div class="planning-connect-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                <div class="planning-connect-copy">
+                    <strong id="planning-connection-title">Vérification du planning…</strong>
+                    <p id="planning-connection-detail">Planilim recherche l’extension ADE et vos dernières données synchronisées.</p>
+                </div>
+                <button id="planning-primary-action" class="primary-btn compact-btn" type="button" data-action="busy" disabled>
+                    <i class="fa-solid fa-arrows-rotate"></i> Chargement…
+                </button>
             </div>
 
-            <div id="planning-auth-warning" class="planning-alert planning-alert-warning" hidden>
+            <div class="planning-account-meta" aria-live="polite">
+                <span id="planning-cloud-status"><i class="fa-solid fa-cloud"></i> Compte Planilim</span>
+                <span id="planning-last-sync"><i class="fa-regular fa-clock"></i> Jamais synchronisé</span>
+                <span id="planning-course-count"><i class="fa-solid fa-book-open"></i> 0 cours</span>
+            </div>
+
+            <div id="planning-auth-warning" class="planning-alert" hidden>
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <div>
                     <strong>Connexion universitaire requise</strong>
-                    <p>Votre session ADE a expiré. Reconnectez-vous sur le planning de l’Université de Limoges, puis relancez la synchronisation.</p>
-                </div>
-                <a class="secondary-btn compact-btn" href="https://planning.unilim.fr/direct/myplanning.jsp" target="_blank" rel="noopener noreferrer">
-                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Ouvrir ADE
-                </a>
-            </div>
-
-            <div id="planning-extension-warning" class="planning-alert" hidden>
-                <i class="fa-solid fa-puzzle-piece"></i>
-                <div>
-                    <strong>Extension Planilim non détectée</strong>
-                    <p>Le dernier planning mis en cache reste consultable. Pour actualiser les données, utilisez Brave avec l’extension Planilim ADE Bridge v2.8 installée.</p>
+                    <p>La session ADE a expiré. Utilisez le bouton de reconnexion ci-dessus ; Planilim reprendra ensuite automatiquement.</p>
                 </div>
             </div>
 
@@ -667,13 +644,11 @@
                     <span id="planning-week-range">—</span>
                 </div>
 
-                <div class="planning-actions">
-                    <button id="planning-refresh" class="secondary-btn compact-btn" type="button">
-                        <i class="fa-solid fa-arrows-rotate"></i> Actualiser
-                    </button>
-                    <button id="planning-full-sync" class="primary-btn compact-btn" type="button">
-                        <i class="fa-solid fa-calendar-days"></i> Synchroniser l’année
-                    </button>
+                <div class="planning-legend" aria-label="Couleurs des cours">
+                    <span class="planning-legend-item cm"><span class="planning-legend-dot"></span> CM</span>
+                    <span class="planning-legend-item td"><span class="planning-legend-dot"></span> TD</span>
+                    <span class="planning-legend-item tp"><span class="planning-legend-dot"></span> TP</span>
+                    <span class="planning-legend-item other"><span class="planning-legend-dot"></span> Autre</span>
                 </div>
             </div>
 
@@ -685,12 +660,14 @@
                 </div>
             </div>
 
-            <div id="planning-week-grid" class="planning-week-grid" aria-live="polite"></div>
+            <div class="planning-timetable-shell">
+                <div id="planning-week-grid" class="planning-week-grid" aria-live="polite"></div>
+            </div>
 
             <div id="planning-empty" class="glass-panel planning-empty" hidden>
                 <i class="fa-regular fa-calendar-xmark"></i>
                 <h2>Aucun cours cette semaine</h2>
-                <p>Cette semaine est vide dans le planning ADE actuellement publié.</p>
+                <p>Cette semaine est vide dans le planning ADE actuellement synchronisé.</p>
             </div>
         </section>
 
@@ -1435,8 +1412,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-    <script src="script.js?v=2.10.0"></script>
-    <script src="planning.js?v=2.10.0"></script>
+    <script src="script.js?v=2.11.0"></script>
+    <script src="planning.js?v=2.11.0"></script>
     <script src="forum.js?v=2.9.5"></script>
     <script src="forum_v2.js?v=2.9.5"></script>
 </body>
