@@ -39,7 +39,9 @@
         filters: {
             kinds: { cm: true, td: true, tp: true, exam: true, other: true },
             selectedCourses: new Set(),
-            courseMode: 'hide'
+            courseMode: 'hide',
+            excludedEvents: new Set(),
+            showExcludedEvents: false
         },
         filterCatalogSignature: ''
     };
@@ -541,14 +543,30 @@
             .toLocaleLowerCase('fr');
     }
 
+    function eventOccurrenceKey(event) {
+        return [
+            event.date || '', event.start || '', event.end || '', event.title || '', event.type || '',
+            event.group || '', event.teacher || '', event.room || '', event.building || ''
+        ].map(value => String(value).trim()).join('¦');
+    }
+
     function resetPlanningFilters({ persist = true } = {}) {
         state.filters = {
             kinds: { cm: true, td: true, tp: true, exam: true, other: true },
             selectedCourses: new Set(),
-            courseMode: 'hide'
+            courseMode: 'hide',
+            excludedEvents: new Set(),
+            showExcludedEvents: false
         };
         if (persist) savePlanningFilters();
         renderPlanningFilters(true);
+        renderWeek();
+    }
+
+    function resetIndividualCourseFilters() {
+        state.filters.excludedEvents.clear();
+        savePlanningFilters();
+        renderPlanningFilters();
         renderWeek();
     }
 
@@ -556,7 +574,9 @@
         state.filters = {
             kinds: { cm: true, td: true, tp: true, exam: true, other: true },
             selectedCourses: new Set(),
-            courseMode: 'hide'
+            courseMode: 'hide',
+            excludedEvents: new Set(),
+            showExcludedEvents: false
         };
         state.filterCatalogSignature = '';
         const key = planningFilterStorageKey();
@@ -573,7 +593,9 @@
                     other: saved.kinds?.other !== false
                 },
                 selectedCourses: new Set(Array.isArray(saved.selectedCourses) ? saved.selectedCourses : []),
-                courseMode: saved.courseMode === 'only' ? 'only' : 'hide'
+                courseMode: saved.courseMode === 'only' ? 'only' : 'hide',
+                excludedEvents: new Set(Array.isArray(saved.excludedEvents) ? saved.excludedEvents : []),
+                showExcludedEvents: saved.showExcludedEvents === true
             };
         } catch {}
     }
@@ -585,17 +607,29 @@
             localStorage.setItem(key, JSON.stringify({
                 kinds: state.filters.kinds,
                 selectedCourses: [...state.filters.selectedCourses],
-                courseMode: state.filters.courseMode
+                courseMode: state.filters.courseMode,
+                excludedEvents: [...state.filters.excludedEvents],
+                showExcludedEvents: state.filters.showExcludedEvents
             }));
         } catch {}
     }
 
-    function eventPassesFilters(event) {
+    function eventPassesBaseFilters(event) {
         const kind = courseKind(event);
         if (state.filters.kinds[kind] === false) return false;
         const selected = state.filters.selectedCourses.has(normalizeCourseKey(event.title));
         if (!state.filters.selectedCourses.size) return true;
         return state.filters.courseMode === 'only' ? selected : !selected;
+    }
+
+    function eventIsIndividuallyExcluded(event) {
+        return state.filters.excludedEvents.has(eventOccurrenceKey(event));
+    }
+
+    function eventPassesFilters(event) {
+        if (!eventPassesBaseFilters(event)) return false;
+        if (!eventIsIndividuallyExcluded(event)) return true;
+        return state.filters.showExcludedEvents;
     }
 
     function allCourseCatalog() {
@@ -612,6 +646,8 @@
         const list = byId('planning-course-filter-list');
         const badge = byId('planning-filter-badge');
         const summary = byId('planning-filter-summary');
+        const showExcludedInput = byId('planning-show-excluded');
+        const individualReset = byId('planning-individual-reset');
         if (!list) return;
 
         const catalog = allCourseCatalog();
@@ -622,9 +658,10 @@
                 ? catalog.map(([key, title]) => `
                     <label class="planning-course-filter-item">
                         <input type="checkbox" data-planning-course="${escapePlanning(key)}" ${state.filters.selectedCourses.has(key) ? 'checked' : ''}>
-                        <span>${escapePlanning(title)}</span>
+                        <span class="planning-checkbox-ui" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+                        <span class="planning-course-filter-label">${escapePlanning(title)}</span>
                     </label>`).join('')
-                : '<span class="planning-filter-empty">Aucun cours disponible.</span>';
+                : '<span class="planning-filter-empty">Aucune matière disponible.</span>';
         } else {
             list.querySelectorAll('input[data-planning-course]').forEach(input => {
                 input.checked = state.filters.selectedCourses.has(input.dataset.planningCourse || '');
@@ -639,10 +676,13 @@
             button.classList.toggle('is-active', active);
             button.setAttribute('aria-pressed', String(active));
         });
+        if (showExcludedInput) showExcludedInput.checked = state.filters.showExcludedEvents;
+        if (individualReset) individualReset.disabled = state.filters.excludedEvents.size === 0;
 
         const disabledKinds = Object.values(state.filters.kinds).filter(value => value === false).length;
         const selectedCourses = state.filters.selectedCourses.size;
-        const activeCount = disabledKinds + selectedCourses;
+        const excludedEvents = state.filters.excludedEvents.size;
+        const activeCount = disabledKinds + selectedCourses + excludedEvents;
         if (badge) {
             badge.textContent = String(activeCount);
             badge.hidden = activeCount === 0;
@@ -650,7 +690,8 @@
         if (summary) {
             const parts = [];
             if (disabledKinds) parts.push(`${disabledKinds} type${disabledKinds > 1 ? 's' : ''} masqué${disabledKinds > 1 ? 's' : ''}`);
-            if (selectedCourses) parts.push(`${selectedCourses} cours ${state.filters.courseMode === 'only' ? 'affiché(s) uniquement' : 'masqué(s)'}`);
+            if (selectedCourses) parts.push(`${selectedCourses} matière${selectedCourses > 1 ? 's' : ''} ${state.filters.courseMode === 'only' ? 'affichée(s) uniquement' : 'masquée(s)'}`);
+            if (excludedEvents) parts.push(`${excludedEvents} créneau${excludedEvents > 1 ? 'x' : ''} décoché${excludedEvents > 1 ? 's' : ''}${state.filters.showExcludedEvents ? ' (visible(s) barré(s))' : ''}`);
             summary.textContent = parts.length ? parts.join(' · ') : 'Tous les cours sont affichés.';
         }
     }
@@ -788,6 +829,17 @@
         return output;
     }
 
+    function eventSelectionMarkup(event, compact = false) {
+        const key = eventOccurrenceKey(event);
+        const checked = !eventIsIndividuallyExcluded(event);
+        const label = checked ? 'Décocher ce créneau' : 'Réafficher ce créneau';
+        return `
+            <label class="planning-event-selection ${compact ? 'is-compact' : ''}" title="${label}" aria-label="${label}">
+                <input type="checkbox" data-planning-event-key="${escapePlanning(key)}" ${checked ? 'checked' : ''}>
+                <span class="planning-checkbox-ui" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+            </label>`;
+    }
+
     function eventMarkup(event, dayIndex, bounds, overlap) {
         const start = parseTime(event.start);
         const end = parseTime(event.end);
@@ -802,6 +854,7 @@
         const laneCount = overlap?.laneCount ?? 1;
         const laneWidth = 100 / laneCount;
         const laneLeft = lane * laneWidth;
+        const excluded = eventIsIndividuallyExcluded(event);
         const tooltip = [
             `${event.start || '—'} – ${event.end || '—'}`,
             event.title || 'Cours',
@@ -812,12 +865,15 @@
         ].filter(Boolean).join(' · ');
 
         return `
-            <article class="planning-event planning-event-${kind}"
+            <article class="planning-event planning-event-${kind} ${excluded ? 'is-individually-excluded' : ''}"
                 style="grid-column:${dayIndex + 2};grid-row:${startRow}/${endRow};--lane-width:${laneWidth}%;--lane-left:${laneLeft}%;"
                 title="${escapePlanning(tooltip)}">
                 <div class="planning-event-topline">
                     <span class="planning-event-time">${escapePlanning(event.start || '—')}–${escapePlanning(event.end || '—')}</span>
-                    <span class="planning-event-type">${escapePlanning(typeLabel(event))}</span>
+                    <span class="planning-event-actions">
+                        <span class="planning-event-type">${escapePlanning(typeLabel(event))}</span>
+                        ${eventSelectionMarkup(event, true)}
+                    </span>
                 </div>
                 <strong class="planning-event-title">${escapePlanning(event.title || 'Cours')}</strong>
                 <div class="planning-event-meta">
@@ -842,12 +898,16 @@
         const laneLeft = lane * laneWidth;
         const duration = end - start;
         const sizeClass = duration < 75 ? 'is-short' : duration < 105 ? 'is-medium' : 'is-long';
+        const excluded = eventIsIndividuallyExcluded(event);
         return `
-            <article class="planning-day-event planning-event-${kind} ${sizeClass}"
+            <article class="planning-day-event planning-event-${kind} ${sizeClass} ${excluded ? 'is-individually-excluded' : ''}"
                 style="grid-column:2;grid-row:${startSlot + 1}/${endSlot + 1};--lane-width:${laneWidth}%;--lane-left:${laneLeft}%;">
                 <div class="planning-day-event-topline">
                     <span class="planning-day-event-time">${escapePlanning(event.start || '—')}–${escapePlanning(event.end || '—')}</span>
-                    <span class="planning-day-event-type">${escapePlanning(typeLabel(event))}</span>
+                    <span class="planning-event-actions">
+                        <span class="planning-day-event-type">${escapePlanning(typeLabel(event))}</span>
+                        ${eventSelectionMarkup(event)}
+                    </span>
                 </div>
                 <strong class="planning-day-event-title">${escapePlanning(event.title || 'Cours')}</strong>
                 <div class="planning-day-event-meta">
@@ -869,7 +929,7 @@
         const shortDayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
         tabs.innerHTML = dates.map((date, index) => {
-            const courseCount = eventsForDate(date).length;
+            const courseCount = (state.payload?.events || []).filter(event => event.date === date && eventPassesBaseFilters(event) && !eventIsIndividuallyExcluded(event)).length;
             return `
                 <button type="button" class="planning-mobile-day ${date === state.mobileSelectedDate ? 'is-selected' : ''} ${date === today ? 'is-today' : ''} ${index >= 5 ? 'is-weekend' : ''}" data-date="${date}">
                     <span class="planning-mobile-day-name">${shortDayNames[index]}</span>
@@ -1083,7 +1143,7 @@
             state.cloudLoaded = false;
             state.currentWeekStart = null;
             state.mobileSelectedDate = null;
-            state.filters = { kinds: { cm: true, td: true, tp: true, exam: true, other: true }, selectedCourses: new Set(), courseMode: 'hide' };
+            state.filters = { kinds: { cm: true, td: true, tp: true, exam: true, other: true }, selectedCourses: new Set(), courseMode: 'hide', excludedEvents: new Set(), showExcludedEvents: false };
             state.filterCatalogSignature = '';
             stopInstallProbe();
             if (byId('planning')?.classList.contains('active')) {
@@ -1153,7 +1213,27 @@
             if (!panel.hidden) renderPlanningFilters(true);
         });
 
+        byId('planning')?.addEventListener('change', event => {
+            const eventInput = event.target.closest('input[data-planning-event-key]');
+            if (!eventInput) return;
+            const key = eventInput.dataset.planningEventKey || '';
+            if (!key) return;
+            if (eventInput.checked) state.filters.excludedEvents.delete(key);
+            else state.filters.excludedEvents.add(key);
+            savePlanningFilters();
+            renderPlanningFilters();
+            renderWeek();
+        });
+
         byId('planning-filter-panel')?.addEventListener('change', event => {
+            const showExcludedInput = event.target.closest('#planning-show-excluded');
+            if (showExcludedInput) {
+                state.filters.showExcludedEvents = showExcludedInput.checked;
+                savePlanningFilters();
+                renderPlanningFilters();
+                renderWeek();
+                return;
+            }
             const kindInput = event.target.closest('input[data-planning-kind]');
             if (kindInput) {
                 state.filters.kinds[kindInput.dataset.planningKind] = kindInput.checked;
@@ -1180,6 +1260,10 @@
                 savePlanningFilters();
                 renderPlanningFilters();
                 renderWeek();
+                return;
+            }
+            if (event.target.closest('#planning-individual-reset')) {
+                resetIndividualCourseFilters();
                 return;
             }
             if (event.target.closest('#planning-filter-reset')) resetPlanningFilters();

@@ -981,3 +981,191 @@
     .planning-tutorial-copy-row { display: grid; grid-template-columns: 1fr; }
     .planning-tutorial-copy-row button { width: 100%; }
 }
+
+/* v2.15 — sélections de cours cohérentes avec l'interface Planilim */
+.planning-course-filter-item input,
+.planning-check-option input,
+.planning-event-selection input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+}
+
+.planning-checkbox-ui {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 5px;
+    border: 1px solid rgba(148, 163, 184, .34);
+    background: rgba(15, 23, 42, .72);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+    transition: background .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.planning-checkbox-ui i {
+    opacity: 0;
+    transform: scale(.7);
+    font-size: 9px;
+    transition: opacity .14s ease, transform .14s ease;
+}
+.planning-course-filter-item:hover .planning-checkbox-ui,
+.planning-check-option:hover .planning-checkbox-ui,
+.planning-event-selection:hover .planning-checkbox-ui {
+    border-color: color-mix(in srgb, var(--accent, #3b82f6) 62%, rgba(148, 163, 184, .34));
+}
+.planning-course-filter-item input:focus-visible + .planning-checkbox-ui,
+.planning-check-option input:focus-visible + .planning-checkbox-ui,
+.planning-event-selection input:focus-visible + .planning-checkbox-ui {
+    outline: 2px solid color-mix(in srgb, var(--accent, #3b82f6) 72%, white 10%);
+    outline-offset: 2px;
+}
+.planning-course-filter-item input:checked + .planning-checkbox-ui,
+.planning-check-option input:checked + .planning-checkbox-ui,
+.planning-event-selection input:checked + .planning-checkbox-ui {
+    border-color: color-mix(in srgb, var(--accent, #3b82f6) 82%, white 5%);
+    background: color-mix(in srgb, var(--accent, #3b82f6) 78%, #0f172a 22%);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #3b82f6) 11%, transparent);
+}
+.planning-course-filter-item input:checked + .planning-checkbox-ui i,
+.planning-check-option input:checked + .planning-checkbox-ui i,
+.planning-event-selection input:checked + .planning-checkbox-ui i {
+    opacity: 1;
+    transform: scale(1);
+}
+.planning-course-filter-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.planning-course-filter-item:has(input:checked) {
+    background: color-mix(in srgb, var(--accent, #3b82f6) 7%, rgba(148, 163, 184, .035));
+}
+
+.planning-individual-filter-section { grid-column: 1 / -1; }
+.planning-individual-filter-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: .65rem;
+}
+.planning-individual-filter-heading h3 { margin: 0 0 .18rem; }
+.planning-individual-filter-heading p {
+    margin: 0;
+    color: var(--text-muted, #94a3b8);
+    font-size: .71rem;
+    line-height: 1.45;
+}
+.planning-individual-filter-heading button:disabled {
+    cursor: default;
+    opacity: .42;
+}
+.planning-check-option {
+    display: inline-flex;
+    align-items: center;
+    gap: .62rem;
+    max-width: 620px;
+    padding: .58rem .68rem;
+    border-radius: .72rem;
+    background: rgba(148, 163, 184, .035);
+    cursor: pointer;
+}
+.planning-check-option-copy { display: grid; gap: .08rem; }
+.planning-check-option-copy strong { font-size: .73rem; }
+.planning-check-option-copy small {
+    color: var(--text-muted, #94a3b8);
+    font-size: .65rem;
+    line-height: 1.4;
+}
+
+.planning-event-actions {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+}
+.planning-event-selection {
+    position: relative;
+    z-index: 8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.planning-event-selection .planning-checkbox-ui {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--event-color) 10%, rgba(15, 23, 42, .86));
+    border-color: color-mix(in srgb, var(--event-color) 50%, rgba(148, 163, 184, .28));
+}
+.planning-event-selection input:checked + .planning-checkbox-ui {
+    background: color-mix(in srgb, var(--event-color) 62%, #0f172a 38%);
+    border-color: color-mix(in srgb, var(--event-color) 84%, white 6%);
+    box-shadow: none;
+}
+.planning-event-selection.is-compact .planning-checkbox-ui {
+    width: 14px;
+    height: 14px;
+    flex-basis: 14px;
+    border-radius: 4px;
+}
+.planning-event-selection.is-compact .planning-checkbox-ui i { font-size: 7px; }
+
+.planning-event.is-individually-excluded,
+.planning-day-event.is-individually-excluded {
+    opacity: .44;
+    border-style: dashed;
+    filter: saturate(.55);
+}
+.planning-event.is-individually-excluded .planning-event-title,
+.planning-event.is-individually-excluded .planning-event-time,
+.planning-event.is-individually-excluded .planning-event-meta,
+.planning-day-event.is-individually-excluded .planning-day-event-title,
+.planning-day-event.is-individually-excluded .planning-day-event-time,
+.planning-day-event.is-individually-excluded .planning-day-event-meta {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+}
+.planning-event.is-individually-excluded .planning-event-selection,
+.planning-day-event.is-individually-excluded .planning-event-selection {
+    opacity: 1;
+    filter: none;
+}
+
+@media (max-width: 700px) {
+    .planning-individual-filter-heading { flex-direction: column; }
+    .planning-individual-filter-heading button { width: 100%; }
+    .planning-check-option { max-width: none; width: 100%; }
+    .planning-day-event .planning-event-actions { gap: .4rem; }
+}
+
+/* Le créneau décoché reste éditable : seul son contenu est atténué. */
+.planning-event.is-individually-excluded,
+.planning-day-event.is-individually-excluded {
+    opacity: 1;
+    filter: none;
+    background: color-mix(in srgb, var(--event-color) 7%, rgba(15, 23, 42, .82));
+    border-color: color-mix(in srgb, var(--event-color) 28%, rgba(148, 163, 184, .18));
+    box-shadow: none;
+}
+.planning-event.is-individually-excluded .planning-event-time,
+.planning-event.is-individually-excluded .planning-event-title,
+.planning-event.is-individually-excluded .planning-event-meta,
+.planning-event.is-individually-excluded .planning-event-type,
+.planning-day-event.is-individually-excluded .planning-day-event-time,
+.planning-day-event.is-individually-excluded .planning-day-event-title,
+.planning-day-event.is-individually-excluded .planning-day-event-meta,
+.planning-day-event.is-individually-excluded .planning-day-event-type {
+    opacity: .46;
+}
+.planning-event-selection { opacity: .72; }
+.planning-event:hover .planning-event-selection,
+.planning-day-event:hover .planning-event-selection,
+.planning-event-selection:has(input:focus-visible),
+.planning-event-selection:has(input:not(:checked)) { opacity: 1; }
