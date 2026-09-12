@@ -549,12 +549,30 @@
         return isCompactPlanning() ? 'day' : state.viewMode;
     }
 
+    function updatePlanningNavigationHints(mode) {
+        const isDay = mode === 'day';
+        const previousLabel = isDay ? 'Jour précédent' : 'Semaine précédente';
+        const nextLabel = isDay ? 'Jour suivant' : 'Semaine suivante';
+
+        const previousButton = byId('planning-prev-week');
+        const nextButton = byId('planning-next-week');
+        if (previousButton) {
+            previousButton.setAttribute('aria-label', previousLabel);
+            previousButton.dataset.tooltip = previousLabel;
+        }
+        if (nextButton) {
+            nextButton.setAttribute('aria-label', nextLabel);
+            nextButton.dataset.tooltip = nextLabel;
+        }
+    }
+
     function applyViewMode() {
         const section = byId('planning');
         if (!section) return;
         const mode = effectiveViewMode();
         section.classList.toggle('planning-view-day', mode === 'day');
         section.classList.toggle('planning-view-week', mode === 'week');
+        updatePlanningNavigationHints(mode);
 
         const weekButton = byId('planning-view-week');
         const dayButton = byId('planning-view-day');
