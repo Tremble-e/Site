@@ -7,7 +7,7 @@
     const CACHE_KEY_PREFIX = 'planilim-ade-annual-payload-v2:';
     const SUPABASE_TABLE = 'user_planning_cache';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-ade-bridge-v3.1.1.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-ade-bridge-v3.2.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const SLOT_MINUTES = 15;
@@ -16,6 +16,7 @@
     const STATUS_POLL_MS = 12000;
     const INSTALL_PROBE_MS = 1500;
     const INSTALL_PROBE_DURATION_MS = 120000;
+    const FILTER_KEY_PREFIX = 'planilim-planning-filters-v1:';
 
     const state = {
         extensionDetected: false,
@@ -34,7 +35,13 @@
         bridgeProbePromise: null,
         installProbeTimer: null,
         installProbeDeadline: 0,
-        waitingForInstall: false
+        waitingForInstall: false,
+        filters: {
+            kinds: { cm: true, td: true, tp: true, exam: true, other: true },
+            selectedCourses: new Set(),
+            courseMode: 'hide'
+        },
+        filterCatalogSignature: ''
     };
 
     const byId = id => document.getElementById(id);
@@ -189,7 +196,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-ade-bridge-v3.1.1.zip';
+        link.download = 'planilim-ade-bridge-v3.2.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -373,7 +380,7 @@
         if (!state.extensionDetected) {
             if (state.waitingForInstall) {
                 title.textContent = 'Détection de l’extension en cours';
-                detail.textContent = 'Installez l’extension dans Brave puis revenez ici : Planilim la détecte automatiquement, même dans la version installée du site.';
+                detail.textContent = 'Installez l’extension dans Brave puis revenez ici : Planilim la détecte automatiquement.';
                 button.innerHTML = '<i class="fa-solid fa-rotate"></i> Revérifier maintenant';
                 button.dataset.action = 'probe';
                 button.disabled = false;
@@ -382,38 +389,52 @@
                 detail.textContent = state.payload
                     ? 'Votre planning sauvegardé reste disponible. Installez l’extension pour le mettre à jour depuis ADE.'
                     : 'Installez l’extension pour connecter votre emploi du temps ADE.';
-                if (isStandaloneApp()) {
-                    detail.textContent += ' Si la fenêtre installée de Brave ne réagit pas immédiatement, la détection reprend automatiquement dès que l’extension est ajoutée.';
-                }
+                if (isStandaloneApp()) detail.textContent += ' La détection reprend automatiquement après installation.';
                 button.innerHTML = '<i class="fa-solid fa-puzzle-piece"></i> Télécharger l’extension';
                 button.dataset.action = 'install';
                 button.disabled = false;
             }
         } else if (running) {
             title.textContent = 'Synchronisation en cours';
-            detail.textContent = 'ADE est interrogé automatiquement. Le planning sera actualisé dès que la synchronisation est terminée.';
+            detail.textContent = 'Planilim récupère l’année universitaire. Gardez ADE ouvert jusqu’à la fin.';
             button.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i> Synchronisation…';
             button.dataset.action = 'busy';
             button.disabled = true;
         } else if (authRequired) {
             title.textContent = 'Reconnexion universitaire nécessaire';
-            detail.textContent = 'Votre session UNILIM a expiré. Une reconnexion suffit pour reprendre la synchronisation.';
+            detail.textContent = 'Votre session UNILIM a expiré. Reconnectez-vous à ADE puis affichez le planning souhaité.';
             button.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se reconnecter à ADE';
             button.dataset.action = 'connect';
             button.disabled = false;
-        } else if (!configured || ['waiting_for_ade', 'waiting_for_login'].includes(setupState)) {
-            title.textContent = setupState ? 'Connexion à ADE en attente' : 'Connecter votre planning ADE';
-            detail.textContent = setupState
-                ? 'Terminez la connexion UNILIM dans l’onglet ADE. La détection reprend automatiquement.'
-                : 'Une seule connexion est nécessaire. Planilim récupérera ensuite automatiquement l’année universitaire.';
-            button.innerHTML = '<i class="fa-solid fa-link"></i> Connecter ADE';
+        } else if (['waiting_for_ade', 'waiting_for_login', 'needs_week_change'].includes(setupState)) {
+            title.textContent = 'En attente de l’affichage du planning ADE';
+            detail.textContent = 'Dans ADE, connectez-vous si nécessaire puis affichez le planning que vous voulez utiliser. La détection est automatique.';
+            button.innerHTML = '<i class="fa-regular fa-hourglass-half"></i> En attente du planning…';
+            button.dataset.action = 'busy';
+            button.disabled = true;
+        } else if (!configured) {
+            title.textContent = 'Connecter votre planning ADE';
+            detail.textContent = 'Planilim va ouvrir ADE. Connectez-vous puis affichez simplement le planning souhaité.';
+            button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser mon emploi du temps';
             button.dataset.action = 'connect';
             button.disabled = false;
+        } else if (setupState === 'detected') {
+            const planningInfo = state.status?.profile?.planningLabel || (state.status?.profile?.resourceId != null ? `Planning ADE #${state.status.profile.resourceId}` : 'Planning ADE');
+            title.textContent = 'Planning détecté';
+            detail.textContent = `${planningInfo} est prêt. Vérifiez qu’il s’agit du bon planning puis lancez la synchronisation.`;
+            button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser mon emploi du temps';
+            button.dataset.action = 'sync';
+            button.disabled = false;
+        } else if (cache?.updatedAt) {
+            title.textContent = 'Emploi du temps synchronisé';
+            detail.textContent = `${cache?.eventCount ?? state.payload?.events?.length ?? 0} cours sont disponibles. Vous pouvez fermer ADE.`;
+            button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser à nouveau';
+            button.dataset.action = 'sync';
+            button.disabled = false;
         } else {
-            title.textContent = 'Planning ADE connecté';
-            detail.textContent = cache?.eventCount
-                ? `${cache.eventCount} cours sont disponibles. Vous pouvez lancer une mise à jour à tout moment.`
-                : 'ADE est connecté. Lancez la première synchronisation.';
+            const planningInfo = state.status?.profile?.planningLabel || (state.status?.profile?.resourceId != null ? `Planning ADE #${state.status.profile.resourceId}` : 'Planning ADE');
+            title.textContent = 'Planning détecté';
+            detail.textContent = `${planningInfo} est prêt. Lancez la première synchronisation.`;
             button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser mon emploi du temps';
             button.dataset.action = 'sync';
             button.disabled = false;
@@ -508,9 +529,135 @@
         }
     }
 
+    function planningFilterStorageKey() {
+        return state.user?.id ? `${FILTER_KEY_PREFIX}${state.user.id}` : null;
+    }
+
+    function normalizeCourseKey(value) {
+        return String(value || 'Cours')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLocaleLowerCase('fr');
+    }
+
+    function resetPlanningFilters({ persist = true } = {}) {
+        state.filters = {
+            kinds: { cm: true, td: true, tp: true, exam: true, other: true },
+            selectedCourses: new Set(),
+            courseMode: 'hide'
+        };
+        if (persist) savePlanningFilters();
+        renderPlanningFilters(true);
+        renderWeek();
+    }
+
+    function loadPlanningFilters() {
+        state.filters = {
+            kinds: { cm: true, td: true, tp: true, exam: true, other: true },
+            selectedCourses: new Set(),
+            courseMode: 'hide'
+        };
+        state.filterCatalogSignature = '';
+        const key = planningFilterStorageKey();
+        if (!key) return;
+        try {
+            const saved = JSON.parse(localStorage.getItem(key) || 'null');
+            if (!saved) return;
+            state.filters = {
+                kinds: {
+                    cm: saved.kinds?.cm !== false,
+                    td: saved.kinds?.td !== false,
+                    tp: saved.kinds?.tp !== false,
+                    exam: saved.kinds?.exam !== false,
+                    other: saved.kinds?.other !== false
+                },
+                selectedCourses: new Set(Array.isArray(saved.selectedCourses) ? saved.selectedCourses : []),
+                courseMode: saved.courseMode === 'only' ? 'only' : 'hide'
+            };
+        } catch {}
+    }
+
+    function savePlanningFilters() {
+        const key = planningFilterStorageKey();
+        if (!key) return;
+        try {
+            localStorage.setItem(key, JSON.stringify({
+                kinds: state.filters.kinds,
+                selectedCourses: [...state.filters.selectedCourses],
+                courseMode: state.filters.courseMode
+            }));
+        } catch {}
+    }
+
+    function eventPassesFilters(event) {
+        const kind = courseKind(event);
+        if (state.filters.kinds[kind] === false) return false;
+        const selected = state.filters.selectedCourses.has(normalizeCourseKey(event.title));
+        if (!state.filters.selectedCourses.size) return true;
+        return state.filters.courseMode === 'only' ? selected : !selected;
+    }
+
+    function allCourseCatalog() {
+        const map = new Map();
+        for (const event of state.payload?.events || []) {
+            const title = String(event.title || 'Cours').trim() || 'Cours';
+            const key = normalizeCourseKey(title);
+            if (!map.has(key)) map.set(key, title);
+        }
+        return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr', { sensitivity: 'base' }));
+    }
+
+    function renderPlanningFilters(force = false) {
+        const list = byId('planning-course-filter-list');
+        const badge = byId('planning-filter-badge');
+        const summary = byId('planning-filter-summary');
+        if (!list) return;
+
+        const catalog = allCourseCatalog();
+        const signature = catalog.map(([key]) => key).join('|');
+        if (force || signature !== state.filterCatalogSignature) {
+            state.filterCatalogSignature = signature;
+            list.innerHTML = catalog.length
+                ? catalog.map(([key, title]) => `
+                    <label class="planning-course-filter-item">
+                        <input type="checkbox" data-planning-course="${escapePlanning(key)}" ${state.filters.selectedCourses.has(key) ? 'checked' : ''}>
+                        <span>${escapePlanning(title)}</span>
+                    </label>`).join('')
+                : '<span class="planning-filter-empty">Aucun cours disponible.</span>';
+        } else {
+            list.querySelectorAll('input[data-planning-course]').forEach(input => {
+                input.checked = state.filters.selectedCourses.has(input.dataset.planningCourse || '');
+            });
+        }
+
+        document.querySelectorAll('input[data-planning-kind]').forEach(input => {
+            input.checked = state.filters.kinds[input.dataset.planningKind] !== false;
+        });
+        document.querySelectorAll('[data-planning-course-mode]').forEach(button => {
+            const active = button.dataset.planningCourseMode === state.filters.courseMode;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', String(active));
+        });
+
+        const disabledKinds = Object.values(state.filters.kinds).filter(value => value === false).length;
+        const selectedCourses = state.filters.selectedCourses.size;
+        const activeCount = disabledKinds + selectedCourses;
+        if (badge) {
+            badge.textContent = String(activeCount);
+            badge.hidden = activeCount === 0;
+        }
+        if (summary) {
+            const parts = [];
+            if (disabledKinds) parts.push(`${disabledKinds} type${disabledKinds > 1 ? 's' : ''} masqué${disabledKinds > 1 ? 's' : ''}`);
+            if (selectedCourses) parts.push(`${selectedCourses} cours ${state.filters.courseMode === 'only' ? 'affiché(s) uniquement' : 'masqué(s)'}`);
+            summary.textContent = parts.length ? parts.join(' · ') : 'Tous les cours sont affichés.';
+        }
+    }
+
     function eventsForDate(date) {
         return (state.payload?.events || [])
-            .filter(event => event.date === date)
+            .filter(event => event.date === date && eventPassesFilters(event))
             .sort((a, b) => (parseTime(a.start) ?? 0) - (parseTime(b.start) ?? 0));
     }
 
@@ -776,6 +923,7 @@
         if (!firstDate) return;
 
         applyViewMode();
+        renderPlanningFilters();
         const weekNumber = isoWeekNumber(firstDate);
         if (label) label.textContent = weekNumber ? `Semaine ${weekNumber}` : 'Semaine';
         if (range) range.textContent = formatWeekRange(firstDate);
@@ -832,7 +980,19 @@
 
         renderDayTimeline(firstDate);
 
-        if (empty) empty.hidden = allEvents.length !== 0;
+        if (empty) {
+            const rawWeekCount = (state.payload?.events || []).filter(event => dates.includes(event.date)).length;
+            const emptyTitle = empty.querySelector('h2');
+            const emptyText = empty.querySelector('p');
+            empty.hidden = allEvents.length !== 0;
+            if (!empty.hidden && rawWeekCount > 0) {
+                if (emptyTitle) emptyTitle.textContent = 'Aucun cours avec ces filtres';
+                if (emptyText) emptyText.textContent = 'Modifiez ou réinitialisez les filtres pour réafficher les cours de cette semaine.';
+            } else {
+                if (emptyTitle) emptyTitle.textContent = 'Aucun cours cette semaine';
+                if (emptyText) emptyText.textContent = 'Cette semaine est vide dans le planning ADE actuellement synchronisé.';
+            }
+        }
     }
 
     function moveWeek(delta) {
@@ -923,6 +1083,8 @@
             state.cloudLoaded = false;
             state.currentWeekStart = null;
             state.mobileSelectedDate = null;
+            state.filters = { kinds: { cm: true, td: true, tp: true, exam: true, other: true }, selectedCourses: new Set(), courseMode: 'hide' };
+            state.filterCatalogSignature = '';
             stopInstallProbe();
             if (byId('planning')?.classList.contains('active')) {
                 document.querySelector('.nav-btn[data-target="about"]')?.click();
@@ -931,6 +1093,8 @@
         }
 
         state.payload = loadLocalPayload(state.user.id);
+        loadPlanningFilters();
+        renderPlanningFilters(true);
         if (window.location.hash === '#planning' && !byId('planning')?.classList.contains('active')) {
             navButton?.click();
         }
@@ -978,6 +1142,47 @@
             state.viewMode = 'day';
             ensureMobileSelectedDate(state.currentWeekStart || mondayOf(new Date()));
             renderWeek();
+        });
+
+        byId('planning-filter-toggle')?.addEventListener('click', () => {
+            const panel = byId('planning-filter-panel');
+            const button = byId('planning-filter-toggle');
+            if (!panel) return;
+            panel.hidden = !panel.hidden;
+            button?.setAttribute('aria-expanded', String(!panel.hidden));
+            if (!panel.hidden) renderPlanningFilters(true);
+        });
+
+        byId('planning-filter-panel')?.addEventListener('change', event => {
+            const kindInput = event.target.closest('input[data-planning-kind]');
+            if (kindInput) {
+                state.filters.kinds[kindInput.dataset.planningKind] = kindInput.checked;
+                savePlanningFilters();
+                renderPlanningFilters();
+                renderWeek();
+                return;
+            }
+            const courseInput = event.target.closest('input[data-planning-course]');
+            if (courseInput) {
+                const key = courseInput.dataset.planningCourse || '';
+                if (courseInput.checked) state.filters.selectedCourses.add(key);
+                else state.filters.selectedCourses.delete(key);
+                savePlanningFilters();
+                renderPlanningFilters();
+                renderWeek();
+            }
+        });
+
+        byId('planning-filter-panel')?.addEventListener('click', event => {
+            const modeButton = event.target.closest('[data-planning-course-mode]');
+            if (modeButton) {
+                state.filters.courseMode = modeButton.dataset.planningCourseMode === 'only' ? 'only' : 'hide';
+                savePlanningFilters();
+                renderPlanningFilters();
+                renderWeek();
+                return;
+            }
+            if (event.target.closest('#planning-filter-reset')) resetPlanningFilters();
         });
 
         let resizeTimer = null;

@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="style.css?v=2.9.5">
     <link rel="stylesheet" href="forum.css?v=2.9.5">
     <link rel="stylesheet" href="forum_v2.css?v=2.9.5">
-    <link rel="stylesheet" href="planning.css?v=2.13.1">
+    <link rel="stylesheet" href="planning.css?v=2.14.0">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 </head>
 <body>
@@ -658,12 +658,51 @@
                     </button>
                 </div>
 
+                <button id="planning-filter-toggle" class="planning-filter-toggle-btn" type="button" aria-expanded="false" aria-controls="planning-filter-panel">
+                    <i class="fa-solid fa-filter"></i><span>Filtres</span><span id="planning-filter-badge" class="planning-filter-badge" hidden>0</span>
+                </button>
+
                 <div class="planning-legend" aria-label="Couleurs des cours">
                     <span class="planning-legend-item cm"><span class="planning-legend-dot"></span> CM</span>
                     <span class="planning-legend-item td"><span class="planning-legend-dot"></span> TD</span>
                     <span class="planning-legend-item tp"><span class="planning-legend-dot"></span> TP</span>
                     <span class="planning-legend-item exam"><span class="planning-legend-dot"></span> Examen</span>
                     <span class="planning-legend-item other"><span class="planning-legend-dot"></span> Autre</span>
+                </div>
+            </div>
+
+            <div id="planning-filter-panel" class="glass-panel planning-filter-panel" hidden>
+                <div class="planning-filter-header">
+                    <div>
+                        <span class="section-kicker">Affichage</span>
+                        <strong>Filtrer les cours</strong>
+                        <p id="planning-filter-summary">Tous les cours sont affichés.</p>
+                    </div>
+                    <button id="planning-filter-reset" class="secondary-btn compact-btn" type="button"><i class="fa-solid fa-rotate-left"></i> Réinitialiser</button>
+                </div>
+
+                <div class="planning-filter-grid">
+                    <section class="planning-filter-section">
+                        <h3>Types de cours</h3>
+                        <div class="planning-type-filters">
+                            <label class="planning-type-filter cm"><input type="checkbox" data-planning-kind="cm" checked><span>CM</span></label>
+                            <label class="planning-type-filter td"><input type="checkbox" data-planning-kind="td" checked><span>TD</span></label>
+                            <label class="planning-type-filter tp"><input type="checkbox" data-planning-kind="tp" checked><span>TP</span></label>
+                            <label class="planning-type-filter exam"><input type="checkbox" data-planning-kind="exam" checked><span>Examen</span></label>
+                            <label class="planning-type-filter other"><input type="checkbox" data-planning-kind="other" checked><span>Autre</span></label>
+                        </div>
+                    </section>
+
+                    <section class="planning-filter-section planning-course-filter-section">
+                        <div class="planning-course-filter-heading">
+                            <h3>Cours particuliers</h3>
+                            <div class="planning-course-mode" role="group" aria-label="Comportement de la sélection">
+                                <button class="planning-course-mode-btn is-active" type="button" data-planning-course-mode="hide" aria-pressed="true"><i class="fa-regular fa-eye-slash"></i> Masquer la sélection</button>
+                                <button class="planning-course-mode-btn" type="button" data-planning-course-mode="only" aria-pressed="false"><i class="fa-regular fa-eye"></i> Afficher seulement</button>
+                            </div>
+                        </div>
+                        <div id="planning-course-filter-list" class="planning-course-filter-list" aria-label="Choisir des cours"></div>
+                    </section>
                 </div>
             </div>
 
@@ -1521,7 +1560,7 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
     <script src="script.js?v=2.13.0"></script>
-    <script src="planning.js?v=2.13.1"></script>
+    <script src="planning.js?v=2.14.0"></script>
     <script src="forum.js?v=2.9.5"></script>
     <script src="forum_v2.js?v=2.9.5"></script>
 </body>
