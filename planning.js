@@ -191,6 +191,11 @@
             .replaceAll("'", '&#039;');
     }
 
+    function pathIsInCollectorScope(path) {
+        const value = String(path || '').trim();
+        return value === COLLECTOR_SCOPE_PATH || value.startsWith(`${COLLECTOR_SCOPE_PATH} > `);
+    }
+
     function extensionInstallUrl() {
         return EXTENSION_STORE_URL || new URL(EXTENSION_PACKAGE_URL, window.location.href).href;
     }
@@ -458,7 +463,8 @@
                 .eq('active', true)
                 .order('label', { ascending: true });
             if (error) throw error;
-            state.sharedResources = Array.isArray(data) ? data : [];
+            state.sharedResources = (Array.isArray(data) ? data : [])
+                .filter(resource => pathIsInCollectorScope(resource.path));
         } catch (error) {
             state.sharedResources = [];
             console.warn('Catalogue partagé des formations indisponible :', error);
@@ -607,8 +613,7 @@
         return row?.resourceId != null &&
             row.level >= 3 &&
             (row.expanded === null || row.level >= 5) &&
-            (String(row.path || '') === COLLECTOR_SCOPE_PATH ||
-                String(row.path || '').startsWith(`${COLLECTOR_SCOPE_PATH} > `));
+            pathIsInCollectorScope(row.path);
     }
 
     async function refreshCollectorTree() {
