@@ -9,7 +9,7 @@
     const SHARED_RESOURCES_TABLE = 'planning_resources';
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.2.1.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.2.2.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const SLOT_MINUTES = 15;
@@ -19,6 +19,7 @@
     const INSTALL_PROBE_MS = 1500;
     const INSTALL_PROBE_DURATION_MS = 120000;
     const FILTER_KEY_PREFIX = 'planilim-planning-filters-v1:';
+    const COLLECTOR_SCOPE_PATH = 'Groupes Etudiants > Faculté des Sciences et Techniques';
 
     const state = {
         extensionDetected: false,
@@ -203,7 +204,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.2.1.zip';
+        link.download = 'planilim-collector-v4.2.2.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -606,7 +607,8 @@
         return row?.resourceId != null &&
             row.level >= 3 &&
             (row.expanded === null || row.level >= 5) &&
-            String(row.path || '').startsWith('Groupes Etudiants');
+            (String(row.path || '') === COLLECTOR_SCOPE_PATH ||
+                String(row.path || '').startsWith(`${COLLECTOR_SCOPE_PATH} > `));
     }
 
     async function refreshCollectorTree() {
@@ -622,7 +624,13 @@
                 if (status) status.textContent = `Lecture ADE : ${expanded} branches ouvertes…`;
                 const result = await requestExtension('PLANILIM_COLLECTOR_EXPAND_AND_SCAN', {
                     timeout: 180000,
-                    payload: { maxBranches: 3, maxDurationMs: 45000, maxDepth: 5, scopeRoot: 'Groupes Etudiants' }
+                    payload: {
+                        maxBranches: 3,
+                        maxDurationMs: 45000,
+                        maxDepth: 5,
+                        scopeRoot: 'Groupes Etudiants',
+                        scopePath: COLLECTOR_SCOPE_PATH
+                    }
                 });
                 if (!result?.ok) {
                     const failure = new Error(result?.message || result?.code || 'ADE indisponible');
