@@ -8,6 +8,7 @@
     --planning-tp: #f59e0b;
     --planning-exam: #ef4444;
     --planning-other: #14b8a6;
+    --planning-axis-footer: 26px;
 }
 
 .planning-heading { margin-bottom: 1.1rem; }
@@ -415,6 +416,7 @@
     border-radius: 1rem;
     overflow: hidden;
     background: linear-gradient(180deg, rgba(8, 14, 30, .75), rgba(10, 18, 35, .55));
+    padding-bottom: var(--planning-axis-footer);
 }
 .planning-day-time {
     z-index: 2;
@@ -480,15 +482,16 @@
 .planning-time-end-label {
     position: absolute;
     left: 0;
-    bottom: 2px;
+    bottom: 7px;
     z-index: 7;
     width: var(--planning-time-column);
     padding-right: .6rem;
-    color: var(--text-muted, #94a3b8);
+    color: var(--text-soft, #e2e8f0);
     font-size: .72rem;
     font-variant-numeric: tabular-nums;
     text-align: right;
     pointer-events: none;
+    font-weight: 600;
 }
 .planning-day-end-label { width: 58px; padding-right: .55rem; font-size: .69rem; }
 
@@ -513,7 +516,8 @@
 }
 .planning-now-line span {
     position: absolute;
-    right: calc(100% + 7px);
+    left: 9px;
+    right: auto;
     top: 50%;
     transform: translateY(-50%);
     padding: .06rem .25rem;
@@ -547,6 +551,7 @@
     min-width: calc(var(--planning-time-column) + 7 * var(--planning-day-min));
     position: relative;
     isolation: isolate;
+    padding-bottom: var(--planning-axis-footer);
 }
 .planning-week-grid::after {
     content: '';
@@ -739,118 +744,6 @@
     #planning.planning-view-day .planning-day-timeline { max-width: 980px; margin: 0 auto; }
 }
 
-.planning-tutorial-modal {
-    width: min(94vw, 920px);
-    max-height: 90vh;
-    text-align: left;
-}
-
-.planning-tutorial-header {
-    padding-right: 2.4rem;
-    margin-bottom: 1rem;
-}
-
-.planning-tutorial-header h2 {
-    margin: .25rem 0 .35rem;
-    font-size: 1.7rem;
-}
-
-.planning-tutorial-header p {
-    margin: 0;
-    color: var(--text-muted, #94a3b8);
-    line-height: 1.6;
-}
-
-.planning-tutorial-body {
-    display: grid;
-    gap: 1rem;
-    max-height: calc(90vh - 180px);
-    overflow: auto;
-    padding-right: .2rem;
-}
-
-.planning-tutorial-step {
-    display: grid;
-    grid-template-columns: 52px minmax(0, 1fr);
-    gap: 1rem;
-    padding: 1rem;
-    border: 1px solid rgba(148, 163, 184, .14);
-    border-radius: 1rem;
-    background: rgba(15, 23, 42, .36);
-}
-
-.planning-tutorial-step-index {
-    width: 52px;
-    height: 52px;
-    display: grid;
-    place-items: center;
-    border-radius: 16px;
-    font-size: 1.1rem;
-    font-weight: 900;
-    color: var(--accent, #3b82f6);
-    background: color-mix(in srgb, var(--accent, #3b82f6) 14%, transparent);
-    border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 24%, transparent);
-}
-
-.planning-tutorial-step-content h3 {
-    margin: .1rem 0 .45rem;
-    font-size: 1.04rem;
-}
-
-.planning-tutorial-step-content p,
-.planning-tutorial-step-content ul {
-    margin: 0 0 .65rem;
-    color: var(--text-soft, #e2e8f0);
-    line-height: 1.6;
-}
-
-.planning-tutorial-step-content ul {
-    padding-left: 1.1rem;
-}
-
-.planning-tutorial-note {
-    display: flex;
-    align-items: flex-start;
-    gap: .7rem;
-    margin: .65rem 0 .8rem;
-    padding: .78rem .85rem;
-    border-radius: .85rem;
-    background: rgba(59, 130, 246, .07);
-    border: 1px solid rgba(59, 130, 246, .18);
-}
-.planning-tutorial-note > i {
-    margin-top: .15rem;
-    color: var(--accent, #3b82f6);
-}
-.planning-tutorial-note div { display: grid; gap: .12rem; }
-.planning-tutorial-note span {
-    color: var(--text-muted, #94a3b8);
-    font-size: .85rem;
-    line-height: 1.45;
-}
-.planning-tutorial-copy-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .55rem;
-    margin: .55rem 0 .8rem;
-}
-.planning-tutorial-copy-row button { justify-content: center; }
-
-.planning-tutorial-shot {
-    display: grid;
-    place-items: center;
-    min-height: 148px;
-    padding: 1rem;
-    border-radius: .95rem;
-    background: rgba(2, 6, 23, .22);
-    color: var(--text-muted, #94a3b8);
-    text-align: center;
-}
-
-.planning-tutorial-shot.placeholder {
-    border: 1.5px dashed rgba(148, 163, 184, .28);
-}
-
 @media (max-width: 900px) {
     .planning-connect-panel {
         grid-template-columns: auto minmax(0, 1fr);
@@ -928,19 +821,6 @@
     .planning-day-event-title { font-size: .86rem; }
     .planning-day-event-meta { font-size: .64rem; gap: .15rem .55rem; }
 
-    .planning-tutorial-modal { width: 96vw; }
-    .planning-tutorial-header { padding-right: 0; }
-    .planning-tutorial-header h2 { font-size: 1.42rem; }
-    .planning-tutorial-step {
-        grid-template-columns: 1fr;
-        gap: .8rem;
-    }
-    .planning-tutorial-step-index {
-        width: 44px;
-        height: 44px;
-        border-radius: 14px;
-    }
-    .planning-tutorial-shot { min-height: 118px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -978,8 +858,6 @@
     .planning-course-mode { width: 100%; }
     .planning-course-mode-btn { flex: 1 1 140px; }
     .planning-course-filter-list { grid-template-columns: 1fr; max-height: 220px; }
-    .planning-tutorial-copy-row { display: grid; grid-template-columns: 1fr; }
-    .planning-tutorial-copy-row button { width: 100%; }
 }
 
 /* v2.16 — sélections de cours cohérentes avec l’interface */
@@ -1187,5 +1065,212 @@
 @media (max-width: 900px) {
     .planning-clear-btn {
         width: 100%;
+    }
+}
+.planning-resource-panel,
+.planning-collector-panel {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 18px;
+    padding: 20px;
+}
+
+.planning-verification-panel {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+    padding: 20px;
+    border-color: color-mix(in srgb, var(--accent, #3b82f6) 26%, var(--glass-border, rgba(148, 163, 184, .15)));
+    background:
+        radial-gradient(circle at 0 0, color-mix(in srgb, var(--accent, #3b82f6) 12%, transparent), transparent 44%),
+        var(--glass-bg, rgba(15, 23, 42, .72));
+}
+
+.planning-verification-icon {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    color: color-mix(in srgb, var(--accent, #3b82f6) 72%, white 28%);
+    background: color-mix(in srgb, var(--accent, #3b82f6) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent, #3b82f6) 25%, transparent);
+    font-size: 1.2rem;
+}
+
+.planning-verification-copy strong {
+    display: block;
+    margin: 4px 0 5px;
+    color: var(--text-primary, #f8fafc);
+    font-size: 1.05rem;
+}
+
+.planning-verification-copy p,
+.planning-verification-copy small,
+.planning-verification-status {
+    display: block;
+    margin: 0;
+    color: var(--text-muted, #94a3b8);
+    line-height: 1.5;
+}
+
+.planning-verification-copy small { margin-top: 5px; font-size: .73rem; }
+.planning-verification-status { grid-column: 2 / -1; min-height: 1em; font-size: .76rem; }
+.planning-verification-status.error { color: #fca5a5; }
+
+.planning-resource-panel {
+    grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.2fr);
+    align-items: end;
+}
+
+.planning-resource-panel::before {
+    content: '';
+    position: absolute;
+    inset: 16px auto 16px 0;
+    width: 3px;
+    border-radius: 0 999px 999px 0;
+    background: var(--accent, #3b82f6);
+}
+
+.planning-resource-panel { position: relative; overflow: hidden; }
+
+.planning-resource-copy strong,
+.planning-collector-heading h2 {
+    display: block;
+    margin: 4px 0 6px;
+    color: var(--text-primary, #f8fafc);
+    font-size: 1.05rem;
+}
+
+.planning-resource-copy p,
+.planning-collector-heading p,
+.planning-resource-status,
+.planning-collector-status {
+    margin: 0;
+    color: var(--text-muted, #94a3b8);
+    line-height: 1.5;
+}
+
+.planning-resource-field {
+    display: grid;
+    gap: 7px;
+    color: var(--text-muted, #94a3b8);
+    font-size: .78rem;
+    font-weight: 800;
+}
+
+.planning-resource-field select {
+    width: 100%;
+    min-height: 46px;
+    padding: 0 14px;
+    border: 1px solid rgba(148, 163, 184, .2);
+    border-radius: 14px;
+    color: var(--text-primary, #f8fafc);
+    background: rgba(10, 18, 35, .82);
+    font: inherit;
+}
+
+.planning-resource-status {
+    grid-column: 1 / -1;
+    font-size: .78rem;
+}
+
+.planning-collector-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: center;
+}
+
+.planning-collector-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 9px;
+}
+
+.planning-collector-status {
+    padding: 11px 13px;
+    border-radius: 12px;
+    background: rgba(96, 165, 250, .08);
+    border: 1px solid rgba(96, 165, 250, .14);
+    font-size: .8rem;
+}
+
+.planning-collector-resources {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 9px;
+    max-height: 330px;
+    overflow: auto;
+}
+
+.planning-collector-resource {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 11px 12px;
+    border: 1px solid rgba(148, 163, 184, .13);
+    border-radius: 13px;
+    background: rgba(15, 23, 42, .45);
+}
+
+.planning-collector-resource > i {
+    display: grid;
+    place-items: center;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    color: #86efac;
+    background: rgba(34, 197, 94, .11);
+    font-size: .67rem;
+}
+
+.planning-collector-resource strong,
+.planning-collector-resource small {
+    display: block;
+}
+
+.planning-collector-resource small {
+    margin-top: 3px;
+    color: var(--text-muted, #94a3b8);
+    line-height: 1.35;
+}
+
+@media (max-width: 760px) {
+    .planning-verification-panel {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: start;
+    }
+
+    .planning-verification-panel > button,
+    .planning-verification-status {
+        grid-column: 1 / -1;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .planning-resource-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .planning-resource-status {
+        grid-column: auto;
+    }
+
+    .planning-collector-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .planning-collector-actions {
+        justify-content: stretch;
+    }
+
+    .planning-collector-actions button {
+        flex: 1 1 150px;
     }
 }

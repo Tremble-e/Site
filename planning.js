@@ -6,8 +6,10 @@
     const LEGACY_CACHE_KEY = 'planilim-ade-annual-payload-v1';
     const CACHE_KEY_PREFIX = 'planilim-ade-annual-payload-v2:';
     const SUPABASE_TABLE = 'user_planning_cache';
+    const SHARED_RESOURCES_TABLE = 'planning_resources';
+    const PREFERENCES_TABLE = 'user_planning_preferences';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/mon-emploi-du-temps-extension-v3.5.0.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.2.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const SLOT_MINUTES = 15;
@@ -29,6 +31,13 @@
         pending: new Map(),
         initialized: false,
         user: null,
+        isAdmin: false,
+        adeVerified: false,
+        adeVerificationLoading: false,
+        sharedResources: [],
+        selectedResourceId: null,
+        collectorRows: [],
+        lastCollectorPublishSignature: '',
         cloudAvailable: true,
         cloudLoaded: false,
         busy: false,
@@ -63,10 +72,6 @@
 
     function isStandaloneApp() {
         return window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
-    }
-
-    function syncBodyModalState() {
-        document.body.classList.toggle('modal-open', Boolean(document.querySelector('.modal-overlay.active')));
     }
 
     function userCacheKey(userId) {
@@ -198,7 +203,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'mon-emploi-du-temps-extension-v3.5.0.zip';
+        link.download = 'planilim-collector-v4.2.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -206,7 +211,7 @@
         link.remove();
     }
 
-    function requestExtension(type, { timeout = BRIDGE_TIMEOUT } = {}) {
+    function requestExtension(type, { timeout = BRIDGE_TIMEOUT, payload = {} } = {}) {
         return new Promise((resolve, reject) => {
             const requestId = randomId();
             const timer = window.setTimeout(() => {
@@ -215,7 +220,7 @@
             }, timeout);
 
             state.pending.set(requestId, { resolve, reject, timer });
-            window.postMessage({ source: SITE_SOURCE, type, requestId }, window.location.origin);
+            window.postMessage({ source: SITE_SOURCE, type, requestId, ...payload }, window.location.origin);
         });
     }
 
@@ -288,10 +293,241 @@
         return null;
     }
 
+    function resourceDisplayLabel(resource) {
+        const path = String(resource?.path || '')
+            .split(' > ')
+            .filter(part => part && part !== 'Groupes Etudiants')
+            .join(' › ');
+        return path || resource?.label || `Formation ${resource?.resource_id || ''}`;
+    }
+
+    function renderResourceChooser() {
+        const select = byId('planning-resource-select');
+        const status = byId('planning-resource-status');
+        if (!select) return;
+
+        const resources = [...state.sharedResources].sort((left, right) =>
+            resourceDisplayLabel(left).localeCompare(resourceDisplayLabel(right), 'fr')
+        );
+        select.innerHTML = [
+            '<option value="">Choisissez votre filière…</option>',
+            ...resources.map(resource =>
+                `<option value="${escapePlanning(resource.resource_id)}">${escapePlanning(resourceDisplayLabel(resource))}</option>`
+            )
+        ].join('');
+        select.disabled = !resources.length;
+        select.value = state.selectedResourceId || '';
+
+        if (status) {
+            const selected = resources.find(resource => String(resource.resource_id) === String(state.selectedResourceId));
+            status.textContent = selected
+                ? `${selected.event_count || selected.payload?.events?.length || 0} cours disponibles · mise à jour ${selected.updated_at ? new Date(selected.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
+                : resources.length
+                    ? 'Choisissez une formation : l’emploi du temps apparaîtra immédiatement sur tous vos appareils.'
+                    : 'Aucune formation n’a encore été publiée par le collecteur.';
+        }
+    }
+
+    function updatePlanningRoleUi() {
+        const verification = byId('planning-verification-panel');
+        const resourcePanel = byId('planning-resource-panel');
+        const accountMeta = byId('planning-account-meta');
+        const collector = byId('planning-collector-panel');
+        const accessGranted = Boolean(state.user && (state.isAdmin || state.adeVerified));
+        if (verification) verification.hidden = !state.user || state.isAdmin || state.adeVerified;
+        if (resourcePanel) resourcePanel.hidden = !accessGranted;
+        if (accountMeta) accountMeta.hidden = !accessGranted || !state.selectedResourceId;
+        if (collector) collector.hidden = !state.isAdmin;
+        document.querySelectorAll(
+            '#planning > .planning-toolbar, #planning > .planning-filter-panel, #planning > .planning-mobile-panel, #planning > .planning-timetable-shell, #planning > .planning-empty'
+        ).forEach(element => { element.hidden = !accessGranted; });
+    }
+
+    async function detectAdminRole() {
+        const client = getSupabase();
+        if (!client || !state.user) return false;
+        try {
+            const { data, error } = await client.rpc('is_site_admin');
+            if (error) throw error;
+            return data === true;
+        } catch (error) {
+            console.warn('Vérification du collecteur administrateur impossible :', error);
+            return false;
+        }
+    }
+
+    async function loadAdeVerification() {
+        if (!state.user?.id) {
+            state.adeVerified = false;
+            updatePlanningRoleUi();
+            return false;
+        }
+        if (state.isAdmin) {
+            state.adeVerified = true;
+            updatePlanningRoleUi();
+            return true;
+        }
+
+        const client = getSupabase();
+        if (!client) return false;
+        try {
+            const { data, error } = await client
+                .from('ade_verifications')
+                .select('verified_at')
+                .eq('user_id', state.user.id)
+                .maybeSingle();
+            if (error) throw error;
+            state.adeVerified = Boolean(data?.verified_at);
+        } catch (error) {
+            state.adeVerified = false;
+            console.warn('Vérification ADE indisponible :', error);
+        }
+        updatePlanningRoleUi();
+        return state.adeVerified;
+    }
+
+    function consumeAdeVerificationResult() {
+        const url = new URL(window.location.href);
+        const result = url.searchParams.get('ade');
+        if (!result) return;
+        const status = byId('planning-verification-status');
+        if (status) {
+            status.textContent = result === 'verified'
+                ? 'Accès universitaire vérifié. Chargement de vos filières…'
+                : 'La vérification n’a pas abouti. Vous pouvez réessayer sans modifier votre compte.';
+            status.classList.toggle('error', result !== 'verified');
+        }
+        url.searchParams.delete('ade');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash || '#planning'}`);
+    }
+
+    async function beginAdeVerification() {
+        if (!state.user || state.adeVerificationLoading) return;
+        const button = byId('planning-verify-ade');
+        const status = byId('planning-verification-status');
+        state.adeVerificationLoading = true;
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Redirection…';
+        }
+        if (status) {
+            status.textContent = 'Ouverture de la connexion sécurisée de l’Université de Limoges…';
+            status.classList.remove('error');
+        }
+
+        try {
+            const client = getSupabase();
+            if (!client) throw new Error('SUPABASE_UNAVAILABLE');
+            const returnUrl = `${window.location.origin}${window.location.pathname}#planning`;
+            const { data, error } = await client.functions.invoke('verify-ade', {
+                body: { action: 'start', returnUrl }
+            });
+            if (error) throw error;
+            if (data?.code === 'ALREADY_VERIFIED') {
+                state.adeVerified = true;
+                updatePlanningRoleUi();
+                await loadCloudPayload();
+                renderWeek();
+                return;
+            }
+            if (!data?.url) throw new Error(data?.code || 'CAS_REDIRECT_MISSING');
+            window.location.assign(data.url);
+        } catch (error) {
+            console.error('Vérification ADE impossible :', error);
+            if (status) {
+                status.textContent = 'La vérification universitaire est momentanément indisponible. Réessayez dans quelques instants.';
+                status.classList.add('error');
+            }
+        } finally {
+            state.adeVerificationLoading = false;
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i> Vérifier avec l’Université';
+            }
+        }
+    }
+
+    async function loadSharedResources() {
+        const client = getSupabase();
+        if (!client || !state.user || (!state.isAdmin && !state.adeVerified)) return [];
+        try {
+            const { data, error } = await client
+                .from(SHARED_RESOURCES_TABLE)
+                .select('resource_id,label,path,academic_year,event_count,week_count,payload,source_updated_at,updated_at')
+                .eq('active', true)
+                .order('label', { ascending: true });
+            if (error) throw error;
+            state.sharedResources = Array.isArray(data) ? data : [];
+        } catch (error) {
+            state.sharedResources = [];
+            console.warn('Catalogue partagé des formations indisponible :', error);
+        }
+        renderResourceChooser();
+        return state.sharedResources;
+    }
+
+    async function loadPlanningPreference() {
+        const client = getSupabase();
+        if (!client || !state.user?.id || (!state.isAdmin && !state.adeVerified)) return null;
+        try {
+            const { data, error } = await client
+                .from(PREFERENCES_TABLE)
+                .select('resource_id')
+                .eq('user_id', state.user.id)
+                .maybeSingle();
+            if (error) throw error;
+            state.selectedResourceId = data?.resource_id || null;
+        } catch (error) {
+            console.warn('Préférence de formation indisponible :', error);
+        }
+        renderResourceChooser();
+        return state.selectedResourceId;
+    }
+
+    function useSelectedSharedPayload() {
+        const selected = state.sharedResources.find(resource =>
+            String(resource.resource_id) === String(state.selectedResourceId)
+        );
+        if (!selected?.payload?.events || !Array.isArray(selected.payload.events)) return null;
+        saveLocalPayload(selected.payload);
+        state.cloudAvailable = true;
+        state.cloudLoaded = true;
+        ensureCurrentWeek();
+        renderPlanningFilters(true);
+        renderWeek();
+        renderResourceChooser();
+        return selected.payload;
+    }
+
+    async function savePlanningPreference(resourceId) {
+        if (!state.user?.id || !resourceId || (!state.isAdmin && !state.adeVerified)) return false;
+        const client = getSupabase();
+        if (!client) return false;
+        try {
+            const { error } = await client.from(PREFERENCES_TABLE).upsert({
+                user_id: state.user.id,
+                resource_id: String(resourceId),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+            if (error) throw error;
+            state.selectedResourceId = String(resourceId);
+            useSelectedSharedPayload();
+            return true;
+        } catch (error) {
+            console.warn('Enregistrement de la formation impossible :', error);
+            return false;
+        }
+    }
+
     async function loadCloudPayload() {
-        if (!state.user?.id) return null;
+        if (!state.user?.id || (!state.isAdmin && !state.adeVerified)) return null;
         const client = getSupabase();
         if (!client) return null;
+
+        if (!state.sharedResources.length) await loadSharedResources();
+        await loadPlanningPreference();
+        const sharedPayload = useSelectedSharedPayload();
+        if (sharedPayload) return sharedPayload;
 
         try {
             const { data, error } = await client
@@ -348,6 +584,191 @@
             updateConnectionUi();
             return false;
         }
+    }
+
+    function renderCollectorRows() {
+        const container = byId('planning-collector-resources');
+        if (!container) return;
+
+        const rows = state.collectorRows.filter(isCollectorTarget);
+        container.innerHTML = rows.length ? rows.map(row => `
+            <article class="planning-collector-resource">
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+                <span>
+                    <strong>${escapePlanning(row.label || `Planning ${row.resourceId}`)}</strong>
+                    <small>${escapePlanning(row.path || '')}</small>
+                </span>
+            </article>
+        `).join('') : '';
+    }
+
+    function isCollectorTarget(row) {
+        return row?.resourceId != null &&
+            row.level >= 3 &&
+            (row.expanded === null || row.level >= 5) &&
+            String(row.path || '').startsWith('Groupes Etudiants');
+    }
+
+    async function refreshCollectorTree() {
+        if (!state.isAdmin || state.busy) return { ok: false, code: 'BUSY' };
+        const status = byId('planning-collector-status');
+        let expanded = 0;
+        let batch = 0;
+        let complete = false;
+        setLoading(true, 'Lecture du catalogue ADE…', 'Les filières sont ouvertes par petits lots pour rester fiables même lorsque ADE ralentit.');
+        try {
+            while (batch < 140) {
+                batch += 1;
+                if (status) status.textContent = `Lecture ADE : ${expanded} branches ouvertes…`;
+                const result = await requestExtension('PLANILIM_COLLECTOR_EXPAND_AND_SCAN', {
+                    timeout: 90000,
+                    payload: { maxBranches: 3, maxDurationMs: 45000, maxDepth: 5, scopeRoot: 'Groupes Etudiants' }
+                });
+                if (!result?.ok) {
+                    const failure = new Error(result?.message || result?.code || 'ADE indisponible');
+                    failure.code = result?.code || 'ADE_UNAVAILABLE';
+                    throw failure;
+                }
+                state.extensionDetected = true;
+                expanded += Number(result.expandedCount || 0);
+                state.collectorRows = (Array.isArray(result.rows) ? result.rows : []).map(row =>
+                    isCollectorTarget(row) ? { ...row, selected: true } : row
+                );
+                renderCollectorRows();
+                if (!result.truncated) {
+                    complete = true;
+                    break;
+                }
+                await new Promise(resolve => window.setTimeout(resolve, 120));
+            }
+
+            const count = state.collectorRows.filter(isCollectorTarget).length;
+            if (status) {
+                status.textContent = complete
+                    ? `${count} filière${count > 1 ? 's' : ''} détectée${count > 1 ? 's' : ''}. La récupération des cours va commencer.`
+                    : `${count} filière${count > 1 ? 's' : ''} détectée${count > 1 ? 's' : ''}. La lecture reprendra automatiquement.`;
+            }
+            return { ok: count > 0, complete, count };
+        } catch (error) {
+            renderCollectorRows();
+            const authRequired = ['AUTH_REQUIRED', 'ADE_NOT_OPEN'].includes(error?.code);
+            if (authRequired) {
+                sessionStorage.setItem('planilim-admin-collector-resume', '1');
+                if (status) status.textContent = 'Connecte-toi dans ADE. Reviens ensuite sur Planilim : la synchronisation reprendra automatiquement.';
+                try { await requestExtension('PLANILIM_ADE_CONNECT', { timeout: 20000 }); } catch {}
+            } else if (status) {
+                status.textContent = state.collectorRows.length
+                    ? 'La lecture a été interrompue. Les filières déjà trouvées sont conservées ; relance pour reprendre.'
+                    : 'Le collecteur n’a pas pu lire ADE. Réessaie dans quelques instants.';
+            }
+            return { ok: false, code: error?.code || 'CATALOG_FAILED', authRequired };
+        } finally {
+            setLoading(false);
+            renderCollectorRows();
+        }
+    }
+
+    async function publishCollectorPayloads(onlyResourceId = null) {
+        if (!state.isAdmin) return { ok: false, code: 'ADMIN_REQUIRED' };
+        const client = getSupabase();
+        if (!client) return { ok: false, code: 'SUPABASE_UNAVAILABLE' };
+
+        const result = await requestExtension('PLANILIM_COLLECTOR_PAYLOADS', { timeout: 20000 });
+        const resources = (Array.isArray(result?.resources) ? result.resources : [])
+            .filter(item => onlyResourceId == null || Number(item.resourceId) === Number(onlyResourceId));
+        if (!resources.length) return { ok: false, code: 'NO_COLLECTOR_PAYLOADS' };
+
+        const rows = resources.map(item => ({
+            resource_id: String(item.resourceId),
+            label: item.label || `Planning ${item.resourceId}`,
+            path: item.path || null,
+            academic_year: item.academicYear || item.payload?.academicYear || null,
+            event_count: item.eventCount ?? item.payload?.events?.length ?? 0,
+            week_count: item.weekCount ?? item.payload?.weekCount ?? 0,
+            payload: item.payload,
+            active: true,
+            source_updated_at: item.payload?.generatedAt || item.updatedAt || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        })).filter(item => item.payload?.events && Array.isArray(item.payload.events));
+
+        const { error } = await client.from(SHARED_RESOURCES_TABLE).upsert(rows, {
+            onConflict: 'resource_id'
+        });
+        if (error) throw error;
+        return { ok: true, code: 'COLLECTOR_PUBLISHED', count: rows.length };
+    }
+
+    async function syncCollectorResources() {
+        if (!state.isAdmin || state.busy) return;
+        const targets = state.collectorRows.filter(isCollectorTarget);
+        if (!targets.length) return;
+
+        const status = byId('planning-collector-status');
+        setLoading(true, 'Collecte ADE en cours…', `${targets.length} emploi${targets.length > 1 ? 's' : ''} du temps en cours de synchronisation.`);
+        if (status) status.textContent = 'Garde ADE ouvert. Chaque filière terminée est publiée immédiatement.';
+        try {
+            let successCount = 0;
+            for (let index = 0; index < targets.length; index += 1) {
+                const target = targets[index];
+                if (status) {
+                    status.textContent = `Synchronisation ${index + 1}/${targets.length} : ${target.label || 'emploi du temps'}…`;
+                }
+                const sync = await requestExtension('PLANILIM_COLLECTOR_SYNC_RESOURCE', {
+                    timeout: SYNC_TIMEOUT,
+                    payload: { target }
+                });
+                if (sync?.ok) {
+                    await publishCollectorPayloads(target.resourceId);
+                    successCount += 1;
+                }
+                if (sync?.code === 'AUTH_REQUIRED') break;
+            }
+            await loadSharedResources();
+            if (status) {
+                status.textContent = successCount === targets.length
+                    ? `${successCount} emploi${successCount > 1 ? 's' : ''} du temps publié${successCount > 1 ? 's' : ''}. Tu peux fermer ADE.`
+                    : `${successCount} sur ${targets.length} emplois du temps ont été publiés. Relance pour terminer.`;
+            }
+            return { ok: successCount === targets.length, successCount, total: targets.length };
+        } catch (error) {
+            console.error('Collecte ADE impossible :', error);
+            if (status) status.textContent = 'La collecte a été interrompue. Les emplois du temps déjà terminés sont conservés.';
+            return { ok: false, code: error?.message || 'SYNC_FAILED' };
+        } finally {
+            setLoading(false);
+            renderCollectorRows();
+        }
+    }
+
+    function isMobileDevice() {
+        return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+    }
+
+    async function runAdminCollector() {
+        if (!state.isAdmin || state.busy) return;
+        const status = byId('planning-collector-status');
+        const button = byId('planning-collector-run');
+        if (button) button.disabled = true;
+
+        if (!state.extensionDetected) {
+            await requestStatusAndPayload({ persistIfCloudEmpty: true });
+        }
+        if (!state.extensionDetected) {
+            if (isMobileDevice()) {
+                if (status) status.textContent = 'Ouverture du collecteur Planilim sur ce téléphone…';
+                window.location.href = 'planilim-collector://sync';
+            } else {
+                if (status) status.textContent = 'Le collecteur PC n’est pas détecté. Installe-le puis relance ce bouton.';
+                launchExtensionInstall();
+            }
+            if (button) button.disabled = false;
+            return;
+        }
+
+        sessionStorage.removeItem('planilim-admin-collector-resume');
+        const catalog = await refreshCollectorTree();
+        if (catalog?.ok) await syncCollectorResources();
+        if (button) button.disabled = false;
     }
 
     async function clearCloudPayload() {
@@ -462,122 +883,29 @@
     }
 
     function updateConnectionUi() {
-        const title = byId('planning-connection-title');
-        const detail = byId('planning-connection-detail');
-        const button = byId('planning-primary-action');
         const cloud = byId('planning-cloud-status');
         const lastSync = byId('planning-last-sync');
         const count = byId('planning-course-count');
-        const authWarning = byId('planning-auth-warning');
-        const clearButton = byId('planning-clear-data');
-        if (!title || !button) return;
-
-        const cache = state.status?.academicSyncCacheSummary || null;
-        const sync = syncState();
-        const setupState = state.status?.v3?.setupState?.state || '';
-        const syncStateName = sync?.state || '';
-        const configured = isConfigured();
-        const authRequired = syncStateName === 'auth_required' || cache?.authRequired;
-        const running = state.busy || ['bootstrapping', 'syncing_initial_year'].includes(setupState) ||
-            ['syncing', 'preparing_fresh_base', 'running'].includes(syncStateName);
-
-        if (authWarning) authWarning.hidden = !authRequired;
-        if (clearButton) {
-            const hasSomethingToClear = Boolean(
-                state.payload ||
-                state.cloudLoaded ||
-                configured ||
-                cache?.updatedAt ||
-                setupState
-            );
-            clearButton.hidden = !hasSomethingToClear;
-            clearButton.disabled = running || state.busy;
-        }
-
-        if (!state.extensionDetected) {
-            if (state.waitingForInstall) {
-                title.textContent = 'Détection de l’extension en cours';
-                detail.textContent = 'Installez l’extension dans votre navigateur puis revenez ici : la détection se fera automatiquement.';
-                button.innerHTML = '<i class="fa-solid fa-rotate"></i> Revérifier maintenant';
-                button.dataset.action = 'probe';
-                button.disabled = false;
-            } else {
-                title.textContent = 'Extension de synchronisation requise';
-                detail.textContent = state.payload
-                    ? 'Votre emploi du temps reste disponible. Installez l’extension pour le mettre à jour.'
-                    : 'Installez l’extension pour connecter votre emploi du temps.';
-                if (isStandaloneApp()) detail.textContent += ' La détection reprend automatiquement après installation.';
-                button.innerHTML = '<i class="fa-solid fa-puzzle-piece"></i> Télécharger l’extension';
-                button.dataset.action = 'install';
-                button.disabled = false;
-            }
-        } else if (running) {
-            title.textContent = 'Synchronisation en cours';
-            detail.textContent = 'Récupération de l’année universitaire en cours. Gardez ADE ouvert jusqu’à la fin.';
-            button.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i> Synchronisation…';
-            button.dataset.action = 'busy';
-            button.disabled = true;
-        } else if (authRequired) {
-            title.textContent = 'Reconnexion nécessaire';
-            detail.textContent = 'Votre session universitaire a expiré. Reconnectez-vous puis affichez le planning souhaité.';
-            button.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se reconnecter';
-            button.dataset.action = 'connect';
-            button.disabled = false;
-        } else if (setupState === 'ade_closed' || (['waiting_for_ade', 'waiting_for_login', 'detected'].includes(setupState) && state.status?.selectedAdeOpen === false)) {
-            title.textContent = 'ADE fermé';
-            detail.textContent = 'ADE a été fermé avant la validation. La sélection a été annulée.';
-            button.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Recommencer';
-            button.dataset.action = 'connect';
-            button.disabled = false;
-        } else if (['waiting_for_ade', 'waiting_for_login'].includes(setupState)) {
-            title.textContent = 'En attente de votre emploi du temps';
-            detail.textContent = 'Connectez-vous si nécessaire puis affichez l’emploi du temps que vous souhaitez synchroniser. Rien ne changera avant votre validation.';
-            button.innerHTML = '<i class="fa-regular fa-hourglass-half"></i> En attente de l’emploi du temps…';
-            button.dataset.action = 'busy';
-            button.disabled = true;
-        } else if (setupState === 'detected') {
-            const setup = state.status?.v3?.setupState || {};
-            const planningInfo = setup.planningLabel || (setup.resourceId != null ? `Emploi du temps #${setup.resourceId}` : 'Emploi du temps détecté');
-            title.textContent = 'Emploi du temps détecté';
-            detail.textContent = `${planningInfo} est affiché. Vérifiez qu’il s’agit du bon emploi du temps avant de continuer.`;
-            button.innerHTML = '<i class="fa-solid fa-check"></i> Valider et synchroniser';
-            button.dataset.action = 'sync';
-            button.disabled = false;
-        } else if (!configured) {
-            title.textContent = 'Choisir mon emploi du temps';
-            detail.textContent = 'Ouvrez ADE, connectez-vous si nécessaire puis affichez l’emploi du temps que vous souhaitez utiliser.';
-            button.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Choisir mon emploi du temps';
-            button.dataset.action = 'connect';
-            button.disabled = false;
-        } else if (cache?.updatedAt) {
-            title.textContent = 'Emploi du temps synchronisé';
-            detail.textContent = `${cache?.eventCount ?? state.payload?.events?.length ?? 0} cours sont disponibles. Vous pouvez fermer ADE.`;
-            button.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Synchroniser à nouveau';
-            button.dataset.action = 'sync';
-            button.disabled = false;
-        } else {
-            const planningInfo = state.status?.profile?.planningLabel || (state.status?.profile?.resourceId != null ? `Emploi du temps #${state.status.profile.resourceId}` : 'Emploi du temps détecté');
-            title.textContent = 'Emploi du temps détecté';
-            detail.textContent = `${planningInfo} est prêt. Vérifiez-le puis lancez la synchronisation.`;
-            button.innerHTML = '<i class="fa-solid fa-check"></i> Valider et synchroniser';
-            button.dataset.action = 'sync';
-            button.disabled = false;
-        }
-
+        const selected = state.sharedResources.find(resource =>
+            String(resource.resource_id) === String(state.selectedResourceId)
+        );
         if (count) count.textContent = `${state.payload?.eventCount ?? state.payload?.events?.length ?? 0} cours`;
         if (lastSync) {
-            const value = cache?.updatedAt || state.payload?.generatedAt || null;
+            const value = selected?.updated_at || selected?.source_updated_at || state.payload?.generatedAt || null;
             lastSync.textContent = value
                 ? `Mis à jour ${new Date(value).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
-                : 'Jamais synchronisé';
+                : 'Aucune mise à jour';
         }
         if (cloud) {
             cloud.hidden = true;
             cloud.textContent = '';
         }
+        const collectorButton = byId('planning-collector-run');
+        if (collectorButton) collectorButton.disabled = state.busy;
+        updatePlanningRoleUi();
     }
 
-    function setLoading(active, title = 'Synchronisation en cours…', detail = 'La synchronisation est gérée directement par l’extension.') {
+    function setLoading(active, title = 'Chargement en cours…', detail = 'Veuillez patienter quelques instants.') {
         state.busy = active;
         const box = byId('planning-loading');
         if (box) {
@@ -592,6 +920,11 @@
 
     async function requestStatusAndPayload({ persistIfCloudEmpty = false } = {}) {
         if (!state.user) return null;
+        if (!state.isAdmin) {
+            updatePlanningRoleUi();
+            renderResourceChooser();
+            return null;
+        }
         if (state.bridgeProbePromise) return state.bridgeProbePromise;
 
         state.bridgeProbePromise = (async () => {
@@ -599,6 +932,19 @@
                 state.status = await requestExtension('PLANILIM_ADE_STATUS');
                 state.extensionDetected = true;
                 state.extensionVersion = state.status?.extensionVersion || state.extensionVersion;
+
+                const collectorResources = state.status?.collector?.resources || [];
+                const publishSignature = collectorResources
+                    .map(item => `${item.resourceId}:${item.updatedAt || ''}:${item.eventCount || 0}`)
+                    .sort()
+                    .join('|');
+                if (state.isAdmin && publishSignature && publishSignature !== state.lastCollectorPublishSignature) {
+                    const published = await publishCollectorPayloads();
+                    if (published?.ok) {
+                        state.lastCollectorPublishSignature = publishSignature;
+                        await loadSharedResources();
+                    }
+                }
             } catch {
                 state.extensionDetected = false;
                 state.status = null;
@@ -1243,19 +1589,6 @@
         else await connectAde();
     }
 
-    function openTutorial() {
-        const modal = byId('planning-tutorial-modal');
-        if (!modal) return;
-        modal.classList.add('active');
-        syncBodyModalState();
-        byId('planning-tutorial-close')?.focus();
-    }
-
-    function closeTutorial() {
-        byId('planning-tutorial-modal')?.classList.remove('active');
-        syncBodyModalState();
-    }
-
     function setPlanningAccess(user) {
         state.user = user || null;
         const navButton = document.querySelector('.nav-btn[data-target="planning"]');
@@ -1263,6 +1596,11 @@
         if (navItem) navItem.hidden = !state.user;
 
         if (!state.user) {
+            state.isAdmin = false;
+            state.adeVerified = false;
+            state.sharedResources = [];
+            state.selectedResourceId = null;
+            state.collectorRows = [];
             state.payload = null;
             state.cloudLoaded = false;
             state.currentWeekStart = null;
@@ -1270,13 +1608,18 @@
             state.filters = { kinds: { cm: true, td: true, tp: true, exam: true, other: true }, selectedCourses: new Set(), courseMode: 'hide', excludedEvents: new Set(), showExcludedEvents: false };
             state.filterCatalogSignature = '';
             stopInstallProbe();
+            updatePlanningRoleUi();
+            renderResourceChooser();
             if (byId('planning')?.classList.contains('active')) {
                 document.querySelector('.nav-btn[data-target="about"]')?.click();
             }
             return;
         }
 
-        state.payload = loadLocalPayload(state.user.id);
+        // Aucun cache de planning n'est chargé avant la validation universitaire.
+        // Cela empêche un ancien cache local de contourner la première vérification ADE.
+        state.payload = null;
+        consumeAdeVerificationResult();
         loadPlanningFilters();
         renderPlanningFilters(true);
         if (window.location.hash === '#planning' && !byId('planning')?.classList.contains('active')) {
@@ -1287,30 +1630,38 @@
     async function onAccountChanged(user) {
         setPlanningAccess(user);
         if (!state.user) return;
-        await loadCloudPayload();
+        state.isAdmin = await detectAdminRole();
+        await loadAdeVerification();
+        updatePlanningRoleUi();
+        if (state.isAdmin || state.adeVerified) {
+            state.payload = loadLocalPayload(state.user.id);
+            await loadCloudPayload();
+        }
         ensureCurrentWeek();
         renderWeek();
         updateConnectionUi();
-        await requestStatusAndPayload({ persistIfCloudEmpty: true });
+        if (state.isAdmin) await requestStatusAndPayload({ persistIfCloudEmpty: true });
     }
 
     function bindControls() {
+        byId('planning-verify-ade')?.addEventListener('click', beginAdeVerification);
+        byId('planning-resource-select')?.addEventListener('change', async event => {
+            const resourceId = event.target.value || '';
+            if (!resourceId) return;
+            event.target.disabled = true;
+            await savePlanningPreference(resourceId);
+            event.target.disabled = false;
+            ensureCurrentWeek();
+            renderWeek();
+            updateConnectionUi();
+        });
+        byId('planning-collector-run')?.addEventListener('click', runAdminCollector);
         byId('planning-prev-week')?.addEventListener('click', () => moveWeek(-1));
         byId('planning-next-week')?.addEventListener('click', () => moveWeek(1));
         byId('planning-today')?.addEventListener('click', () => {
             state.currentWeekStart = mondayOf(new Date());
             state.mobileSelectedDate = toIsoDate(new Date());
             renderWeek();
-        });
-        byId('planning-primary-action')?.addEventListener('click', primaryAction);
-        byId('planning-open-tutorial')?.addEventListener('click', openTutorial);
-        byId('planning-clear-data')?.addEventListener('click', clearPlanningCompletely);
-        byId('planning-tutorial-close')?.addEventListener('click', closeTutorial);
-        byId('planning-tutorial-modal')?.addEventListener('click', event => {
-            if (event.target === event.currentTarget) closeTutorial();
-        });
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && byId('planning-tutorial-modal')?.classList.contains('active')) closeTutorial();
         });
         byId('planning-mobile-day-tabs')?.addEventListener('click', event => {
             const button = event.target.closest('.planning-mobile-day');
@@ -1402,26 +1753,14 @@
             }, 140);
         });
 
-        document.querySelectorAll('[data-copy-extension-url]').forEach(button => {
-            button.addEventListener('click', async () => {
-                const value = button.dataset.copyExtensionUrl || '';
-                if (!value) return;
-                const original = button.innerHTML;
-                try {
-                    await navigator.clipboard.writeText(value);
-                    button.innerHTML = '<i class="fa-solid fa-check"></i> Copié';
-                } catch {
-                    window.prompt('Copiez cette adresse :', value);
-                }
-                window.setTimeout(() => { button.innerHTML = original; }, 1600);
-            });
-        });
-
-        const refreshFromFocus = () => {
+        const refreshFromFocus = async () => {
             if (!state.user) return;
             if (document.visibilityState === 'hidden') return;
             if (!isPlanningActive() && !state.waitingForInstall) return;
-            requestStatusAndPayload({ persistIfCloudEmpty: true }).catch(() => {});
+            await requestStatusAndPayload({ persistIfCloudEmpty: true }).catch(() => {});
+            if (state.isAdmin && sessionStorage.getItem('planilim-admin-collector-resume') === '1' && !state.busy) {
+                await runAdminCollector();
+            }
         };
 
         window.addEventListener('focus', refreshFromFocus);
@@ -1447,11 +1786,17 @@
         setPlanningAccess(user);
 
         if (state.user) {
-            await loadCloudPayload();
+            state.isAdmin = await detectAdminRole();
+            await loadAdeVerification();
+            updatePlanningRoleUi();
+            if (state.isAdmin || state.adeVerified) {
+                state.payload = loadLocalPayload(state.user.id);
+                await loadCloudPayload();
+            }
             ensureCurrentWeek();
             renderWeek();
             updateConnectionUi();
-            await requestStatusAndPayload({ persistIfCloudEmpty: true });
+            if (state.isAdmin) await requestStatusAndPayload({ persistIfCloudEmpty: true });
         }
 
         window.setInterval(() => {
@@ -1477,7 +1822,6 @@
     window.planilimPlanning = {
         refresh: requestStatusAndPayload,
         render: renderWeek,
-        onAccountChanged,
-        openTutorial
+        onAccountChanged
     };
 })();

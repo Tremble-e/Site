@@ -1,0 +1,2 @@
+[functions.verify-ade]
+verify_jwt = false
