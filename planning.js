@@ -8,8 +8,9 @@
     const SUPABASE_TABLE = 'user_planning_cache';
     const SHARED_RESOURCES_TABLE = 'planning_resources';
     const PREFERENCES_TABLE = 'user_planning_preferences';
+    const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.2.8.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.3.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -212,7 +213,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.2.8.zip';
+        link.download = 'planilim-collector-v4.3.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -310,31 +311,175 @@
         return path || resource?.label || `Formation ${resource?.resource_id || ''}`;
     }
 
-    function renderResourceChooser() {
-        const select = byId('planning-resource-select');
-        const status = byId('planning-resource-status');
-        if (!select) return;
+    function resourceHierarchy(resource) {
+        const parts = String(resource?.path || '')
+            .split('>')
+            .map(part => part.trim())
+            .filter(Boolean);
+        const semesterIndex = parts.findLastIndex
+            ? parts.findLastIndex(part => /^(?:AN|Semestre\s+\d+|S\d+)$/i.test(part))
+            : (() => {
+                for (let i = parts.length - 1; i >= 0; i -= 1) {
+                    if (/^(?:AN|Semestre\s+\d+|S\d+)$/i.test(parts[i])) return i;
+                }
+                return -1;
+            })();
 
-        const resources = [...state.sharedResources].sort((left, right) =>
-            resourceDisplayLabel(left).localeCompare(resourceDisplayLabel(right), 'fr')
-        );
+        let formationIndex = -1;
+        let year = '';
+        let speciality = '';
+        for (let i = semesterIndex >= 0 ? semesterIndex - 1 : parts.length - 1; i >= 0; i -= 1) {
+            const match = parts[i].match(/^(L[123]|M[12]|BUT\s*[123])\b\s*[-–—:]?\s*(.*)$/i);
+            if (!match) continue;
+            formationIndex = i;
+            year = match[1].toUpperCase().replace(/\s+/g, ' ');
+            speciality = String(match[2] || '').trim() || parts[i];
+            break;
+        }
+
+        if (!year) {
+            const fallback = parts.filter(part =>
+                !/^Groupes Etudiants$/i.test(part) &&
+                !/^Faculté des Sciences et Techniques$/i.test(part) &&
+                !/^(?:ANNEE CONSOLIDATION UNIVERSITE|MASTER \(LMD\)|LICENCE.*|FORMATIONS?)$/i.test(part) &&
+                !/^(?:AN|Semestre\s+\d+|S\d+)$/i.test(part)
+            );
+            const candidate = fallback[0] || resource?.label || 'Autre';
+            year = candidate;
+            speciality = fallback[1] || candidate;
+            formationIndex = parts.indexOf(candidate);
+        }
+
+        const semester = semesterIndex >= 0 ? parts[semesterIndex] : 'Année complète';
+        const afterSemester = semesterIndex >= 0 ? parts.slice(semesterIndex + 1) : [];
+        const group = afterSemester.join(' › ');
+
+        return {
+            year,
+            speciality: speciality || resource?.label || 'Formation',
+            semester,
+            group,
+            formationIndex,
+            semesterIndex
+        };
+    }
+
+    function hierarchySort(values) {
+        const order = new Map([['L1', 1], ['L2', 2], ['L3', 3], ['M1', 4], ['M2', 5], ['BUT 1', 6], ['BUT 2', 7], ['BUT 3', 8]]);
+        return [...new Set(values.filter(Boolean))].sort((a, b) => {
+            const oa = order.get(a) ?? 999;
+            const ob = order.get(b) ?? 999;
+            return oa - ob || String(a).localeCompare(String(b), 'fr', { numeric: true });
+        });
+    }
+
+    function setSelectOptions(select, placeholder, values, selectedValue = '') {
+        if (!select) return;
         select.innerHTML = [
-            '<option value="">Choisissez votre filière…</option>',
-            ...resources.map(resource =>
-                `<option value="${escapePlanning(resource.resource_id)}">${escapePlanning(resourceDisplayLabel(resource))}</option>`
-            )
+            `<option value="">${escapePlanning(placeholder)}</option>`,
+            ...values.map(value => `<option value="${escapePlanning(value)}">${escapePlanning(value)}</option>`)
         ].join('');
-        select.disabled = !resources.length;
-        select.value = state.selectedResourceId || '';
+        select.disabled = values.length === 0;
+        if (selectedValue && values.includes(selectedValue)) select.value = selectedValue;
+    }
+
+    function hierarchyResources() {
+        return state.sharedResources.map(resource => ({ resource, hierarchy: resourceHierarchy(resource) }));
+    }
+
+    function hierarchyCandidates({ year = '', speciality = '', semester = '' } = {}) {
+        return hierarchyResources().filter(item =>
+            (!year || item.hierarchy.year === year) &&
+            (!speciality || item.hierarchy.speciality === speciality) &&
+            (!semester || item.hierarchy.semester === semester)
+        );
+    }
+
+    function selectedHierarchy() {
+        const selected = state.sharedResources.find(resource =>
+            String(resource.resource_id) === String(state.selectedResourceId)
+        );
+        return selected ? resourceHierarchy(selected) : null;
+    }
+
+    function renderResourceChooser() {
+        const yearSelect = byId('planning-resource-year');
+        const specialitySelect = byId('planning-resource-speciality');
+        const semesterSelect = byId('planning-resource-semester');
+        const groupSelect = byId('planning-resource-group');
+        const groupField = byId('planning-resource-group-field');
+        const status = byId('planning-resource-status');
+        if (!yearSelect || !specialitySelect || !semesterSelect) return;
+
+        const resources = hierarchyResources();
+        const selected = selectedHierarchy();
+        const requestedYear = yearSelect.dataset.touched === '1' ? yearSelect.value : (selected?.year || yearSelect.value);
+        const years = hierarchySort(resources.map(item => item.hierarchy.year));
+        const year = years.includes(requestedYear) ? requestedYear : '';
+        setSelectOptions(yearSelect, 'Choisissez votre année…', years, year);
+
+        const requestedSpeciality = specialitySelect.dataset.touched === '1' ? specialitySelect.value : (selected?.speciality || specialitySelect.value);
+        const specialities = hierarchySort(hierarchyCandidates({ year }).map(item => item.hierarchy.speciality));
+        const speciality = specialities.includes(requestedSpeciality) ? requestedSpeciality : '';
+        setSelectOptions(specialitySelect, year ? 'Choisissez votre spécialité…' : 'Choisissez d’abord votre année…', specialities, speciality);
+
+        const requestedSemester = semesterSelect.dataset.touched === '1' ? semesterSelect.value : (selected?.semester || semesterSelect.value);
+        const semesters = hierarchySort(hierarchyCandidates({ year, speciality }).map(item => item.hierarchy.semester));
+        const semester = semesters.includes(requestedSemester) ? requestedSemester : '';
+        setSelectOptions(semesterSelect, speciality ? 'Choisissez votre semestre…' : 'Choisissez d’abord votre spécialité…', semesters, semester);
+
+        const candidates = hierarchyCandidates({ year, speciality, semester });
+        if (groupField && groupSelect) {
+            const needsGroup = Boolean(year && speciality && semester && candidates.length > 1);
+            groupField.hidden = !needsGroup;
+            if (needsGroup) {
+                const groupOptions = candidates.map(item => ({
+                    value: String(item.resource.resource_id),
+                    label: item.hierarchy.group || item.resource.label || `Groupe ${item.resource.resource_id}`
+                }));
+                groupSelect.innerHTML = [
+                    '<option value="">Choisissez votre groupe…</option>',
+                    ...groupOptions.map(item => `<option value="${escapePlanning(item.value)}">${escapePlanning(item.label)}</option>`)
+                ].join('');
+                groupSelect.disabled = false;
+                if (state.selectedResourceId && groupOptions.some(item => item.value === String(state.selectedResourceId))) {
+                    groupSelect.value = String(state.selectedResourceId);
+                }
+            } else {
+                groupSelect.innerHTML = '<option value="">Aucun groupe supplémentaire</option>';
+                groupSelect.disabled = true;
+            }
+        }
 
         if (status) {
-            const selected = resources.find(resource => String(resource.resource_id) === String(state.selectedResourceId));
-            status.textContent = selected
-                ? `${selected.event_count || selected.payload?.events?.length || 0} cours disponibles · mise à jour ${selected.updated_at ? new Date(selected.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
+            const selectedResource = state.sharedResources.find(resource => String(resource.resource_id) === String(state.selectedResourceId));
+            status.textContent = selectedResource
+                ? `${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
                 : resources.length
-                    ? 'Choisissez une formation : l’emploi du temps apparaîtra immédiatement sur tous vos appareils.'
+                    ? 'Choisissez votre année, votre spécialité puis votre semestre.'
                     : 'Aucune formation n’a encore été publiée par le collecteur.';
         }
+    }
+
+    function resetHierarchyAfter(select, ids) {
+        for (const id of ids) {
+            const el = byId(id);
+            if (!el) continue;
+            el.dataset.touched = '0';
+            el.value = '';
+        }
+        select.dataset.touched = '1';
+    }
+
+    async function chooseHierarchyResource() {
+        const year = byId('planning-resource-year')?.value || '';
+        const speciality = byId('planning-resource-speciality')?.value || '';
+        const semester = byId('planning-resource-semester')?.value || '';
+        if (!year || !speciality || !semester) return false;
+        const candidates = hierarchyCandidates({ year, speciality, semester });
+        if (candidates.length !== 1) return false;
+        await savePlanningPreference(candidates[0].resource.resource_id);
+        return true;
     }
 
     function updatePlanningRoleUi() {
@@ -600,7 +745,12 @@
         return state.user?.id ? `planilim-collector-failures-v1:${state.user.id}` : null;
     }
 
-    function loadCollectorFailures() {
+    function collectorFailureKey(item) {
+        if (item?.resourceId != null) return `resource:${item.resourceId}`;
+        return `path:${item?.path || ''}`;
+    }
+
+    function loadCollectorFailuresLocal() {
         const key = collectorFailuresStorageKey();
         if (!key) return [];
         try {
@@ -613,6 +763,39 @@
         return state.collectorFailures;
     }
 
+    async function loadCollectorFailures() {
+        loadCollectorFailuresLocal();
+        if (!state.isAdmin) return state.collectorFailures;
+        const client = getSupabase();
+        if (!client) return state.collectorFailures;
+        try {
+            const { data, error } = await client
+                .from(SYNC_FAILURES_TABLE)
+                .select('resource_id,label,path,error_code,error_message,attempt_count,last_failed_at')
+                .order('last_failed_at', { ascending: false });
+            if (error) throw error;
+            const merged = new Map(state.collectorFailures.map(item => [collectorFailureKey(item), item]));
+            for (const row of Array.isArray(data) ? data : []) {
+                const item = {
+                    resourceId: row.resource_id == null ? null : Number(row.resource_id),
+                    label: row.label || null,
+                    path: row.path || null,
+                    code: row.error_code || 'SYNC_FAILED',
+                    message: row.error_message || null,
+                    attemptCount: Number(row.attempt_count || 1),
+                    lastFailedAt: row.last_failed_at || null
+                };
+                merged.set(collectorFailureKey(item), item);
+            }
+            state.collectorFailures = [...merged.values()];
+            saveCollectorFailures(state.collectorFailures);
+        } catch (error) {
+            console.warn('Erreurs de synchronisation distantes indisponibles :', error);
+        }
+        updateCollectorActionButtons();
+        return state.collectorFailures;
+    }
+
     function saveCollectorFailures(failures = []) {
         state.collectorFailures = Array.isArray(failures) ? failures : [];
         const key = collectorFailuresStorageKey();
@@ -620,6 +803,41 @@
             try { localStorage.setItem(key, JSON.stringify(state.collectorFailures)); } catch {}
         }
         updateCollectorActionButtons();
+    }
+
+    async function persistCollectorFailureRows(failures = [], successfulResourceIds = []) {
+        if (!state.isAdmin) return;
+        const client = getSupabase();
+        if (!client) return;
+        const now = new Date().toISOString();
+        try {
+            for (const resourceId of successfulResourceIds) {
+                if (resourceId == null) continue;
+                const { error } = await client.from(SYNC_FAILURES_TABLE)
+                    .delete()
+                    .eq('resource_id', String(resourceId));
+                if (error) throw error;
+            }
+            if (failures.length) {
+                const rows = failures
+                    .filter(item => item.resourceId != null)
+                    .map(item => ({
+                        resource_id: String(item.resourceId),
+                        label: item.label || null,
+                        path: item.path || null,
+                        error_code: item.code || 'SYNC_FAILED',
+                        error_message: item.message || null,
+                        last_failed_at: now,
+                        updated_at: now
+                    }));
+                if (rows.length) {
+                    const { error } = await client.from(SYNC_FAILURES_TABLE).upsert(rows, { onConflict: 'resource_id' });
+                    if (error) throw error;
+                }
+            }
+        } catch (error) {
+            console.warn('Enregistrement des erreurs de synchronisation impossible :', error);
+        }
     }
 
     function updateCollectorActionButtons() {
@@ -711,7 +929,7 @@
                     payload: {
                         maxBranches: 6,
                         maxDurationMs: 45000,
-                        maxDepth: 10,
+                        maxDepth: 16,
                         scopeRoot: 'Groupes Etudiants',
                         scopePath: COLLECTOR_SCOPE_PATH
                     }
@@ -818,6 +1036,7 @@
         if (status) status.textContent = 'Garde ADE ouvert. Chaque filière terminée est publiée immédiatement.';
 
         let successCount = 0;
+        const successfulResourceIds = [];
         const failures = [];
         let authRequired = false;
 
@@ -847,8 +1066,10 @@
 
                     try {
                         const published = await publishCollectorPayloads(target.resourceId);
-                        if (published?.ok) successCount += 1;
-                        else failures.push({ target, code: published?.code || 'PUBLISH_FAILED' });
+                        if (published?.ok) {
+                            successCount += 1;
+                            successfulResourceIds.push(target.resourceId);
+                        } else failures.push({ target, code: published?.code || 'PUBLISH_FAILED' });
                     } catch (publishError) {
                         console.warn('Publication différée pour', target?.label, publishError);
                         failures.push({ target, code: 'PUBLISH_FAILED' });
@@ -887,9 +1108,11 @@
                 level: item.target?.level ?? null,
                 branchToggle: item.target?.branchToggle ?? false,
                 expanded: item.target?.expanded ?? null,
-                code: item.code
+                code: item.code,
+                message: item.message || null
             }));
             saveCollectorFailures(failureRows);
+            await persistCollectorFailureRows(failureRows, successfulResourceIds);
 
             return {
                 ok: !authRequired && failures.length === 0,
@@ -1804,7 +2027,7 @@
             return;
         }
 
-        loadCollectorFailures();
+        loadCollectorFailuresLocal();
 
         // Aucun cache de planning n'est chargé avant la validation universitaire.
         // Cela empêche un ancien cache local de contourner la première vérification ADE.
@@ -1821,6 +2044,7 @@
         setPlanningAccess(user);
         if (!state.user) return;
         state.isAdmin = await detectAdminRole();
+        if (state.isAdmin) await loadCollectorFailures();
         await loadAdeVerification();
         updatePlanningRoleUi();
         if (state.isAdmin || state.adeVerified) {
@@ -1835,7 +2059,24 @@
 
     function bindControls() {
         byId('planning-verify-ade')?.addEventListener('click', beginAdeVerification);
-        byId('planning-resource-select')?.addEventListener('change', async event => {
+        byId('planning-resource-year')?.addEventListener('change', event => {
+            resetHierarchyAfter(event.target, ['planning-resource-speciality', 'planning-resource-semester', 'planning-resource-group']);
+            renderResourceChooser();
+        });
+        byId('planning-resource-speciality')?.addEventListener('change', event => {
+            resetHierarchyAfter(event.target, ['planning-resource-semester', 'planning-resource-group']);
+            renderResourceChooser();
+        });
+        byId('planning-resource-semester')?.addEventListener('change', async event => {
+            resetHierarchyAfter(event.target, ['planning-resource-group']);
+            renderResourceChooser();
+            if (await chooseHierarchyResource()) {
+                ensureCurrentWeek();
+                renderWeek();
+                updateConnectionUi();
+            }
+        });
+        byId('planning-resource-group')?.addEventListener('change', async event => {
             const resourceId = event.target.value || '';
             if (!resourceId) return;
             event.target.disabled = true;

@@ -1121,8 +1121,23 @@
 .planning-verification-status.error { color: #fca5a5; }
 
 .planning-resource-panel {
-    grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.2fr);
+    grid-template-columns: minmax(220px, .72fr) minmax(420px, 1.55fr);
     align-items: end;
+}
+
+.planning-resource-selectors {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    align-items: end;
+}
+
+.planning-resource-selectors .planning-resource-field[hidden] {
+    display: none;
+}
+
+.planning-resource-selectors:has(#planning-resource-group-field:not([hidden])) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .planning-resource-panel::before {
@@ -1254,6 +1269,11 @@
     }
 
     .planning-resource-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .planning-resource-selectors,
+    .planning-resource-selectors:has(#planning-resource-group-field:not([hidden])) {
         grid-template-columns: 1fr;
     }
 
