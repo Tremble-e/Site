@@ -1370,3 +1370,5 @@
 }
 
 /* v2.23.2 — correctif collecteur ADE (limite de profondeur relative) */
+
+/* v2.23.3 — collecteur limité aux nœuds Semestre/AN, sans descendre dans les groupes de cours. */

@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.3.2.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.3.3.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -213,7 +213,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.3.2.zip';
+        link.download = 'planilim-collector-v4.3.3.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -910,11 +910,15 @@
         `).join('') : '';
     }
 
+    function isCollectorTerminalLabel(label) {
+        const value = String(label || '').trim();
+        return /^semestre\s+\d+$/i.test(value) || /^(?:AN|ANNÉE|ANNEE)$/i.test(value);
+    }
+
     function isCollectorTarget(row) {
         return row?.resourceId != null &&
             row.level >= 3 &&
-            row.branchToggle !== true &&
-            row.expanded !== true &&
+            isCollectorTerminalLabel(row.label) &&
             pathIsInCollectorScope(row.path);
     }
 
@@ -936,7 +940,7 @@
                     payload: {
                         maxBranches: 6,
                         maxDurationMs: 45000,
-                        maxDepth: 5,
+                        maxDepth: 4,
                         scopeRoot: 'Groupes Etudiants',
                         scopePath: COLLECTOR_SCOPE_PATH
                     }

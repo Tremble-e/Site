@@ -1,7 +1,7 @@
 'use strict';
 
-const SHELL_CACHE = 'tremble-shell-v2.23.2';
-const RUNTIME_CACHE = 'tremble-runtime-v2.23.2';
+const SHELL_CACHE = 'tremble-shell-v2.23.3';
+const RUNTIME_CACHE = 'tremble-runtime-v2.23.3';
 const OFFLINE_DOCUMENT_CACHE = 'tremble-offline-documents-v1';
 
 const SHELL_ASSETS = [
