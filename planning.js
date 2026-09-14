@@ -9,7 +9,7 @@
     const SHARED_RESOURCES_TABLE = 'planning_resources';
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.2.7.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.2.8.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -39,6 +39,8 @@
         sharedResources: [],
         selectedResourceId: null,
         collectorRows: [],
+        collectorFailures: [],
+        collectorRunning: false,
         lastCollectorPublishSignature: '',
         cloudAvailable: true,
         cloudLoaded: false,
@@ -210,7 +212,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.2.7.zip';
+        link.download = 'planilim-collector-v4.2.8.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -594,6 +596,49 @@
         }
     }
 
+    function collectorFailuresStorageKey() {
+        return state.user?.id ? `planilim-collector-failures-v1:${state.user.id}` : null;
+    }
+
+    function loadCollectorFailures() {
+        const key = collectorFailuresStorageKey();
+        if (!key) return [];
+        try {
+            const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+            state.collectorFailures = Array.isArray(parsed) ? parsed : [];
+        } catch {
+            state.collectorFailures = [];
+        }
+        updateCollectorActionButtons();
+        return state.collectorFailures;
+    }
+
+    function saveCollectorFailures(failures = []) {
+        state.collectorFailures = Array.isArray(failures) ? failures : [];
+        const key = collectorFailuresStorageKey();
+        if (key) {
+            try { localStorage.setItem(key, JSON.stringify(state.collectorFailures)); } catch {}
+        }
+        updateCollectorActionButtons();
+    }
+
+    function updateCollectorActionButtons() {
+        const run = byId('planning-collector-run');
+        const retry = byId('planning-collector-retry');
+        if (run) {
+            run.disabled = Boolean(state.busy || state.collectorRunning);
+            run.innerHTML = state.collectorRunning
+                ? '<i class="fa-solid fa-spinner fa-spin"></i> Synchronisation en cours…'
+                : '<i class="fa-solid fa-cloud-arrow-up"></i> Récupérer et synchroniser les EDT';
+        }
+        if (retry) {
+            const count = state.collectorFailures.length;
+            retry.hidden = count === 0;
+            retry.disabled = Boolean(state.busy || state.collectorRunning || count === 0);
+            retry.innerHTML = `<i class="fa-solid fa-rotate-right"></i> Relancer les échecs${count ? ` (${count})` : ''}`;
+        }
+    }
+
     function collectorRowKey(row) {
         if (row?.resourceId != null) return `resource:${Number(row.resourceId)}`;
         if (row?.nodeId) return `node:${row.nodeId}`;
@@ -643,7 +688,8 @@
     function isCollectorTarget(row) {
         return row?.resourceId != null &&
             row.level >= 3 &&
-            (row.expanded === null || row.level >= 5) &&
+            row.branchToggle !== true &&
+            row.expanded !== true &&
             pathIsInCollectorScope(row.path);
     }
 
@@ -653,17 +699,19 @@
         let expanded = 0;
         let batch = 0;
         let complete = false;
+        let stablePasses = 0;
+        let previousCount = state.collectorRows.filter(isCollectorTarget).length;
         setLoading(true, 'Lecture du catalogue ADE…', 'Les filières sont ouvertes par petits lots pour rester fiables même lorsque ADE ralentit.');
         try {
-            while (batch < 140) {
+            while (batch < 180) {
                 batch += 1;
-                if (status) status.textContent = `Lecture ADE : ${expanded} branches ouvertes…`;
+                if (status) status.textContent = `Lecture ADE : ${expanded} branches ouvertes · ${state.collectorRows.filter(isCollectorTarget).length} EDT trouvés…`;
                 const result = await requestExtension('PLANILIM_COLLECTOR_EXPAND_AND_SCAN', {
                     timeout: 180000,
                     payload: {
-                        maxBranches: 3,
+                        maxBranches: 6,
                         maxDurationMs: 45000,
-                        maxDepth: 5,
+                        maxDepth: 10,
                         scopeRoot: 'Groupes Etudiants',
                         scopePath: COLLECTOR_SCOPE_PATH
                     }
@@ -683,11 +731,21 @@
                 // n'en rend plus qu'une partie. On fait donc l'union des découvertes.
                 mergeCollectorRows(scannedRows);
                 renderCollectorRows();
+
+                const currentCount = state.collectorRows.filter(isCollectorTarget).length;
                 if (!result.truncated) {
-                    complete = true;
-                    break;
+                    stablePasses = currentCount === previousCount ? stablePasses + 1 : 0;
+                    previousCount = currentCount;
+                    if (stablePasses >= 2) {
+                        complete = true;
+                        break;
+                    }
+                    await new Promise(resolve => window.setTimeout(resolve, 500));
+                } else {
+                    stablePasses = 0;
+                    previousCount = currentCount;
+                    await new Promise(resolve => window.setTimeout(resolve, 140));
                 }
-                await new Promise(resolve => window.setTimeout(resolve, 120));
             }
 
             const count = state.collectorRows.filter(isCollectorTarget).length;
@@ -748,9 +806,11 @@
         return { ok: true, code: 'COLLECTOR_PUBLISHED', count: rows.length };
     }
 
-    async function syncCollectorResources() {
+    async function syncCollectorResources(targetOverride = null) {
         if (!state.isAdmin || state.busy) return;
-        const targets = state.collectorRows.filter(isCollectorTarget);
+        const targets = Array.isArray(targetOverride) && targetOverride.length
+            ? targetOverride
+            : state.collectorRows.filter(isCollectorTarget);
         if (!targets.length) return;
 
         const status = byId('planning-collector-status');
@@ -820,15 +880,22 @@
                 }
             }
 
+            const failureRows = failures.map(item => ({
+                resourceId: item.target?.resourceId ?? null,
+                label: item.target?.label || null,
+                path: item.target?.path || null,
+                level: item.target?.level ?? null,
+                branchToggle: item.target?.branchToggle ?? false,
+                expanded: item.target?.expanded ?? null,
+                code: item.code
+            }));
+            saveCollectorFailures(failureRows);
+
             return {
                 ok: !authRequired && failures.length === 0,
                 successCount,
                 total: targets.length,
-                failures: failures.map(item => ({
-                    resourceId: item.target?.resourceId ?? null,
-                    label: item.target?.label || null,
-                    code: item.code
-                }))
+                failures: failureRows
             };
         } finally {
             setLoading(false);
@@ -841,30 +908,55 @@
     }
 
     async function runAdminCollector() {
-        if (!state.isAdmin || state.busy) return;
+        if (!state.isAdmin || state.busy || state.collectorRunning) return;
         const status = byId('planning-collector-status');
-        const button = byId('planning-collector-run');
-        if (button) button.disabled = true;
+        state.collectorRunning = true;
+        updateCollectorActionButtons();
 
-        if (!state.extensionDetected) {
-            await requestStatusAndPayload({ persistIfCloudEmpty: true });
-        }
-        if (!state.extensionDetected) {
-            if (isMobileDevice()) {
-                if (status) status.textContent = 'Ouverture du collecteur Planilim sur ce téléphone…';
-                window.location.href = 'planilim-collector://sync';
-            } else {
-                if (status) status.textContent = 'Le collecteur PC n’est pas détecté. Installe-le puis relance ce bouton.';
-                launchExtensionInstall();
+        try {
+            if (!state.extensionDetected) {
+                await requestStatusAndPayload({ persistIfCloudEmpty: true });
             }
-            if (button) button.disabled = false;
-            return;
-        }
+            if (!state.extensionDetected) {
+                if (isMobileDevice()) {
+                    if (status) status.textContent = 'Ouverture du collecteur sur ce téléphone…';
+                    window.location.href = 'planilim-collector://sync';
+                } else {
+                    if (status) status.textContent = 'Le collecteur PC n’est pas détecté. Installe-le puis relance ce bouton.';
+                    launchExtensionInstall();
+                }
+                return;
+            }
 
-        sessionStorage.removeItem('planilim-admin-collector-resume');
-        const catalog = await refreshCollectorTree();
-        if (catalog?.ok) await syncCollectorResources();
-        if (button) button.disabled = false;
+            sessionStorage.removeItem('planilim-admin-collector-resume');
+            saveCollectorFailures([]);
+            const catalog = await refreshCollectorTree();
+            if (catalog?.ok && catalog?.complete) {
+                await syncCollectorResources();
+            } else if (catalog?.ok && status) {
+                status.textContent = `${catalog.count || 0} EDT trouvés, mais l’analyse n’est pas encore complète. Relance pour reprendre sans perdre ceux déjà détectés.`;
+            }
+        } finally {
+            state.collectorRunning = false;
+            updateCollectorActionButtons();
+        }
+    }
+
+    async function retryFailedCollectorResources() {
+        if (!state.isAdmin || state.busy || state.collectorRunning) return;
+        const status = byId('planning-collector-status');
+        const failures = [...state.collectorFailures];
+        if (!failures.length) return;
+
+        state.collectorRunning = true;
+        updateCollectorActionButtons();
+        if (status) status.textContent = `Nouvelle tentative sur ${failures.length} emploi${failures.length > 1 ? 's' : ''} du temps en échec…`;
+        try {
+            await syncCollectorResources(failures);
+        } finally {
+            state.collectorRunning = false;
+            updateCollectorActionButtons();
+        }
     }
 
     async function clearCloudPayload() {
@@ -996,8 +1088,7 @@
             cloud.hidden = true;
             cloud.textContent = '';
         }
-        const collectorButton = byId('planning-collector-run');
-        if (collectorButton) collectorButton.disabled = state.busy;
+        updateCollectorActionButtons();
         updatePlanningRoleUi();
     }
 
@@ -1697,6 +1788,7 @@
             state.sharedResources = [];
             state.selectedResourceId = null;
             state.collectorRows = [];
+            state.collectorFailures = [];
             state.payload = null;
             state.cloudLoaded = false;
             state.currentWeekStart = null;
@@ -1711,6 +1803,8 @@
             }
             return;
         }
+
+        loadCollectorFailures();
 
         // Aucun cache de planning n'est chargé avant la validation universitaire.
         // Cela empêche un ancien cache local de contourner la première vérification ADE.
@@ -1752,6 +1846,7 @@
             updateConnectionUi();
         });
         byId('planning-collector-run')?.addEventListener('click', runAdminCollector);
+        byId('planning-collector-retry')?.addEventListener('click', retryFailedCollectorResources);
         byId('planning-prev-week')?.addEventListener('click', () => moveWeek(-1));
         byId('planning-next-week')?.addEventListener('click', () => moveWeek(1));
         byId('planning-today')?.addEventListener('click', () => {
