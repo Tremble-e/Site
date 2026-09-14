@@ -88,7 +88,7 @@
 
 .planning-toolbar {
     display: grid;
-    grid-template-columns: auto minmax(180px, 1fr) auto auto auto;
+    grid-template-columns: auto minmax(180px, 1fr) auto auto;
     align-items: center;
     gap: 1rem;
     padding: .9rem 1rem;
@@ -195,7 +195,7 @@
     font-size: .62rem;
 }
 .planning-filter-panel {
-    margin: 0 0 .8rem;
+    margin: .9rem 0 0;
     padding: 1rem;
 }
 .planning-filter-header {
@@ -766,7 +766,7 @@
     .planning-filter-toggle-btn { width: 100%; }
     .planning-filter-grid { grid-template-columns: 1fr; }
     .planning-course-filter-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .planning-view-toggle { display: none; }
+    .planning-view-toggle { display: inline-flex; justify-self: center; }
 
     .planning-period { order: -1; }
     .planning-week-navigation,
@@ -777,8 +777,10 @@
         --planning-time-column: 60px;
     }
 
-    .planning-mobile-panel { display: block; }
-    .planning-timetable-shell { display: none; }
+    #planning.planning-view-day .planning-mobile-panel { display: block; }
+    #planning.planning-view-day .planning-timetable-shell { display: none; }
+    #planning.planning-view-week .planning-mobile-panel { display: none; }
+    #planning.planning-view-week .planning-timetable-shell { display: block; overflow-x: auto; }
 }
 
 @media (max-width: 640px) {
@@ -798,11 +800,8 @@
     #planning-today { justify-content: center; }
 
     .planning-mobile-panel { padding: .9rem; }
-    .planning-mobile-head {
-        display: grid;
-        gap: .35rem;
-    }
-    .planning-mobile-head p { text-align: left; max-width: none; }
+    .planning-view-toggle { width: 100%; }
+    .planning-view-btn { flex: 1 1 0; justify-content: center; }
     .planning-mobile-day-tabs {
         display: flex;
         overflow-x: auto;
@@ -1183,9 +1182,18 @@
     border: 1px solid rgba(148, 163, 184, .2);
     border-radius: 14px;
     color: var(--text-primary, #f8fafc);
-    background: rgba(10, 18, 35, .82);
+    background-color: rgba(10, 18, 35, .96);
+    background-image: linear-gradient(45deg, transparent 50%, var(--text-muted, #94a3b8) 50%), linear-gradient(135deg, var(--text-muted, #94a3b8) 50%, transparent 50%);
+    background-position: calc(100% - 18px) 20px, calc(100% - 13px) 20px;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 38px;
+    color-scheme: dark;
+    appearance: none;
     font: inherit;
 }
+.planning-resource-field select option { background: #0b1428; color: #f8fafc; }
+.planning-resource-field select:disabled { opacity: .55; cursor: not-allowed; }
 
 .planning-resource-status {
     grid-column: 1 / -1;
@@ -1294,3 +1302,23 @@
         flex: 1 1 150px;
     }
 }
+
+
+/* Détails et créneaux parallèles */
+.planning-event,.planning-day-event{cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
+.planning-event:hover,.planning-day-event:hover{z-index:11;border-color:color-mix(in srgb,var(--event-color) 72%,white 5%);box-shadow:0 12px 28px rgba(2,6,23,.28)}
+.planning-event:focus-visible,.planning-day-event:focus-visible{outline:2px solid color-mix(in srgb,var(--event-color) 75%,white 15%);outline-offset:2px;z-index:12}
+.planning-event.is-overlap,.planning-day-event.is-overlap{padding-left:.42rem;padding-right:.36rem}
+.planning-event.is-overlap .planning-event-meta,.planning-day-event.is-overlap .planning-day-event-meta{display:none}
+.planning-event.is-overlap .planning-event-title,.planning-day-event.is-overlap .planning-day-event-title{font-size:.72rem;-webkit-line-clamp:3}
+.planning-event.is-overlap .planning-event-type,.planning-day-event.is-overlap .planning-day-event-type{font-size:.52rem;padding-inline:.25rem}
+.planning-event-modal[hidden]{display:none!important}.planning-event-modal{position:fixed;inset:0;z-index:10050;display:grid;place-items:center;padding:1.2rem}.planning-event-modal-backdrop{position:absolute;inset:0;background:rgba(2,6,23,.58);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
+.planning-event-modal-card{--event-color:var(--planning-other);position:relative;z-index:1;width:min(520px,100%);padding:1.35rem;border-radius:1.25rem;border:1px solid color-mix(in srgb,var(--event-color) 46%,rgba(148,163,184,.2));background:linear-gradient(145deg,color-mix(in srgb,var(--event-color) 12%,#0b1428),#0a1223 65%);box-shadow:0 28px 90px rgba(2,6,23,.62)}
+.planning-event-modal-close{position:absolute;top:.85rem;right:.85rem;width:36px;height:36px;display:grid;place-items:center;border-radius:10px;border:1px solid rgba(148,163,184,.16);background:rgba(15,23,42,.65);color:#e2e8f0;cursor:pointer}.planning-event-modal-top{display:flex;align-items:center;gap:.6rem;padding-right:3rem;color:var(--text-muted,#94a3b8);font-size:.78rem}.planning-event-modal-type{padding:.18rem .45rem;border-radius:999px;color:color-mix(in srgb,var(--event-color) 80%,white 20%);background:color-mix(in srgb,var(--event-color) 16%,transparent);font-weight:900}.planning-event-modal-date{text-transform:capitalize}.planning-event-modal-card h2{margin:.75rem 0 .4rem;color:#f8fafc;font-size:1.35rem}.planning-event-modal-time{display:flex;align-items:center;gap:.45rem;color:color-mix(in srgb,var(--event-color) 80%,white 20%);font-weight:850}.planning-event-modal-details{display:grid;gap:.55rem;margin-top:1rem;padding:.9rem 0;border-top:1px solid rgba(148,163,184,.12);border-bottom:1px solid rgba(148,163,184,.12)}.planning-event-modal-details div{display:flex;align-items:flex-start;gap:.55rem;color:#cbd5e1}.planning-event-modal-details i{width:18px;margin-top:.15rem;color:var(--event-color);text-align:center}.planning-event-modal-visibility{display:flex;align-items:center;gap:.75rem;margin-top:1rem;padding:.8rem .9rem;border-radius:.9rem;background:rgba(148,163,184,.055);cursor:pointer}.planning-event-modal-visibility input{position:absolute;opacity:0;pointer-events:none}.planning-event-modal-visibility>span:last-child{display:grid;gap:.12rem}.planning-event-modal-visibility strong{color:#f8fafc;font-size:.84rem}.planning-event-modal-visibility small{color:var(--text-muted,#94a3b8);font-size:.7rem}body.planning-modal-open{overflow:hidden}
+.planning-filter-panel[hidden]{display:block!important}
+@media(max-width:900px){.planning-toolbar{margin-bottom:.55rem}.planning-mobile-panel{margin-bottom:.55rem;padding-top:.75rem}.planning-mobile-day-tabs{margin-bottom:.1rem}#planning.planning-view-week .planning-week-grid{min-width:1030px}}
+@media(max-width:520px){.planning-event-modal{padding:.7rem}.planning-event-modal-card{padding:1.05rem;border-radius:1rem}.planning-event-modal-card h2{font-size:1.15rem}}
+
+/* Les cours parallèles restent lisibles en vue jour : la timeline peut défiler horizontalement plutôt que d'écraser les cartes. */
+.planning-mobile-agenda{overflow-x:auto;overscroll-behavior-inline:contain}
+.planning-day-timeline:has(.planning-day-event.is-overlap){min-width:520px}

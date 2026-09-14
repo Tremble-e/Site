@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.3.0.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.3.1.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -213,7 +213,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.3.0.zip';
+        link.download = 'planilim-collector-v4.3.1.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -929,7 +929,7 @@
                     payload: {
                         maxBranches: 6,
                         maxDurationMs: 45000,
-                        maxDepth: 16,
+                        maxDepth: 5,
                         scopeRoot: 'Groupes Etudiants',
                         scopePath: COLLECTOR_SCOPE_PATH
                     }
@@ -1614,7 +1614,7 @@
     }
 
     function effectiveViewMode() {
-        return isCompactPlanning() ? 'day' : state.viewMode;
+        return state.viewMode;
     }
 
     function updatePlanningNavigationHints(mode) {
@@ -1744,16 +1744,16 @@
             roomLine
         ].filter(Boolean).join(' · ');
 
+        const key = eventOccurrenceKey(event);
+        const overlapClass = laneCount > 1 ? 'is-overlap' : '';
         return `
-            <article class="planning-event planning-event-${kind} ${excluded ? 'is-individually-excluded' : ''}"
+            <article class="planning-event planning-event-${kind} ${overlapClass} ${excluded ? 'is-individually-excluded' : ''}"
                 style="grid-column:${dayIndex + 2};grid-row:${startRow}/${endRow};--lane-width:${laneWidth}%;--lane-left:${laneLeft}%;"
-                title="${escapePlanning(tooltip)}">
+                data-planning-open-event="${escapePlanning(key)}" role="button" tabindex="0"
+                aria-label="Ouvrir ${escapePlanning(event.title || 'ce cours')}" title="${escapePlanning(tooltip)}">
                 <div class="planning-event-topline">
                     <span class="planning-event-time">${escapePlanning(event.start || '—')}–${escapePlanning(event.end || '—')}</span>
-                    <span class="planning-event-actions">
-                        <span class="planning-event-type">${escapePlanning(typeLabel(event))}</span>
-                        ${eventSelectionMarkup(event, true)}
-                    </span>
+                    <span class="planning-event-actions"><span class="planning-event-type">${escapePlanning(typeLabel(event))}</span></span>
                 </div>
                 <strong class="planning-event-title">${escapePlanning(event.title || 'Cours')}</strong>
                 <div class="planning-event-meta">
@@ -1779,15 +1779,15 @@
         const duration = end - start;
         const sizeClass = duration < 75 ? 'is-short' : duration < 105 ? 'is-medium' : 'is-long';
         const excluded = eventIsIndividuallyExcluded(event);
+        const key = eventOccurrenceKey(event);
+        const overlapClass = laneCount > 1 ? 'is-overlap' : '';
         return `
-            <article class="planning-day-event planning-event-${kind} ${sizeClass} ${excluded ? 'is-individually-excluded' : ''}"
-                style="grid-column:2;grid-row:${startSlot + 1}/${endSlot + 1};--lane-width:${laneWidth}%;--lane-left:${laneLeft}%;">
+            <article class="planning-day-event planning-event-${kind} ${sizeClass} ${overlapClass} ${excluded ? 'is-individually-excluded' : ''}"
+                style="grid-column:2;grid-row:${startSlot + 1}/${endSlot + 1};--lane-width:${laneWidth}%;--lane-left:${laneLeft}%;"
+                data-planning-open-event="${escapePlanning(key)}" role="button" tabindex="0" aria-label="Ouvrir ${escapePlanning(event.title || 'ce cours')}">
                 <div class="planning-day-event-topline">
                     <span class="planning-day-event-time">${escapePlanning(event.start || '—')}–${escapePlanning(event.end || '—')}</span>
-                    <span class="planning-event-actions">
-                        <span class="planning-day-event-type">${escapePlanning(typeLabel(event))}</span>
-                        ${eventSelectionMarkup(event)}
-                    </span>
+                    <span class="planning-event-actions"><span class="planning-day-event-type">${escapePlanning(typeLabel(event))}</span></span>
                 </div>
                 <strong class="planning-day-event-title">${escapePlanning(event.title || 'Cours')}</strong>
                 <div class="planning-day-event-meta">
@@ -1797,6 +1797,46 @@
             </article>`;
     }
 
+    function findPlanningEventByKey(key) {
+        return (state.payload?.events || []).find(event => eventOccurrenceKey(event) === key) || null;
+    }
+
+    function closePlanningEventModal() {
+        const modal = byId('planning-event-modal');
+        if (!modal) return;
+        modal.hidden = true;
+        document.body.classList.remove('planning-modal-open');
+    }
+
+    function openPlanningEventModal(key) {
+        const modal = byId('planning-event-modal');
+        const card = byId('planning-event-modal-card');
+        const event = findPlanningEventByKey(key);
+        if (!modal || !card || !event) return;
+        const kind = courseKind(event);
+        const roomLine = [event.room, event.building].filter(Boolean).join(' · ');
+        const excluded = eventIsIndividuallyExcluded(event);
+        const dateLabel = new Date(`${event.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        card.className = `planning-event-modal-card planning-event-${kind}`;
+        card.innerHTML = `
+            <button class="planning-event-modal-close" type="button" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+            <div class="planning-event-modal-top"><span class="planning-event-modal-type">${escapePlanning(typeLabel(event))}</span><span class="planning-event-modal-date">${escapePlanning(dateLabel)}</span></div>
+            <h2>${escapePlanning(event.title || 'Cours')}</h2>
+            <div class="planning-event-modal-time"><i class="fa-regular fa-clock"></i>${escapePlanning(event.start || '—')} – ${escapePlanning(event.end || '—')}</div>
+            <div class="planning-event-modal-details">
+                ${event.group ? `<div><i class="fa-solid fa-users"></i><span>${escapePlanning(event.group)}</span></div>` : ''}
+                ${event.teacher ? `<div><i class="fa-solid fa-user"></i><span>${escapePlanning(event.teacher)}</span></div>` : ''}
+                ${roomLine ? `<div><i class="fa-solid fa-location-dot"></i><span>${escapePlanning(roomLine)}</span></div>` : ''}
+            </div>
+            <label class="planning-event-modal-visibility">
+                <input type="checkbox" data-planning-modal-event-key="${escapePlanning(key)}" ${excluded ? '' : 'checked'}>
+                <span class="planning-checkbox-ui" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+                <span><strong>Afficher ce créneau</strong><small>${excluded ? 'Ce cours est actuellement masqué.' : 'Décochez pour masquer uniquement ce cours.'}</small></span>
+            </label>`;
+        modal.hidden = false;
+        document.body.classList.add('planning-modal-open');
+    }
+
     function renderDayTimeline(firstDate) {
         const tabs = byId('planning-mobile-day-tabs');
         const agenda = byId('planning-mobile-agenda');
@@ -1804,6 +1844,13 @@
         if (!tabs || !agenda) return;
 
         ensureMobileSelectedDate(firstDate);
+        if (effectiveViewMode() === 'day' && state.mobileSelectedDate) {
+            const toolbarLabel = byId('planning-week-label');
+            const toolbarRange = byId('planning-week-range');
+            const selectedDate = new Date(`${state.mobileSelectedDate}T12:00:00`);
+            if (toolbarLabel) toolbarLabel.textContent = selectedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+            if (toolbarRange) toolbarRange.textContent = `Semaine ${isoWeekNumber(firstDate) || ''}`.trim();
+        }
         const today = toIsoDate(new Date());
         const dates = weekDates(firstDate);
         const shortDayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
@@ -2177,6 +2224,36 @@
             if (event.target.closest('#planning-filter-reset')) resetPlanningFilters();
         });
 
+        byId('planning')?.addEventListener('click', event => {
+            const card = event.target.closest('[data-planning-open-event]');
+            if (!card) return;
+            openPlanningEventModal(card.dataset.planningOpenEvent || '');
+        });
+        byId('planning')?.addEventListener('keydown', event => {
+            if (!['Enter', ' '].includes(event.key)) return;
+            const card = event.target.closest('[data-planning-open-event]');
+            if (!card) return;
+            event.preventDefault();
+            openPlanningEventModal(card.dataset.planningOpenEvent || '');
+        });
+        byId('planning-event-modal')?.addEventListener('click', event => {
+            if (event.target === byId('planning-event-modal') || event.target.classList.contains('planning-event-modal-backdrop') || event.target.closest('.planning-event-modal-close')) closePlanningEventModal();
+        });
+        byId('planning-event-modal')?.addEventListener('change', event => {
+            const input = event.target.closest('input[data-planning-modal-event-key]');
+            if (!input) return;
+            const key = input.dataset.planningModalEventKey || '';
+            if (input.checked) state.filters.excludedEvents.delete(key);
+            else state.filters.excludedEvents.add(key);
+            savePlanningFilters();
+            renderPlanningFilters();
+            renderWeek();
+            openPlanningEventModal(key);
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !byId('planning-event-modal')?.hidden) closePlanningEventModal();
+        });
+
         let resizeTimer = null;
         window.addEventListener('resize', () => {
             window.clearTimeout(resizeTimer);
@@ -2205,6 +2282,7 @@
     async function init() {
         if (state.initialized) return;
         state.initialized = true;
+        if (isCompactPlanning()) state.viewMode = 'day';
         bindControls();
 
         const client = getSupabase();

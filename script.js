@@ -631,11 +631,11 @@ function renderInfoCollection(containerId, section) {
         const imageHtml = info.imageUrl ? `<img src="${escapeHtmlAttribute(info.imageUrl)}" alt="${escapeHtmlAttribute(info.title)}" class="info-block-img" loading="lazy">` : '';
         const attachmentLabel = info.attachmentName || (info.attachmentUrl ? decodeURIComponent(String(info.attachmentUrl).split('/').pop().split('?')[0] || 'Fichier joint') : '');
         const attachmentHtml = info.attachmentUrl ? `
-            <a class="info-attachment" href="${escapeHtmlAttribute(info.attachmentUrl)}" target="_blank" rel="noopener noreferrer">
+            <button class="info-attachment info-attachment-button" type="button" data-info-document-url="${escapeHtmlAttribute(info.attachmentUrl)}" data-info-document-title="${escapeHtmlAttribute(attachmentLabel || info.title || 'Fichier joint')}">
                 <span class="info-attachment-icon"><i class="${fileIconFromName(attachmentLabel || info.attachmentUrl)}"></i></span>
-                <span><strong>${escapeHtmlAttribute(attachmentLabel || 'Fichier joint')}</strong><small>Ouvrir ou télécharger le document</small></span>
-                <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
-            </a>` : '';
+                <span><strong>${escapeHtmlAttribute(attachmentLabel || 'Fichier joint')}</strong><small>Prévisualiser le document</small></span>
+                <i class="fa-solid fa-eye" aria-hidden="true"></i>
+            </button>` : '';
         const dateLabel = formatInfoDate(info.publishedAt);
         const favoriteButton = siteFavoriteButtonMarkup('info', info._dbId, 'Enregistrer cette information', 'info-favorite-btn');
         return `
@@ -1758,6 +1758,42 @@ document.addEventListener('click', event => {
         if (results) results.hidden = true;
     }
 });
+
+/* Aperçu des documents joints aux informations */
+function closeInfoDocumentPreview() {
+    const modal = document.getElementById('info-document-modal');
+    const frame = document.getElementById('info-document-frame');
+    const image = document.getElementById('info-document-image');
+    if (modal) modal.hidden = true;
+    if (frame) { frame.src = ''; frame.hidden = true; }
+    if (image) { image.src = ''; image.hidden = true; }
+    document.body.classList.remove('info-document-modal-open');
+}
+function openInfoDocumentPreview(title, url) {
+    if (!safeResourceUrl(url)) { showToast('Adresse de document invalide.'); return; }
+    const modal = document.getElementById('info-document-modal');
+    const frame = document.getElementById('info-document-frame');
+    const image = document.getElementById('info-document-image');
+    const fallback = document.getElementById('info-document-fallback');
+    const label = document.getElementById('info-document-title');
+    const external = document.getElementById('info-document-external');
+    if (!modal || !frame || !image || !fallback) return;
+    if (label) label.textContent = title || 'Document';
+    if (external) external.href = url;
+    frame.hidden = true; image.hidden = true; fallback.hidden = true;
+    frame.src = ''; image.src = '';
+    const clean = String(url).split('?')[0].toLowerCase();
+    const ext = clean.includes('.') ? clean.split('.').pop() : '';
+    if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) {
+        image.src = url; image.alt = title || 'Document'; image.hidden = false;
+    } else if (ext === 'pdf') {
+        frame.src = url; frame.hidden = false;
+    } else {
+        fallback.hidden = false;
+    }
+    modal.hidden = false;
+    document.body.classList.add('info-document-modal-open');
+}
 
 /* Visionneuse de documents */
 function getDocumentViewer(prefix = '') {
@@ -3263,6 +3299,27 @@ function editAdminSubject(id) {
     showAdminEditor('subject', true);
 }
 
+let adminInfoPreviewImageObjectUrl = '';
+function previewAdminInfo() {
+    const card = document.getElementById('admin-info-live-preview-card');
+    if (!card) return;
+    const title = document.getElementById('admin-info-title')?.value.trim() || 'Titre de l’information';
+    const icon = document.getElementById('admin-info-icon')?.value.trim() || 'fa-solid fa-circle-info';
+    const text = document.getElementById('admin-info-text')?.value.trim() || 'La description apparaîtra ici si vous en ajoutez une.';
+    const imageFile = document.getElementById('admin-info-file')?.files?.[0] || null;
+    const imageUrlInput = document.getElementById('admin-info-image-url')?.value.trim() || '';
+    const attachmentFile = document.getElementById('admin-info-attachment-file')?.files?.[0] || null;
+    const attachmentUrl = document.getElementById('admin-info-attachment-url')?.value.trim() || '';
+    const attachmentNameInput = document.getElementById('admin-info-attachment-name')?.value.trim() || '';
+    if (adminInfoPreviewImageObjectUrl) { URL.revokeObjectURL(adminInfoPreviewImageObjectUrl); adminInfoPreviewImageObjectUrl = ''; }
+    let imageUrl = imageUrlInput;
+    if (imageFile) { adminInfoPreviewImageObjectUrl = URL.createObjectURL(imageFile); imageUrl = adminInfoPreviewImageObjectUrl; }
+    const attachmentName = attachmentNameInput || attachmentFile?.name || (attachmentUrl ? decodeURIComponent(String(attachmentUrl).split('/').pop().split('?')[0] || 'Fichier joint') : '');
+    const imageHtml = imageUrl ? `<img src="${escapeHtmlAttribute(imageUrl)}" alt="" class="info-block-img">` : '';
+    const attachmentHtml = attachmentName || attachmentUrl ? `<div class="info-attachment"><span class="info-attachment-icon"><i class="${fileIconFromName(attachmentName || attachmentUrl)}"></i></span><span><strong>${escapeHtmlAttribute(attachmentName || 'Fichier joint')}</strong><small>Ouvrir ou télécharger le document</small></span><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></div>` : '';
+    card.innerHTML = `<div class="info-block-head"><span class="info-block-icon"><i class="${escapeHtmlAttribute(icon)}"></i></span><div class="info-block-heading-copy"><h3 class="info-block-title">${escapeHtmlAttribute(title)}</h3></div></div><p class="info-block-text">${escapeHtmlAttribute(text)}</p>${imageHtml}${attachmentHtml}`;
+}
+
 function resetAdminInfoForm() {
     document.getElementById('admin-info-form')?.reset();
     document.getElementById('admin-info-id').value = '';
@@ -3274,7 +3331,9 @@ function resetAdminInfoForm() {
     document.getElementById('admin-info-publish-at').value = '';
     document.getElementById('admin-info-published').checked = true;
     document.getElementById('admin-info-form-title').textContent = 'Nouvelle information';
+    previewAdminInfo();
 }
+
 
 function toDatetimeLocalValue(value) {
     if (!value) return '';
@@ -3302,6 +3361,7 @@ function editAdminInfo(id) {
     document.getElementById('admin-info-order').value = info.sort_order || 0;
     document.getElementById('admin-info-published').checked = info.is_published !== false;
     document.getElementById('admin-info-form-title').textContent = 'Modifier l’information';
+    previewAdminInfo();
     showAdminEditor('info', true);
 }
 
@@ -3696,6 +3756,8 @@ document.getElementById('admin-document-form')?.addEventListener('submit', handl
 document.getElementById('admin-doc-type')?.addEventListener('change', syncAdminDocumentSubjectField);
 document.getElementById('admin-subject-form')?.addEventListener('submit', handleSubjectSave);
 document.getElementById('admin-info-form')?.addEventListener('submit', handleInfoSave);
+['admin-info-title','admin-info-icon','admin-info-text','admin-info-image-url','admin-info-attachment-name','admin-info-attachment-url'].forEach(id => document.getElementById(id)?.addEventListener('input', previewAdminInfo));
+['admin-info-file','admin-info-attachment-file'].forEach(id => document.getElementById(id)?.addEventListener('change', previewAdminInfo));
 document.getElementById('admin-project-form')?.addEventListener('submit', handleProjectSave);
 document.getElementById('admin-services-form')?.addEventListener('submit', handleAdminServicesSave);
 document.getElementById('admin-services-available')?.addEventListener('change', previewAdminServices);
@@ -3714,6 +3776,16 @@ window.deleteAdminInfo = deleteAdminInfo;
 window.editAdminProject = editAdminProject;
 window.deleteAdminProject = deleteAdminProject;
 window.openAdminModal = openAdminModal;
+
+document.addEventListener('click', event => {
+    const attachment = event.target.closest('[data-info-document-url]');
+    if (attachment) {
+        openInfoDocumentPreview(attachment.dataset.infoDocumentTitle || 'Document', attachment.dataset.infoDocumentUrl || '');
+        return;
+    }
+    if (event.target.id === 'info-document-close' || event.target.closest('#info-document-close') || event.target.classList.contains('info-document-backdrop')) closeInfoDocumentPreview();
+});
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !document.getElementById('info-document-modal')?.hidden) closeInfoDocumentPreview(); });
 
 /* Visionneuse d’images */
 const IMAGE_ZOOM_SELECTOR = [

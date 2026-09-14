@@ -118,3 +118,47 @@ create index if not exists planning_resources_active_label_idx
 grant select on public.planning_resources to authenticated;
 grant select, insert, update on public.user_planning_preferences to authenticated;
 grant select on public.ade_verifications to authenticated;
+
+
+-- Erreurs de collecte partagées entre les postes administrateur. Une erreur
+-- disparaît dès que la ressource est synchronisée avec succès sur n'importe
+-- quel ordinateur connecté au même compte administrateur.
+create table if not exists public.planning_sync_failures (
+  resource_id text primary key,
+  label text,
+  path text,
+  error_code text not null,
+  error_message text,
+  attempt_count integer not null default 1,
+  last_failed_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.planning_sync_failures enable row level security;
+
+drop policy if exists "admins read planning sync failures" on public.planning_sync_failures;
+create policy "admins read planning sync failures"
+on public.planning_sync_failures for select
+to authenticated
+using (public.is_site_admin());
+
+drop policy if exists "admins insert planning sync failures" on public.planning_sync_failures;
+create policy "admins insert planning sync failures"
+on public.planning_sync_failures for insert
+to authenticated
+with check (public.is_site_admin());
+
+drop policy if exists "admins update planning sync failures" on public.planning_sync_failures;
+create policy "admins update planning sync failures"
+on public.planning_sync_failures for update
+to authenticated
+using (public.is_site_admin())
+with check (public.is_site_admin());
+
+drop policy if exists "admins delete planning sync failures" on public.planning_sync_failures;
+create policy "admins delete planning sync failures"
+on public.planning_sync_failures for delete
+to authenticated
+using (public.is_site_admin());
+
+grant select, insert, update, delete on public.planning_sync_failures to authenticated;
