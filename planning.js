@@ -9,9 +9,10 @@
     const SHARED_RESOURCES_TABLE = 'planning_resources';
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.2.5.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.2.7.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
+    const COLLECTOR_SYNC_TIMEOUT = 600000;
     const SLOT_MINUTES = 15;
     const DEFAULT_DAY_START = 8 * 60;
     const DEFAULT_DAY_END = 19 * 60;
@@ -209,7 +210,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.2.5.zip';
+        link.download = 'planilim-collector-v4.2.7.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -593,6 +594,36 @@
         }
     }
 
+    function collectorRowKey(row) {
+        if (row?.resourceId != null) return `resource:${Number(row.resourceId)}`;
+        if (row?.nodeId) return `node:${row.nodeId}`;
+        if (row?.path) return `path:${row.path}`;
+        return `label:${row?.label || ''}:${row?.level || ''}`;
+    }
+
+    function mergeCollectorRows(incomingRows) {
+        const merged = new Map();
+        for (const row of state.collectorRows || []) {
+            merged.set(collectorRowKey(row), row);
+        }
+        for (const row of incomingRows || []) {
+            const key = collectorRowKey(row);
+            const previous = merged.get(key) || {};
+            merged.set(key, {
+                ...previous,
+                ...row,
+                // Conserver les informations de chemin/nom déjà découvertes
+                // quand ExtJS virtualise momentanément une partie de l'arbre.
+                label: row?.label || previous?.label || null,
+                path: row?.path || previous?.path || null,
+                pathParts: Array.isArray(row?.pathParts) && row.pathParts.length
+                    ? row.pathParts
+                    : (previous?.pathParts || [])
+            });
+        }
+        state.collectorRows = [...merged.values()];
+    }
+
     function renderCollectorRows() {
         const container = byId('planning-collector-resources');
         if (!container) return;
@@ -644,9 +675,13 @@
                 }
                 state.extensionDetected = true;
                 expanded += Number(result.expandedCount || 0);
-                state.collectorRows = (Array.isArray(result.rows) ? result.rows : []).map(row =>
+                const scannedRows = (Array.isArray(result.rows) ? result.rows : []).map(row =>
                     isCollectorTarget(row) ? { ...row, selected: true } : row
                 );
+                // Une lecture ExtJS est un instantané virtualisé : les lignes déjà
+                // découvertes ne doivent jamais disparaître parce qu'un lot suivant
+                // n'en rend plus qu'une partie. On fait donc l'union des découvertes.
+                mergeCollectorRows(scannedRows);
                 renderCollectorRows();
                 if (!result.truncated) {
                     complete = true;
@@ -721,34 +756,80 @@
         const status = byId('planning-collector-status');
         setLoading(true, 'Collecte ADE en cours…', `${targets.length} emploi${targets.length > 1 ? 's' : ''} du temps en cours de synchronisation.`);
         if (status) status.textContent = 'Garde ADE ouvert. Chaque filière terminée est publiée immédiatement.';
+
+        let successCount = 0;
+        const failures = [];
+        let authRequired = false;
+
         try {
-            let successCount = 0;
             for (let index = 0; index < targets.length; index += 1) {
                 const target = targets[index];
                 if (status) {
                     status.textContent = `Synchronisation ${index + 1}/${targets.length} : ${target.label || 'emploi du temps'}…`;
                 }
-                const sync = await requestExtension('PLANILIM_COLLECTOR_SYNC_RESOURCE', {
-                    timeout: SYNC_TIMEOUT,
-                    payload: { target }
-                });
-                if (sync?.ok) {
-                    await publishCollectorPayloads(target.resourceId);
-                    successCount += 1;
+
+                try {
+                    const sync = await requestExtension('PLANILIM_COLLECTOR_SYNC_RESOURCE', {
+                        timeout: COLLECTOR_SYNC_TIMEOUT,
+                        payload: { target }
+                    });
+
+                    if (sync?.code === 'AUTH_REQUIRED') {
+                        authRequired = true;
+                        failures.push({ target, code: 'AUTH_REQUIRED' });
+                        break;
+                    }
+
+                    if (!sync?.ok) {
+                        failures.push({ target, code: sync?.code || 'SYNC_FAILED' });
+                        continue;
+                    }
+
+                    try {
+                        const published = await publishCollectorPayloads(target.resourceId);
+                        if (published?.ok) successCount += 1;
+                        else failures.push({ target, code: published?.code || 'PUBLISH_FAILED' });
+                    } catch (publishError) {
+                        console.warn('Publication différée pour', target?.label, publishError);
+                        failures.push({ target, code: 'PUBLISH_FAILED' });
+                    }
+                } catch (resourceError) {
+                    // Une formation en erreur ne doit plus interrompre les 200+ suivantes.
+                    console.warn('Synchronisation impossible pour', target?.label, resourceError);
+                    failures.push({
+                        target,
+                        code: resourceError?.code || resourceError?.message || 'SYNC_EXCEPTION'
+                    });
                 }
-                if (sync?.code === 'AUTH_REQUIRED') break;
             }
+
+            // Deuxième passe de publication : récupère également les payloads qui
+            // auraient fini côté extension juste après un timeout réseau du site.
+            try { await publishCollectorPayloads(); } catch (error) {
+                console.warn('Publication globale de rattrapage impossible :', error);
+            }
+
             await loadSharedResources();
             if (status) {
-                status.textContent = successCount === targets.length
-                    ? `${successCount} emploi${successCount > 1 ? 's' : ''} du temps publié${successCount > 1 ? 's' : ''}. Tu peux fermer ADE.`
-                    : `${successCount} sur ${targets.length} emplois du temps ont été publiés. Relance pour terminer.`;
+                if (authRequired) {
+                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps publié${successCount > 1 ? 's' : ''}. Reconnecte-toi à ADE puis relance pour continuer.`;
+                } else if (!failures.length) {
+                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps publié${successCount > 1 ? 's' : ''}. Tu peux fermer ADE.`;
+                } else {
+                    status.textContent = `${successCount} sur ${targets.length} emplois du temps publiés. ${failures.length} ont échoué mais la file a continué jusqu'au bout.`;
+                }
             }
-            return { ok: successCount === targets.length, successCount, total: targets.length };
-        } catch (error) {
-            console.error('Collecte ADE impossible :', error);
-            if (status) status.textContent = 'La collecte a été interrompue. Les emplois du temps déjà terminés sont conservés.';
-            return { ok: false, code: error?.message || 'SYNC_FAILED' };
+
+            return {
+                ok: !authRequired && failures.length === 0,
+                successCount,
+                total: targets.length,
+                failures: failures.map(item => ({
+                    resourceId: item.target?.resourceId ?? null,
+                    label: item.target?.label || null,
+                    code: item.code
+                }))
+            };
         } finally {
             setLoading(false);
             renderCollectorRows();
