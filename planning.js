@@ -9,7 +9,7 @@
     const SHARED_RESOURCES_TABLE = 'planning_resources';
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.2.3.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.2.4.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const SLOT_MINUTES = 15;
@@ -209,7 +209,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.2.3.zip';
+        link.download = 'planilim-collector-v4.2.4.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
