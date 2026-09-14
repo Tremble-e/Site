@@ -844,15 +844,22 @@
         const run = byId('planning-collector-run');
         const retry = byId('planning-collector-retry');
         if (run) {
-            run.disabled = Boolean(state.busy || state.collectorRunning);
+            const blocked = Boolean(state.busy || state.collectorRunning);
+            run.disabled = blocked;
+            run.toggleAttribute('disabled', blocked);
+            run.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+            run.setAttribute('aria-busy', state.collectorRunning ? 'true' : 'false');
             run.innerHTML = state.collectorRunning
-                ? '<i class="fa-solid fa-spinner fa-spin"></i> Synchronisation en cours…'
+                ? '<span class="planning-inline-spinner" aria-hidden="true"></span> Synchronisation en cours…'
                 : '<i class="fa-solid fa-cloud-arrow-up"></i> Récupérer et synchroniser les EDT';
         }
         if (retry) {
             const count = state.collectorFailures.length;
             retry.hidden = count === 0;
-            retry.disabled = Boolean(state.busy || state.collectorRunning || count === 0);
+            const retryBlocked = Boolean(state.busy || state.collectorRunning || count === 0);
+            retry.disabled = retryBlocked;
+            retry.toggleAttribute('disabled', retryBlocked);
+            retry.setAttribute('aria-disabled', retryBlocked ? 'true' : 'false');
             retry.innerHTML = `<i class="fa-solid fa-rotate-right"></i> Relancer les échecs${count ? ` (${count})` : ''}`;
         }
     }
@@ -2248,7 +2255,10 @@
             savePlanningFilters();
             renderPlanningFilters();
             renderWeek();
-            openPlanningEventModal(key);
+            const hint = input.closest('.planning-event-modal-visibility')?.querySelector('small');
+            if (hint) hint.textContent = input.checked
+                ? 'Décochez pour masquer uniquement ce cours.'
+                : 'Ce cours est actuellement masqué.';
         });
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && !byId('planning-event-modal')?.hidden) closePlanningEventModal();

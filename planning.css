@@ -1322,3 +1322,49 @@
 /* Les cours parallèles restent lisibles en vue jour : la timeline peut défiler horizontalement plutôt que d'écraser les cartes. */
 .planning-mobile-agenda{overflow-x:auto;overscroll-behavior-inline:contain}
 .planning-day-timeline:has(.planning-day-event.is-overlap){min-width:520px}
+
+
+/* v2.23.1 — états interactifs fiables */
+.planning-event-modal-visibility input:checked + .planning-checkbox-ui {
+    border-color: color-mix(in srgb, var(--event-color, var(--accent, #3b82f6)) 82%, white 5%);
+    background: color-mix(in srgb, var(--event-color, var(--accent, #3b82f6)) 72%, #0f172a 28%);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--event-color, var(--accent, #3b82f6)) 11%, transparent);
+}
+.planning-event-modal-visibility input:checked + .planning-checkbox-ui i {
+    opacity: 1;
+    transform: scale(1);
+}
+.planning-event-modal-visibility:hover .planning-checkbox-ui {
+    border-color: color-mix(in srgb, var(--event-color, var(--accent, #3b82f6)) 62%, rgba(148, 163, 184, .34));
+}
+.planning-event-modal-visibility input:focus-visible + .planning-checkbox-ui {
+    outline: 2px solid color-mix(in srgb, var(--event-color, var(--accent, #3b82f6)) 72%, white 10%);
+    outline-offset: 2px;
+}
+
+#planning-collector-run:disabled,
+#planning-collector-retry:disabled {
+    cursor: wait !important;
+    pointer-events: none !important;
+    transform: none !important;
+    filter: saturate(.78);
+    opacity: .82;
+    box-shadow: none;
+}
+#planning-collector-run:disabled:hover,
+#planning-collector-retry:disabled:hover {
+    transform: none !important;
+}
+.planning-inline-spinner {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 15px;
+    display: inline-block;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.28);
+    border-top-color: #fff;
+    animation: planning-inline-spin .72s linear infinite;
+}
+@keyframes planning-inline-spin {
+    to { transform: rotate(360deg); }
+}
