@@ -1368,3 +1368,5 @@
 @keyframes planning-inline-spin {
     to { transform: rotate(360deg); }
 }
+
+/* v2.23.2 — correctif collecteur ADE (limite de profondeur relative) */
