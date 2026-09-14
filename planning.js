@@ -633,8 +633,7 @@
                         maxBranches: 3,
                         maxDurationMs: 45000,
                         maxDepth: 5,
-                        scopeRoot: 'Groupes Etudiants',
-                        scopePath: COLLECTOR_SCOPE_PATH
+                        scopeRoot: 'Groupes Etudiants'
                     }
                 });
                 if (!result?.ok) {
