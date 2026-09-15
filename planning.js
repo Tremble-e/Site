@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.4.2.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.5.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -213,7 +213,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.4.2.zip';
+        link.download = 'planilim-collector-v4.5.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1005,6 +1005,184 @@
         }
     }
 
+
+    async function runCollectorPipeline() {
+        if (!state.isAdmin || state.busy) return { ok: false, code: 'BUSY' };
+        const status = byId('planning-collector-status');
+        state.collectorRows = [];
+        renderCollectorRows();
+        saveCollectorFailures([]);
+        updateCollectorActionButtons();
+
+        let successCount = 0;
+        let discoveredCount = 0;
+        let completedCount = 0;
+        let authRequired = false;
+        const failures = new Map();
+        const successfulResourceIds = [];
+        const pendingPublishIds = [];
+
+        const flushPublishedPayloads = async () => {
+            if (!pendingPublishIds.length) return true;
+            const ids = pendingPublishIds.splice(0, pendingPublishIds.length);
+            try {
+                const published = await publishCollectorPayloads(ids);
+                if (!published?.ok) throw new Error(published?.code || 'PUBLISH_FAILED');
+                return true;
+            } catch (error) {
+                for (const resourceId of ids) {
+                    const target = state.collectorRows.find(row => Number(row.resourceId) === Number(resourceId)) || { resourceId };
+                    rememberFailure({
+                        ...target,
+                        code: 'PUBLISH_FAILED',
+                        message: String(error)
+                    });
+                }
+                return false;
+            }
+        };
+
+        const rememberFailure = item => {
+            if (!item) return;
+            const target = item.target || item;
+            const key = target?.resourceId != null
+                ? `resource:${Number(target.resourceId)}`
+                : `${target?.path || ''}:${target?.label || ''}`;
+            failures.set(key, {
+                resourceId: target?.resourceId ?? null,
+                label: target?.label || null,
+                path: target?.path || null,
+                level: target?.level ?? null,
+                branchToggle: target?.branchToggle ?? false,
+                expanded: target?.expanded ?? null,
+                code: item.code || 'SYNC_FAILED',
+                message: item.message || null
+            });
+        };
+
+        setLoading(true, 'Synchronisation en cours…', 'Les emplois du temps sont découverts et récupérés au fil d’un seul parcours ADE.');
+        if (status) status.textContent = 'Démarrage du parcours ADE…';
+
+        try {
+            const reset = await requestExtension('PLANILIM_COLLECTOR_PIPELINE_RESET', {
+                timeout: 30000,
+                payload: {
+                    scopePath: COLLECTOR_SCOPE_PATH,
+                    maxDepth: 4
+                }
+            });
+            if (!reset?.ok) {
+                const error = new Error(reset?.message || reset?.code || 'Impossible de démarrer le collecteur.');
+                error.code = reset?.code || 'PIPELINE_RESET_FAILED';
+                throw error;
+            }
+
+            let guard = 0;
+            while (guard++ < 900) {
+                const step = await requestExtension('PLANILIM_COLLECTOR_PIPELINE_STEP', {
+                    timeout: 3 * 60 * 1000,
+                    payload: {
+                        scopePath: COLLECTOR_SCOPE_PATH,
+                        maxDepth: 4,
+                        maxActions: 600,
+                        weekConcurrency: 8
+                    }
+                });
+
+                if (!step?.ok && ['AUTH_REQUIRED', 'ADE_NOT_OPEN'].includes(step?.code)) {
+                    authRequired = true;
+                    break;
+                }
+                if (!step?.ok) {
+                    const error = new Error(step?.message || step?.code || 'Le pipeline ADE a été interrompu.');
+                    error.code = step?.code || 'PIPELINE_STEP_FAILED';
+                    throw error;
+                }
+
+                discoveredCount = Math.max(discoveredCount, Number(step.discoveredCount || 0));
+                completedCount = Math.max(completedCount, Number(step.completedCount || 0));
+
+                if (step.discovered) {
+                    mergeCollectorRows([{ ...step.discovered, selected: true }]);
+                    renderCollectorRows();
+                }
+                if (step.discoveredFailure) rememberFailure(step.discoveredFailure);
+
+                const result = step.completedResult || null;
+                if (result) {
+                    const resourceId = result.resourceId;
+                    const hasPayload = Number(result.weekCount || 0) > 0 || Number(result.eventCount || 0) > 0;
+                    if (hasPayload && resourceId != null) {
+                        pendingPublishIds.push(resourceId);
+                    }
+
+                    if (result.ok) {
+                        successCount += 1;
+                        if (resourceId != null) successfulResourceIds.push(resourceId);
+                        if (resourceId != null) failures.delete(`resource:${Number(resourceId)}`);
+                    } else {
+                        rememberFailure(result);
+                        if (result.authRequired || result.code === 'AUTH_REQUIRED') authRequired = true;
+                    }
+                }
+
+                if (status) {
+                    status.textContent = `Découverte ${discoveredCount} · Synchronisation ${completedCount} · ${successCount} réussie${successCount > 1 ? 's' : ''}`;
+                }
+
+                // Publication et sauvegarde distante par lots : elles ne coupent
+                // plus le pipeline à chaque EDT.
+                if (completedCount > 0 && (completedCount % 5 === 0 || step.done || authRequired)) {
+                    await flushPublishedPayloads();
+                    const failureRows = [...failures.values()];
+                    saveCollectorFailures(failureRows);
+                    await persistCollectorFailureRows(failureRows, successfulResourceIds);
+                }
+
+                if (authRequired || step.done) break;
+            }
+
+            await flushPublishedPayloads();
+            const failureRows = [...failures.values()];
+            saveCollectorFailures(failureRows);
+            await persistCollectorFailureRows(failureRows, successfulResourceIds);
+            await loadSharedResources();
+
+            if (status) {
+                if (authRequired) {
+                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps terminé${successCount > 1 ? 's' : ''}. Reconnecte-toi à ADE puis relance les échecs.`;
+                } else if (!failureRows.length) {
+                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps synchronisé${successCount > 1 ? 's' : ''}. Tu peux fermer ADE.`;
+                } else {
+                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps terminés. ${failureRows.length} restent à relancer.`;
+                }
+            }
+
+            return {
+                ok: !authRequired && failureRows.length === 0,
+                successCount,
+                discoveredCount,
+                completedCount,
+                failures: failureRows
+            };
+        } catch (error) {
+            const auth = ['AUTH_REQUIRED', 'ADE_NOT_OPEN'].includes(error?.code);
+            if (auth) authRequired = true;
+            if (status) {
+                status.textContent = auth
+                    ? 'Reconnecte-toi à ADE puis relance la synchronisation.'
+                    : `Collecte interrompue après ${completedCount} emploi${completedCount > 1 ? 's' : ''} du temps. Les résultats déjà publiés sont conservés.`;
+            }
+            const failureRows = [...failures.values()];
+            saveCollectorFailures(failureRows);
+            try { await persistCollectorFailureRows(failureRows, successfulResourceIds); } catch {}
+            return { ok: false, code: error?.code || 'PIPELINE_FAILED', failures: failureRows };
+        } finally {
+            setLoading(false);
+            renderCollectorRows();
+        }
+    }
+
     async function publishCollectorPayloads(resourceIds = null) {
         if (!state.isAdmin) return { ok: false, code: 'ADMIN_REQUIRED' };
         const client = getSupabase();
@@ -1232,12 +1410,7 @@
 
             sessionStorage.removeItem('planilim-admin-collector-resume');
             saveCollectorFailures([]);
-            const catalog = await refreshCollectorTree();
-            if (catalog?.ok && catalog?.complete) {
-                await syncCollectorResources();
-            } else if (catalog?.ok && status) {
-                status.textContent = `${catalog.count || 0} EDT trouvés, mais l’analyse n’est pas encore complète. Relance pour reprendre sans perdre ceux déjà détectés.`;
-            }
+            await runCollectorPipeline();
         } finally {
             state.collectorRunning = false;
             updateCollectorActionButtons();
