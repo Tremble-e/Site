@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.3.3.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.4.1.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -213,7 +213,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.3.3.zip';
+        link.download = 'planilim-collector-v4.4.1.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1005,14 +1005,17 @@
         }
     }
 
-    async function publishCollectorPayloads(onlyResourceId = null) {
+    async function publishCollectorPayloads(resourceIds = null) {
         if (!state.isAdmin) return { ok: false, code: 'ADMIN_REQUIRED' };
         const client = getSupabase();
         if (!client) return { ok: false, code: 'SUPABASE_UNAVAILABLE' };
 
         const result = await requestExtension('PLANILIM_COLLECTOR_PAYLOADS', { timeout: 20000 });
+        const requested = resourceIds == null
+            ? null
+            : new Set((Array.isArray(resourceIds) ? resourceIds : [resourceIds]).map(value => Number(value)));
         const resources = (Array.isArray(result?.resources) ? result.resources : [])
-            .filter(item => onlyResourceId == null || Number(item.resourceId) === Number(onlyResourceId));
+            .filter(item => requested == null || requested.has(Number(item.resourceId)));
         if (!resources.length) return { ok: false, code: 'NO_COLLECTOR_PAYLOADS' };
 
         const rows = resources.map(item => ({
@@ -1043,60 +1046,139 @@
         if (!targets.length) return;
 
         const status = byId('planning-collector-status');
-        setLoading(true, 'Collecte ADE en cours…', `${targets.length} emploi${targets.length > 1 ? 's' : ''} du temps en cours de synchronisation.`);
-        if (status) status.textContent = 'Garde ADE ouvert. Chaque filière terminée est publiée immédiatement.';
+        setLoading(true, 'Préparation des emplois du temps…', `${targets.length} modèles de synchronisation vont être capturés avant le téléchargement.`);
+        if (status) status.textContent = `Préparation 0/${targets.length}…`;
 
         let successCount = 0;
         const successfulResourceIds = [];
         const failures = [];
+        const preparedTargets = [];
         let authRequired = false;
 
         try {
+            try {
+                await requestExtension('PLANILIM_COLLECTOR_CLEAR_PREPARED', { timeout: 20000 });
+            } catch (error) {
+                console.warn('Nettoyage des modèles précédents impossible :', error);
+            }
+
+            // Phase 1 : on sélectionne chaque EDT une seule fois afin de capturer
+            // son vrai getTimetable. Aucun téléchargement annuel n'est encore lancé.
             for (let index = 0; index < targets.length; index += 1) {
                 const target = targets[index];
                 if (status) {
-                    status.textContent = `Synchronisation ${index + 1}/${targets.length} : ${target.label || 'emploi du temps'}…`;
+                    status.textContent = `Préparation ${index + 1}/${targets.length} : ${target.label || 'emploi du temps'}…`;
                 }
 
                 try {
-                    const sync = await requestExtension('PLANILIM_COLLECTOR_SYNC_RESOURCE', {
-                        timeout: COLLECTOR_SYNC_TIMEOUT,
+                    const prepared = await requestExtension('PLANILIM_COLLECTOR_PREPARE_RESOURCE', {
+                        timeout: 45000,
                         payload: { target }
                     });
-
-                    if (sync?.code === 'AUTH_REQUIRED') {
+                    if (prepared?.code === 'AUTH_REQUIRED') {
                         authRequired = true;
                         failures.push({ target, code: 'AUTH_REQUIRED' });
                         break;
                     }
-
-                    if (!sync?.ok) {
-                        failures.push({ target, code: sync?.code || 'SYNC_FAILED' });
+                    if (!prepared?.ok) {
+                        failures.push({
+                            target,
+                            code: prepared?.code || 'MODEL_CAPTURE_FAILED',
+                            message: prepared?.message || null
+                        });
                         continue;
                     }
-
-                    try {
-                        const published = await publishCollectorPayloads(target.resourceId);
-                        if (published?.ok) {
-                            successCount += 1;
-                            successfulResourceIds.push(target.resourceId);
-                        } else failures.push({ target, code: published?.code || 'PUBLISH_FAILED' });
-                    } catch (publishError) {
-                        console.warn('Publication différée pour', target?.label, publishError);
-                        failures.push({ target, code: 'PUBLISH_FAILED' });
-                    }
-                } catch (resourceError) {
-                    // Une formation en erreur ne doit plus interrompre les 200+ suivantes.
-                    console.warn('Synchronisation impossible pour', target?.label, resourceError);
+                    preparedTargets.push(target);
+                } catch (error) {
                     failures.push({
                         target,
-                        code: resourceError?.code || resourceError?.message || 'SYNC_EXCEPTION'
+                        code: error?.code || error?.message || 'MODEL_CAPTURE_EXCEPTION'
                     });
                 }
             }
 
-            // Deuxième passe de publication : récupère également les payloads qui
-            // auraient fini côté extension juste après un timeout réseau du site.
+            if (!authRequired && preparedTargets.length) {
+                // Phase 2 : les modèles sont maintenant indépendants de l'arbre ADE.
+                // On télécharge 12 EDT par lot, avec 3 ressources simultanées et
+                // 6 semaines en parallèle par ressource (jusqu'à 18 RPC en vol).
+                const chunkSize = 12;
+                for (let start = 0; start < preparedTargets.length; start += chunkSize) {
+                    const chunk = preparedTargets.slice(start, start + chunkSize);
+                    const chunkNumber = Math.floor(start / chunkSize) + 1;
+                    const chunkTotal = Math.ceil(preparedTargets.length / chunkSize);
+                    if (status) {
+                        status.textContent = `Téléchargement parallèle ${Math.min(start + 1, preparedTargets.length)}–${Math.min(start + chunk.length, preparedTargets.length)}/${preparedTargets.length} · lot ${chunkNumber}/${chunkTotal}…`;
+                    }
+
+                    let batch;
+                    try {
+                        batch = await requestExtension('PLANILIM_COLLECTOR_SYNC_PREPARED', {
+                            timeout: 20 * 60 * 1000,
+                            payload: {
+                                resourceIds: chunk.map(item => item.resourceId),
+                                resourceConcurrency: 3,
+                                weekConcurrency: 6
+                            }
+                        });
+                    } catch (error) {
+                        for (const target of chunk) {
+                            failures.push({
+                                target,
+                                code: error?.code || error?.message || 'PARALLEL_BATCH_EXCEPTION'
+                            });
+                        }
+                        continue;
+                    }
+
+                    if (batch?.code === 'AUTH_REQUIRED') authRequired = true;
+                    const batchResults = Array.isArray(batch?.results) ? batch.results : [];
+                    const byId = new Map(batchResults.map(item => [Number(item.resourceId), item]));
+                    const publishIds = [];
+
+                    for (const target of chunk) {
+                        const result = byId.get(Number(target.resourceId));
+                        if (!result) {
+                            failures.push({ target, code: 'SYNC_RESULT_MISSING' });
+                            continue;
+                        }
+
+                        // Même un résultat partiel est publié : il reste marqué en
+                        // erreur et pourra être complété via « Relancer les échecs ».
+                        if (Number(result.eventCount || 0) > 0 || Number(result.weekCount || 0) > 0) {
+                            publishIds.push(target.resourceId);
+                        }
+
+                        if (result.ok) {
+                            successCount += 1;
+                            successfulResourceIds.push(target.resourceId);
+                        } else {
+                            failures.push({
+                                target,
+                                code: result.code || 'SYNC_FAILED',
+                                message: result.failedWeekCount
+                                    ? `${result.failedWeekCount} semaine(s) incomplète(s)`
+                                    : null
+                            });
+                        }
+                    }
+
+                    try {
+                        if (publishIds.length) await publishCollectorPayloads(publishIds);
+                    } catch (publishError) {
+                        console.warn('Publication du lot impossible :', publishError);
+                        for (const target of chunk.filter(item => publishIds.includes(item.resourceId))) {
+                            if (!failures.some(item => Number(item.target?.resourceId) === Number(target.resourceId))) {
+                                failures.push({ target, code: 'PUBLISH_FAILED' });
+                            }
+                        }
+                    }
+
+                    if (authRequired) break;
+                }
+            }
+
+            // Publication de rattrapage des payloads qui auraient terminé juste
+            // après la réponse d'un lot.
             try { await publishCollectorPayloads(); } catch (error) {
                 console.warn('Publication globale de rattrapage impossible :', error);
             }
@@ -1104,15 +1186,22 @@
             await loadSharedResources();
             if (status) {
                 if (authRequired) {
-                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps publié${successCount > 1 ? 's' : ''}. Reconnecte-toi à ADE puis relance pour continuer.`;
+                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps terminé${successCount > 1 ? 's' : ''}. Reconnecte-toi à ADE puis relance les échecs.`;
                 } else if (!failures.length) {
-                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps publié${successCount > 1 ? 's' : ''}. Tu peux fermer ADE.`;
+                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps synchronisé${successCount > 1 ? 's' : ''}. Tu peux fermer ADE.`;
                 } else {
-                    status.textContent = `${successCount} sur ${targets.length} emplois du temps publiés. ${failures.length} ont échoué mais la file a continué jusqu'au bout.`;
+                    status.textContent = `${successCount} sur ${targets.length} emplois du temps terminés. ${failures.length} restent à relancer.`;
                 }
             }
 
-            const failureRows = failures.map(item => ({
+            const uniqueFailures = new Map();
+            for (const item of failures) {
+                const key = item.target?.resourceId != null
+                    ? `resource:${Number(item.target.resourceId)}`
+                    : `${item.target?.path || ''}:${item.target?.label || ''}`;
+                uniqueFailures.set(key, item);
+            }
+            const failureRows = [...uniqueFailures.values()].map(item => ({
                 resourceId: item.target?.resourceId ?? null,
                 label: item.target?.label || null,
                 path: item.target?.path || null,
@@ -1126,9 +1215,10 @@
             await persistCollectorFailureRows(failureRows, successfulResourceIds);
 
             return {
-                ok: !authRequired && failures.length === 0,
+                ok: !authRequired && failureRows.length === 0,
                 successCount,
                 total: targets.length,
+                preparedCount: preparedTargets.length,
                 failures: failureRows
             };
         } finally {
