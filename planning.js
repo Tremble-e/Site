@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.5.8.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.5.9.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -213,7 +213,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.5.8.zip';
+        link.download = 'planilim-collector-v4.5.9.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1202,9 +1202,14 @@
             ? null
             : new Set((Array.isArray(resourceIds) ? resourceIds : [resourceIds]).map(value => Number(value)));
         const resources = (Array.isArray(result?.resources) ? result.resources : [])
-            // Ne jamais publier un cache partiel : une relance ratée ne doit pas
-            // écraser dans Supabase un EDT complet déjà disponible.
+            // 4.5.9 : seul un payload explicitement validé semaine par semaine
+            // peut remplacer l'EDT déjà présent dans Supabase. Les anciens caches
+            // sans preuve de complétude sont volontairement ignorés.
+            .filter(item => item?.verified === true)
             .filter(item => !item?.partial)
+            .filter(item => Number(item?.requestedWeekCount || 0) > 0)
+            .filter(item => Number(item?.successfulWeekCount || 0) === Number(item?.requestedWeekCount || 0))
+            .filter(item => Number(item?.weekCount || item?.payload?.weekCount || 0) === Number(item?.requestedWeekCount || 0))
             .filter(item => requested == null || requested.has(Number(item.resourceId)));
         if (!resources.length) return { ok: false, code: 'NO_COLLECTOR_PAYLOADS' };
 
