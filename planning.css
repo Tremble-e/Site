@@ -1252,6 +1252,22 @@
     font-size: .67rem;
 }
 
+.planning-collector-resource.is-failed {
+    border-color: rgba(248, 113, 113, .24);
+    background: rgba(127, 29, 29, .10);
+}
+
+.planning-collector-resource.is-failed > i {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, .12);
+}
+
+.planning-collector-resource .planning-collector-error {
+    color: #fca5a5;
+    font-size: .72rem;
+    overflow-wrap: anywhere;
+}
+
 .planning-collector-resource strong,
 .planning-collector-resource small {
     display: block;

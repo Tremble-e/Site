@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.5.5.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.5.6.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -213,7 +213,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.5.5.zip';
+        link.download = 'planilim-collector-v4.5.6.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -803,6 +803,7 @@
             try { localStorage.setItem(key, JSON.stringify(state.collectorFailures)); } catch {}
         }
         updateCollectorActionButtons();
+        renderCollectorRows();
     }
 
     async function persistCollectorFailureRows(failures = [], successfulResourceIds = []) {
@@ -899,15 +900,22 @@
         if (!container) return;
 
         const rows = state.collectorRows.filter(isCollectorTarget);
-        container.innerHTML = rows.length ? rows.map(row => `
-            <article class="planning-collector-resource">
-                <i class="fa-solid fa-check" aria-hidden="true"></i>
+        const failuresByKey = new Map((state.collectorFailures || []).map(item => [collectorFailureKey(item), item]));
+        container.innerHTML = rows.length ? rows.map(row => {
+            const failure = failuresByKey.get(collectorFailureKey(row)) || null;
+            const failureText = failure
+                ? [failure.code, failure.message].filter(Boolean).join(' · ')
+                : '';
+            return `
+            <article class="planning-collector-resource${failure ? ' is-failed' : ''}">
+                <i class="fa-solid ${failure ? 'fa-triangle-exclamation' : 'fa-check'}" aria-hidden="true"></i>
                 <span>
                     <strong>${escapePlanning(row.label || `Planning ${row.resourceId}`)}</strong>
                     <small>${escapePlanning(row.path || '')}</small>
+                    ${failureText ? `<small class="planning-collector-error">${escapePlanning(failureText)}</small>` : ''}
                 </span>
-            </article>
-        `).join('') : '';
+            </article>`;
+        }).join('') : '';
     }
 
     function isCollectorTerminalLabel(label) {
@@ -1194,6 +1202,9 @@
             ? null
             : new Set((Array.isArray(resourceIds) ? resourceIds : [resourceIds]).map(value => Number(value)));
         const resources = (Array.isArray(result?.resources) ? result.resources : [])
+            // Ne jamais publier un cache partiel : une relance ratée ne doit pas
+            // écraser dans Supabase un EDT complet déjà disponible.
+            .filter(item => !item?.partial)
             .filter(item => requested == null || requested.has(Number(item.resourceId)));
         if (!resources.length) return { ok: false, code: 'NO_COLLECTOR_PAYLOADS' };
 
@@ -1217,7 +1228,7 @@
         return { ok: true, code: 'COLLECTOR_PUBLISHED', count: rows.length };
     }
 
-    async function syncCollectorResources(targetOverride = null) {
+    async function syncCollectorResources(targetOverride = null, options = {}) {
         if (!state.isAdmin || state.busy) return;
         const targets = Array.isArray(targetOverride) && targetOverride.length
             ? targetOverride
@@ -1240,6 +1251,7 @@
             // parallèle, ce qui garde le gros gain de vitesse sans mélanger les
             // ressources.
             const chunkSize = 6;
+            const weekConcurrency = Math.max(1, Math.min(8, Number(options.weekConcurrency) || 4));
             for (let start = 0; start < targets.length; start += chunkSize) {
                 const chunk = targets.slice(start, start + chunkSize);
                 if (status) {
@@ -1252,7 +1264,7 @@
                         timeout: 8 * 60 * 1000,
                         payload: {
                             targets: chunk,
-                            weekConcurrency: 8
+                            weekConcurrency
                         }
                     });
                 } catch (error) {
@@ -1277,7 +1289,7 @@
                         continue;
                     }
 
-                    if (Number(result.eventCount || 0) > 0 || Number(result.weekCount || 0) > 0) {
+                    if (result.ok && (Number(result.eventCount || 0) > 0 || Number(result.weekCount || 0) > 0)) {
                         publishIds.push(target.resourceId);
                     }
 
@@ -1375,6 +1387,7 @@
 
             return {
                 ok: !authRequired && failureRows.length === 0,
+                authRequired,
                 successCount,
                 total: targets.length,
                 failures: failureRows
@@ -1422,14 +1435,30 @@
     async function retryFailedCollectorResources() {
         if (!state.isAdmin || state.busy || state.collectorRunning) return;
         const status = byId('planning-collector-status');
-        const failures = [...state.collectorFailures];
-        if (!failures.length) return;
+        let remaining = [...state.collectorFailures];
+        if (!remaining.length) return;
 
         state.collectorRunning = true;
         updateCollectorActionButtons();
-        if (status) status.textContent = `Nouvelle tentative sur ${failures.length} emploi${failures.length > 1 ? 's' : ''} du temps en échec…`;
         try {
-            await syncCollectorResources(failures);
+            const passes = [4, 2, 1];
+            for (let passIndex = 0; passIndex < passes.length && remaining.length; passIndex += 1) {
+                const weekConcurrency = passes[passIndex];
+                if (status) {
+                    status.textContent = `Rattrapage ${passIndex + 1}/${passes.length} : ${remaining.length} emploi${remaining.length > 1 ? 's' : ''} du temps · ${weekConcurrency} semaine${weekConcurrency > 1 ? 's' : ''} en parallèle…`;
+                }
+
+                const result = await syncCollectorResources(remaining, { weekConcurrency });
+                remaining = Array.isArray(result?.failures) ? result.failures : [...state.collectorFailures];
+                if (result?.authRequired || !remaining.length) break;
+
+                // On laisse ADE respirer avant de réduire encore la concurrence.
+                await new Promise(resolve => window.setTimeout(resolve, 650 + passIndex * 450));
+            }
+
+            if (status && remaining.length) {
+                status.textContent = `${remaining.length} emploi${remaining.length > 1 ? 's' : ''} du temps restent en échec. Le détail technique est affiché sur les lignes concernées.`;
+            }
         } finally {
             state.collectorRunning = false;
             updateCollectorActionButtons();
