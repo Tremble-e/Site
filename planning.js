@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.5.3.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.5.5.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -213,7 +213,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.5.3.zip';
+        link.download = 'planilim-collector-v4.5.5.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1147,6 +1147,7 @@
             saveCollectorFailures(failureRows);
             await persistCollectorFailureRows(failureRows, successfulResourceIds);
             await loadSharedResources();
+            useSelectedSharedPayload();
 
             if (status) {
                 if (authRequired) {
@@ -1341,6 +1342,7 @@
             }
 
             await loadSharedResources();
+            useSelectedSharedPayload();
             if (status) {
                 if (authRequired) {
                     status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps terminé${successCount > 1 ? 's' : ''}. Reconnecte-toi à ADE puis relance les échecs.`;
@@ -1605,6 +1607,7 @@
                     if (published?.ok) {
                         state.lastCollectorPublishSignature = publishSignature;
                         await loadSharedResources();
+                        useSelectedSharedPayload();
                     }
                 }
             } catch {
@@ -1615,15 +1618,36 @@
                 return null;
             }
 
-            try {
-                const result = await requestExtension('PLANILIM_ADE_GET_PAYLOAD', { timeout: 10000 });
-                const payload = payloadFromBridgeResult(result);
-                if (payload) {
-                    saveLocalPayload(payload);
-                    if (persistIfCloudEmpty && !state.cloudLoaded) await persistPayloadToCloud(payload);
+            // Une formation choisie dans le catalogue partagé est la source de vérité
+            // de l'affichage. Le GET_PAYLOAD de l'extension correspond, lui, à la
+            // ressource ADE actuellement sélectionnée par le collecteur administrateur
+            // et change donc plusieurs fois pendant une collecte. L'utiliser ici faisait
+            // sauter l'emploi du temps toutes les 12 s ou au retour de focus.
+            const selectedShared = state.sharedResources.find(resource =>
+                String(resource.resource_id) === String(state.selectedResourceId)
+            );
+            const selectedSharedPayload = selectedShared?.payload?.events && Array.isArray(selectedShared.payload.events)
+                ? selectedShared.payload
+                : null;
+            const sharedSelectionExpected = Boolean(
+                state.selectedResourceId || state.sharedResources.length || state.collectorRunning
+            );
+
+            if (selectedSharedPayload) {
+                saveLocalPayload(selectedSharedPayload);
+                state.cloudAvailable = true;
+                state.cloudLoaded = true;
+            } else if (!sharedSelectionExpected) {
+                try {
+                    const result = await requestExtension('PLANILIM_ADE_GET_PAYLOAD', { timeout: 10000 });
+                    const payload = payloadFromBridgeResult(result);
+                    if (payload) {
+                        saveLocalPayload(payload);
+                        if (persistIfCloudEmpty && !state.cloudLoaded) await persistPayloadToCloud(payload);
+                    }
+                } catch (error) {
+                    if (error?.message !== 'EXTENSION_TIMEOUT') console.warn('Payload ADE indisponible :', error);
                 }
-            } catch (error) {
-                if (error?.message !== 'EXTENSION_TIMEOUT') console.warn('Payload ADE indisponible :', error);
             }
 
             ensureCurrentWeek();

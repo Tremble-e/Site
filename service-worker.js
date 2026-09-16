@@ -1,7 +1,7 @@
 'use strict';
 
-const SHELL_CACHE = 'tremble-shell-v2.25.3';
-const RUNTIME_CACHE = 'tremble-runtime-v2.25.3';
+const SHELL_CACHE = 'tremble-shell-v2.25.4';
+const RUNTIME_CACHE = 'tremble-runtime-v2.25.4';
 const OFFLINE_DOCUMENT_CACHE = 'tremble-offline-documents-v1';
 
 const SHELL_ASSETS = [
@@ -12,7 +12,7 @@ const SHELL_ASSETS = [
     './forum.css?v=2.9.5',
     './forum_v2.css?v=2.9.5',
     './script.js?v=2.13.0',
-    './planning.js?v=2.25.3',
+    './planning.js?v=2.25.4',
     './forum.js?v=2.9.5',
     './forum_v2.js?v=2.9.5',
     './manifest.webmanifest',
