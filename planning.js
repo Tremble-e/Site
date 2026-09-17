@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.6.3.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.6.4.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -213,7 +213,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.6.3.zip';
+        link.download = 'planilim-collector-v4.6.4.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1250,13 +1250,12 @@
         let authRequired = false;
 
         try {
-            // Une seule ressource ADE est traitée à la fois. Cela évite que
-            // plusieurs modèles partagent le même état de session ADE. En
-            // revanche, jusqu'à 8 semaines du même EDT sont téléchargées en
-            // parallèle, ce qui garde le gros gain de vitesse sans mélanger les
-            // ressources.
+            // Une seule ressource ADE est traitée à la fois. Depuis la 4.6.4,
+            // l'extension positionne réellement ADE sur chaque semaine avant de
+            // lire method10getTimetable. Le parallélisme hebdomadaire est donc
+            // volontairement désactivé pour garantir l'exactitude des cours.
             const chunkSize = 6;
-            const weekConcurrency = Math.max(1, Math.min(8, Number(options.weekConcurrency) || 4));
+            const weekConcurrency = 1;
             for (let start = 0; start < targets.length; start += chunkSize) {
                 const chunk = targets.slice(start, start + chunkSize);
                 if (status) {
@@ -1446,7 +1445,7 @@
         state.collectorRunning = true;
         updateCollectorActionButtons();
         try {
-            const passes = [4, 2, 1];
+            const passes = [1];
             for (let passIndex = 0; passIndex < passes.length && remaining.length; passIndex += 1) {
                 const weekConcurrency = passes[passIndex];
                 if (status) {
