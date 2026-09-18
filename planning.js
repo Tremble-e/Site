@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.7.3.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.8.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -213,7 +213,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.7.3.zip';
+        link.download = 'planilim-collector-v4.8.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1068,15 +1068,16 @@
             });
         };
 
-        setLoading(true, 'Synchronisation en cours…', 'Les emplois du temps sont découverts et récupérés au fil d’un seul parcours ADE.');
-        if (status) status.textContent = 'Démarrage du parcours ADE…';
+        setLoading(true, 'Synchronisation en cours…', 'Deux workers ADE indépendants synchronisent deux emplois du temps en parallèle.');
+        if (status) status.textContent = 'Démarrage des 2 workers ADE…';
 
         try {
             const reset = await requestExtension('PLANILIM_COLLECTOR_PIPELINE_RESET', {
-                timeout: 30000,
+                timeout: 90000,
                 payload: {
                     scopePath: COLLECTOR_SCOPE_PATH,
-                    maxDepth: 4
+                    maxDepth: 4,
+                    workerCount: 2
                 }
             });
             if (!reset?.ok) {
@@ -1093,7 +1094,8 @@
                         scopePath: COLLECTOR_SCOPE_PATH,
                         maxDepth: 4,
                         maxActions: 600,
-                        weekConcurrency: 8
+                        weekConcurrency: 8,
+                        workerCount: 2
                     }
                 });
 
@@ -1110,19 +1112,29 @@
                 discoveredCount = Math.max(discoveredCount, Number(step.discoveredCount || 0));
                 completedCount = Math.max(completedCount, Number(step.completedCount || 0));
 
-                if (step.discovered) {
-                    mergeCollectorRows([{ ...step.discovered, selected: true }]);
+                const discoveredTargets = Array.isArray(step.discoveredTargets)
+                    ? step.discoveredTargets
+                    : (step.discovered ? [step.discovered] : []);
+                if (discoveredTargets.length) {
+                    mergeCollectorRows(discoveredTargets.map(target => ({ ...target, selected: true })));
                     renderCollectorRows();
                 }
-                if (step.discoveredFailure) rememberFailure(step.discoveredFailure);
 
-                const result = step.completedResult || null;
-                if (result) {
+                const discoveryFailures = Array.isArray(step.discoveredFailures)
+                    ? step.discoveredFailures
+                    : (step.discoveredFailure ? [step.discoveredFailure] : []);
+                // Une erreur de sélection pendant la découverte peut être récupérée
+                // par la recherche fraîche du worker. On ne la mémorise que si le
+                // résultat final correspondant échoue réellement.
+
+                const completedResults = Array.isArray(step.completedResults)
+                    ? step.completedResults
+                    : (step.completedResult ? [step.completedResult] : []);
+                for (const result of completedResults) {
+                    if (!result) continue;
                     const resourceId = result.resourceId;
                     const hasPayload = Number(result.weekCount || 0) > 0 || Number(result.eventCount || 0) > 0;
-                    if (hasPayload && resourceId != null) {
-                        pendingPublishIds.push(resourceId);
-                    }
+                    if (hasPayload && resourceId != null) pendingPublishIds.push(resourceId);
 
                     if (result.ok) {
                         successCount += 1;
@@ -1134,8 +1146,15 @@
                     }
                 }
 
+                for (const failure of discoveryFailures) {
+                    const id = failure?.resourceId;
+                    const finalResult = completedResults.find(result => Number(result?.resourceId) === Number(id));
+                    if (!finalResult || finalResult.ok) continue;
+                    rememberFailure(failure);
+                }
+
                 if (status) {
-                    status.textContent = `Découverte ${discoveredCount} · Synchronisation ${completedCount} · ${successCount} réussie${successCount > 1 ? 's' : ''}`;
+                    status.textContent = `2 workers · Découverte ${discoveredCount} · Synchronisation ${completedCount} · ${successCount} réussie${successCount > 1 ? 's' : ''}`;
                 }
 
                 // Publication et sauvegarde distante par lots : elles ne coupent
@@ -1250,7 +1269,7 @@
         let authRequired = false;
 
         try {
-            // Une seule ressource ADE est traitée à la fois. Depuis la 4.7.3, l'extension capture directement la réponse native et retente seulement les semaines ratées
+            // Une seule ressource ADE est traitée à la fois. Depuis la 4.7.4, l'extension capture directement la réponse native et retente seulement les semaines ratées
             // method10getTimetable produite par ADE pour chaque semaine. Il n'y a
             // plus de replay réseau ni d'attente DOM sur le chemin normal.
             const chunkSize = 6;
@@ -2121,6 +2140,11 @@
         const card = byId('planning-event-modal-card');
         const event = findPlanningEventByKey(key);
         if (!modal || !card || !event) return;
+
+        // Le planning vit dans plusieurs conteneurs scrollables/transformés. Un élément
+        // position:fixed laissé dans l'un de ces conteneurs peut alors être centré sur
+        // l'EDT au lieu du viewport. La modale est donc portée directement par <body>.
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
         const kind = courseKind(event);
         const roomLine = [event.room, event.building].filter(Boolean).join(' · ');
         const excluded = eventIsIndividuallyExcluded(event);

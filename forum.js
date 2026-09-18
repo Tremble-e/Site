@@ -76,6 +76,83 @@ function fInitials(username) {
     return text.slice(0, 2).toUpperCase();
 }
 
+const PROFILE_AVATAR_SOURCE_MAX_BYTES = 5 * 1024 * 1024;
+const PROFILE_AVATAR_MAX_SIDE = 256;
+const PROFILE_AVATAR_TARGET_BYTES = 60 * 1024;
+const PROFILE_AVATAR_HARD_MAX_BYTES = 90 * 1024;
+
+function avatarCanvasToBlob(canvas, quality) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => {
+            if (!blob) reject(new Error('Impossible de compresser cette image.'));
+            else resolve(blob);
+        }, 'image/webp', quality);
+    });
+}
+
+async function loadAvatarBitmap(file) {
+    if ('createImageBitmap' in window) {
+        try {
+            const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+            return { source: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close?.() };
+        } catch {}
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    try {
+        const image = await new Promise((resolve, reject) => {
+            const element = new Image();
+            element.onload = () => resolve(element);
+            element.onerror = () => reject(new Error('Cette image ne peut pas être lue.'));
+            element.src = objectUrl;
+        });
+        return { source: image, width: image.naturalWidth, height: image.naturalHeight, close: () => {} };
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
+}
+
+async function optimizeProfileAvatar(file) {
+    if (!file || !file.type.startsWith('image/')) throw new Error('Le fichier choisi n’est pas une image.');
+    if (file.size > PROFILE_AVATAR_SOURCE_MAX_BYTES) throw new Error('La photo source dépasse 5 Mo.');
+
+    const decoded = await loadAvatarBitmap(file);
+    try {
+        if (!decoded.width || !decoded.height) throw new Error('Dimensions de l’image invalides.');
+
+        const crop = Math.min(decoded.width, decoded.height);
+        const sx = Math.max(0, (decoded.width - crop) / 2);
+        const sy = Math.max(0, (decoded.height - crop) / 2);
+        const sizes = [PROFILE_AVATAR_MAX_SIDE, 224, 192];
+        const qualities = [.80, .72, .64, .56, .48];
+        let smallest = null;
+
+        for (const side of sizes) {
+            const canvas = document.createElement('canvas');
+            canvas.width = side;
+            canvas.height = side;
+            const context = canvas.getContext('2d', { alpha: false });
+            if (!context) throw new Error('Compression d’image indisponible dans ce navigateur.');
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = 'high';
+            context.drawImage(decoded.source, sx, sy, crop, crop, 0, 0, side, side);
+
+            for (const quality of qualities) {
+                const blob = await avatarCanvasToBlob(canvas, quality);
+                if (!smallest || blob.size < smallest.blob.size) smallest = { blob, side, quality };
+                if (blob.size <= PROFILE_AVATAR_TARGET_BYTES) return { blob, side, quality };
+            }
+        }
+
+        if (!smallest || smallest.blob.size > PROFILE_AVATAR_HARD_MAX_BYTES) {
+            throw new Error('Impossible de réduire suffisamment cette photo. Choisissez une image plus simple.');
+        }
+        return smallest;
+    } finally {
+        decoded.close();
+    }
+}
+
 function fAvatar(profile, extraClass = '') {
     const username = profile?.username || 'Membre';
     const cls = `member-avatar ${extraClass}`.trim();
@@ -544,23 +621,34 @@ async function handleProfileSave(event) {
         setMessage('account-profile-message', 'L’adresse du site doit commencer par http:// ou https://.', 'error');
         return;
     }
-    if (avatar && (!avatar.type.startsWith('image/') || avatar.size > 5 * 1024 * 1024)) {
+    if (avatar && (!avatar.type.startsWith('image/') || avatar.size > PROFILE_AVATAR_SOURCE_MAX_BYTES)) {
         setMessage('account-profile-message', 'Avatar invalide ou supérieur à 5 Mo.', 'error');
         return;
     }
 
-    setMessage('account-profile-message', 'Enregistrement…');
+    setMessage('account-profile-message', avatar ? 'Optimisation de la photo…' : 'Enregistrement…');
     let avatarUrl = forumState.profile.avatar_url || null;
     let avatarPath = forumState.profile.avatar_path || null;
+    const previousAvatarPath = avatarPath;
     let uploadedPath = null;
+    let optimizedAvatar = null;
 
     try {
         if (avatar) {
-            const extension = (avatar.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-            uploadedPath = `${forumState.user.id}/avatar-${Date.now()}.${extension}`;
-            const { error: uploadError } = await client.storage.from('avatars').upload(uploadedPath, avatar, { cacheControl: '3600', upsert: false });
+            optimizedAvatar = await optimizeProfileAvatar(avatar);
+            setMessage('account-profile-message', `Photo optimisée (${Math.max(1, Math.round(optimizedAvatar.blob.size / 1024))} Ko), envoi…`);
+
+            // Un seul objet par compte : les changements futurs remplacent avatar.webp
+            // au lieu d'accumuler des fichiers versionnés dans Supabase Storage.
+            uploadedPath = `${forumState.user.id}/avatar.webp`;
+            const { error: uploadError } = await client.storage.from('avatars').upload(uploadedPath, optimizedAvatar.blob, {
+                cacheControl: '3600',
+                contentType: 'image/webp',
+                upsert: true
+            });
             if (uploadError) throw uploadError;
-            avatarUrl = client.storage.from('avatars').getPublicUrl(uploadedPath).data.publicUrl;
+            const publicUrl = client.storage.from('avatars').getPublicUrl(uploadedPath).data.publicUrl;
+            avatarUrl = `${publicUrl}?v=${Date.now()}`;
             avatarPath = uploadedPath;
         }
 
@@ -573,17 +661,20 @@ async function handleProfileSave(event) {
         }).eq('user_id', forumState.user.id);
         if (error) throw error;
 
-        if (uploadedPath && forumState.profile.avatar_path && forumState.profile.avatar_path !== uploadedPath) {
-            client.storage.from('avatars').remove([forumState.profile.avatar_path]).then(() => {});
+        if (uploadedPath && previousAvatarPath && previousAvatarPath !== uploadedPath) {
+            client.storage.from('avatars').remove([previousAvatarPath]).then(() => {});
         }
         const { data: updated } = await client.from('profiles').select('*').eq('user_id', forumState.user.id).single();
         forumState.profile = updated;
         updateAccountNavigation();
-        setMessage('account-profile-message', 'Profil enregistré.', 'success');
-        window.setTimeout(() => closeModalById('accountModal'), 550);
+        const optimizedLabel = optimizedAvatar ? ` · avatar ${optimizedAvatar.side}×${optimizedAvatar.side} WebP, ${Math.max(1, Math.round(optimizedAvatar.blob.size / 1024))} Ko` : '';
+        setMessage('account-profile-message', `Profil enregistré${optimizedLabel}.`, 'success');
+        window.setTimeout(() => closeModalById('accountModal'), 750);
         refreshForumCurrentView();
     } catch (error) {
-        if (uploadedPath) client.storage.from('avatars').remove([uploadedPath]).then(() => {});
+        // Si le compte utilisait déjà le chemin stable avatar.webp, le supprimer ici
+        // effacerait aussi l'ancien avatar. On ne nettoie que les nouveaux chemins orphelins.
+        if (uploadedPath && uploadedPath !== previousAvatarPath) client.storage.from('avatars').remove([uploadedPath]).then(() => {});
         const msg = error?.message?.includes('profiles_username_lower_uidx') ? 'Ce pseudo est déjà utilisé.' : (error.message || 'Enregistrement impossible.');
         setMessage('account-profile-message', msg, 'error');
     }
