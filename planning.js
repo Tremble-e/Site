@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.6.4.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.7.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -213,7 +213,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.6.4.zip';
+        link.download = 'planilim-collector-v4.7.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1250,10 +1250,9 @@
         let authRequired = false;
 
         try {
-            // Une seule ressource ADE est traitée à la fois. Depuis la 4.6.4,
-            // l'extension positionne réellement ADE sur chaque semaine avant de
-            // lire method10getTimetable. Le parallélisme hebdomadaire est donc
-            // volontairement désactivé pour garantir l'exactitude des cours.
+            // Une seule ressource ADE est traitée à la fois. Depuis la 4.7.0, l'extension capture directement la réponse native
+            // method10getTimetable produite par ADE pour chaque semaine. Il n'y a
+            // plus de replay réseau ni d'attente DOM sur le chemin normal.
             const chunkSize = 6;
             const weekConcurrency = 1;
             for (let start = 0; start < targets.length; start += chunkSize) {
