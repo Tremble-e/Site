@@ -10,11 +10,11 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.10.0.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.11.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
-    const COLLECTOR_DEFAULT_WORKERS = 4;
+    const COLLECTOR_DEFAULT_WORKERS = 15;
     const COLLECTOR_PROGRESS_POLL_MS = 1000;
     const SLOT_MINUTES = 15;
     const DEFAULT_DAY_START = 8 * 60;
@@ -215,7 +215,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.10.0.zip';
+        link.download = 'planilim-collector-v4.11.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1079,19 +1079,20 @@
         };
 
         const formatWorkerProgress = workers => {
-            const active = (Array.isArray(workers) ? workers : [])
-                .filter(worker => ['syncing', 'done', 'failed'].includes(worker?.state))
-                .slice(0, 4)
-                .map(worker => {
-                    const id = Number(worker.workerId) + 1;
-                    if (worker.state === 'syncing') {
-                        const current = Number(worker.weekCurrent || 0);
-                        const total = Number(worker.weekTotal || 44);
-                        return `W${id} ${current}/${total}`;
-                    }
-                    return `W${id} ${worker.state === 'done' ? '✓' : '!'}`;
-                });
-            return active.length ? ` · ${active.join(' · ')}` : '';
+            const activeWorkers = (Array.isArray(workers) ? workers : [])
+                .filter(worker => ['syncing', 'done', 'failed'].includes(worker?.state));
+            const shown = activeWorkers.slice(0, 6).map(worker => {
+                const id = Number(worker.workerId) + 1;
+                if (worker.state === 'syncing') {
+                    const current = Number(worker.weekCurrent || 0);
+                    const total = Number(worker.weekTotal || 44);
+                    return `W${id} ${current}/${total}`;
+                }
+                return `W${id} ${worker.state === 'done' ? '✓' : '!'}`;
+            });
+            if (!shown.length) return '';
+            const hidden = Math.max(0, activeWorkers.length - shown.length);
+            return ` · ${shown.join(' · ')}${hidden ? ` · +${hidden} actifs` : ''}`;
         };
 
         const updateLiveStatus = snapshot => {
@@ -1200,7 +1201,7 @@
                 updateLiveStatus(snapshot);
 
                 // Les résultats sont publiés au fil de l'eau, sans attendre la
-                // fin des 216 EDT. Avec quatre workers, un lot de quatre
+                // fin des 216 EDT. Avec plusieurs workers, un lot de résultats
                 // réussites suffit pour déclencher une écriture Supabase.
                 if (pendingPublishIds.length >= COLLECTOR_DEFAULT_WORKERS || snapshot.done || Date.now() - lastPublishAt > 15000) {
                     await flushPublishedPayloads();
