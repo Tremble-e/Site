@@ -10,10 +10,12 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.9.0.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.10.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
+    const COLLECTOR_DEFAULT_WORKERS = 4;
+    const COLLECTOR_PROGRESS_POLL_MS = 1000;
     const SLOT_MINUTES = 15;
     const DEFAULT_DAY_START = 8 * 60;
     const DEFAULT_DAY_END = 19 * 60;
@@ -213,7 +215,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.9.0.zip';
+        link.download = 'planilim-collector-v4.10.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1025,30 +1027,16 @@
         let successCount = 0;
         let discoveredCount = 0;
         let completedCount = 0;
+        let failureCount = 0;
         let authRequired = false;
+        let runId = null;
+        let targetCursor = 0;
+        let resultCursor = 0;
+        let lastSnapshot = null;
+        let lastPublishAt = Date.now();
         const failures = new Map();
         const successfulResourceIds = [];
         const pendingPublishIds = [];
-
-        const flushPublishedPayloads = async () => {
-            if (!pendingPublishIds.length) return true;
-            const ids = pendingPublishIds.splice(0, pendingPublishIds.length);
-            try {
-                const published = await publishCollectorPayloads(ids);
-                if (!published?.ok) throw new Error(published?.code || 'PUBLISH_FAILED');
-                return true;
-            } catch (error) {
-                for (const resourceId of ids) {
-                    const target = state.collectorRows.find(row => Number(row.resourceId) === Number(resourceId)) || { resourceId };
-                    rememberFailure({
-                        ...target,
-                        code: 'PUBLISH_FAILED',
-                        message: String(error)
-                    });
-                }
-                return false;
-            }
-        };
 
         const rememberFailure = item => {
             if (!item) return;
@@ -1068,105 +1056,161 @@
             });
         };
 
-        setLoading(true, 'Synchronisation en cours…', 'Deux workers ADE indépendants synchronisent deux emplois du temps en parallèle.');
-        if (status) status.textContent = 'Démarrage des 2 workers ADE…';
+        const flushPublishedPayloads = async () => {
+            if (!pendingPublishIds.length) return true;
+            const ids = [...new Set(pendingPublishIds.splice(0, pendingPublishIds.length).map(Number))];
+            if (!ids.length) return true;
+            try {
+                const published = await publishCollectorPayloads(ids);
+                if (!published?.ok) throw new Error(published?.code || 'PUBLISH_FAILED');
+                lastPublishAt = Date.now();
+                return true;
+            } catch (error) {
+                for (const resourceId of ids) {
+                    const target = state.collectorRows.find(row => Number(row.resourceId) === Number(resourceId)) || { resourceId };
+                    rememberFailure({
+                        ...target,
+                        code: 'PUBLISH_FAILED',
+                        message: String(error)
+                    });
+                }
+                return false;
+            }
+        };
+
+        const formatWorkerProgress = workers => {
+            const active = (Array.isArray(workers) ? workers : [])
+                .filter(worker => ['syncing', 'done', 'failed'].includes(worker?.state))
+                .slice(0, 4)
+                .map(worker => {
+                    const id = Number(worker.workerId) + 1;
+                    if (worker.state === 'syncing') {
+                        const current = Number(worker.weekCurrent || 0);
+                        const total = Number(worker.weekTotal || 44);
+                        return `W${id} ${current}/${total}`;
+                    }
+                    return `W${id} ${worker.state === 'done' ? '✓' : '!'}`;
+                });
+            return active.length ? ` · ${active.join(' · ')}` : '';
+        };
+
+        const updateLiveStatus = snapshot => {
+            if (!status || !snapshot) return;
+            const workers = Number(snapshot.workerCount || snapshot.requestedWorkerCount || COLLECTOR_DEFAULT_WORKERS);
+            const phase = String(snapshot.phase || '');
+            if (phase.startsWith('coordinator') || phase === 'catalog_ready') {
+                status.textContent = `${COLLECTOR_DEFAULT_WORKERS} workers · Lecture de l’arbre ADE · ${Number(snapshot.discoveredCount || 0)} EDT détectés`;
+                return;
+            }
+            if (phase === 'worker_pool_bootstrap') {
+                status.textContent = `${COLLECTOR_DEFAULT_WORKERS} workers · ${discoveredCount} EDT détectés · Ouverture des pages ADE…`;
+                return;
+            }
+            status.textContent = `${workers} workers · Découverte ${discoveredCount} · Synchronisation ${completedCount}/${discoveredCount || '…'} · ${successCount} réussie${successCount > 1 ? 's' : ''}${failureCount ? ` · ${failureCount} échec${failureCount > 1 ? 's' : ''}` : ''}${formatWorkerProgress(snapshot.workers)}`;
+        };
+
+        setLoading(
+            true,
+            'Synchronisation en cours…',
+            `Le coordinateur lit l’arbre puis ${COLLECTOR_DEFAULT_WORKERS} workers ADE indépendants récupèrent les emplois du temps en parallèle.`
+        );
+        if (status) status.textContent = 'Lecture de l’arbre ADE…';
 
         try {
-            const reset = await requestExtension('PLANILIM_COLLECTOR_PIPELINE_RESET', {
-                timeout: 90000,
+            // Le démarrage rend immédiatement un runId. Le travail continue
+            // côté extension ; le site ne garde plus une requête de plusieurs
+            // minutes ouverte et ne peut donc plus interrompre les workers sur
+            // un timeout d'interface.
+            const started = await requestExtension('PLANILIM_COLLECTOR_ASYNC_START', {
+                timeout: 20000,
                 payload: {
                     scopePath: COLLECTOR_SCOPE_PATH,
                     maxDepth: 4,
-                    workerCount: 2
+                    maxActions: 600,
+                    workerCount: COLLECTOR_DEFAULT_WORKERS
                 }
             });
-            if (!reset?.ok) {
-                const error = new Error(reset?.message || reset?.code || 'Impossible de démarrer le collecteur.');
-                error.code = reset?.code || 'PIPELINE_RESET_FAILED';
+            if (!started?.ok || !started?.runId) {
+                const error = new Error(started?.message || started?.code || 'Impossible de démarrer le collecteur asynchrone.');
+                error.code = started?.code || 'COLLECTOR_ASYNC_START_FAILED';
                 throw error;
             }
+            runId = String(started.runId);
 
+            let consecutivePollErrors = 0;
             let guard = 0;
-            while (guard++ < 900) {
-                const step = await requestExtension('PLANILIM_COLLECTOR_PIPELINE_STEP', {
-                    timeout: COLLECTOR_SYNC_TIMEOUT,
-                    payload: {
-                        scopePath: COLLECTOR_SCOPE_PATH,
-                        maxDepth: 4,
-                        maxActions: 600,
-                        weekConcurrency: 8,
-                        workerCount: 2
-                    }
-                });
-
-                if (!step?.ok && ['AUTH_REQUIRED', 'ADE_NOT_OPEN'].includes(step?.code)) {
-                    authRequired = true;
-                    break;
+            while (guard++ < 7200) {
+                let snapshot = null;
+                try {
+                    snapshot = await requestExtension('PLANILIM_COLLECTOR_ASYNC_STATE', {
+                        timeout: 10000,
+                        payload: { runId, targetCursor, resultCursor }
+                    });
+                    consecutivePollErrors = 0;
+                } catch (error) {
+                    consecutivePollErrors += 1;
+                    if (consecutivePollErrors >= 12) throw error;
+                    if (status) status.textContent = `Synchronisation toujours active · reconnexion au suivi (${consecutivePollErrors}/12)…`;
+                    await new Promise(resolve => window.setTimeout(resolve, COLLECTOR_PROGRESS_POLL_MS));
+                    continue;
                 }
-                if (!step?.ok) {
-                    const error = new Error(step?.message || step?.code || 'Le pipeline ADE a été interrompu.');
-                    error.code = step?.code || 'PIPELINE_STEP_FAILED';
+
+                if (!snapshot?.ok) {
+                    if (['AUTH_REQUIRED', 'COLLECTOR_ASYNC_RUN_MISMATCH'].includes(snapshot?.code)) {
+                        authRequired = snapshot?.code === 'AUTH_REQUIRED';
+                        lastSnapshot = snapshot;
+                        break;
+                    }
+                    const error = new Error(snapshot?.message || snapshot?.code || 'Le suivi du collecteur a échoué.');
+                    error.code = snapshot?.code || 'COLLECTOR_ASYNC_STATE_FAILED';
                     throw error;
                 }
 
-                discoveredCount = Math.max(discoveredCount, Number(step.discoveredCount || 0));
-                completedCount = Math.max(completedCount, Number(step.completedCount || 0));
+                lastSnapshot = snapshot;
+                discoveredCount = Math.max(discoveredCount, Number(snapshot.discoveredCount || 0));
+                completedCount = Math.max(completedCount, Number(snapshot.completedCount || 0));
+                successCount = Math.max(successCount, Number(snapshot.successCount || 0));
+                failureCount = Math.max(failureCount, Number(snapshot.failureCount || 0));
+                authRequired = Boolean(snapshot.authRequired || snapshot.state === 'auth_required');
 
-                const discoveredTargets = Array.isArray(step.discoveredTargets)
-                    ? step.discoveredTargets
-                    : (step.discovered ? [step.discovered] : []);
+                const discoveredTargets = Array.isArray(snapshot.discoveredTargets) ? snapshot.discoveredTargets : [];
                 if (discoveredTargets.length) {
                     mergeCollectorRows(discoveredTargets.map(target => ({ ...target, selected: true })));
                     renderCollectorRows();
                 }
+                targetCursor = Math.max(targetCursor, Number(snapshot.nextTargetCursor || targetCursor));
 
-                const discoveryFailures = Array.isArray(step.discoveredFailures)
-                    ? step.discoveredFailures
-                    : (step.discoveredFailure ? [step.discoveredFailure] : []);
-                // Une erreur de sélection pendant la découverte peut être récupérée
-                // par la recherche fraîche du worker. On ne la mémorise que si le
-                // résultat final correspondant échoue réellement.
-
-                const completedResults = Array.isArray(step.completedResults)
-                    ? step.completedResults
-                    : (step.completedResult ? [step.completedResult] : []);
+                const completedResults = Array.isArray(snapshot.completedResults) ? snapshot.completedResults : [];
                 for (const result of completedResults) {
                     if (!result) continue;
                     const resourceId = result.resourceId;
-                    const hasPayload = Number(result.weekCount || 0) > 0 || Number(result.eventCount || 0) > 0;
-                    if (hasPayload && resourceId != null) pendingPublishIds.push(resourceId);
-
                     if (result.ok) {
-                        successCount += 1;
-                        if (resourceId != null) successfulResourceIds.push(resourceId);
-                        if (resourceId != null) failures.delete(`resource:${Number(resourceId)}`);
+                        if (resourceId != null) {
+                            successfulResourceIds.push(Number(resourceId));
+                            pendingPublishIds.push(Number(resourceId));
+                            failures.delete(`resource:${Number(resourceId)}`);
+                        }
                     } else {
                         rememberFailure(result);
-                        if (result.authRequired || result.code === 'AUTH_REQUIRED') authRequired = true;
                     }
+                    if (result.authRequired || result.code === 'AUTH_REQUIRED') authRequired = true;
                 }
+                resultCursor = Math.max(resultCursor, Number(snapshot.nextResultCursor || resultCursor));
 
-                for (const failure of discoveryFailures) {
-                    const id = failure?.resourceId;
-                    const finalResult = completedResults.find(result => Number(result?.resourceId) === Number(id));
-                    if (!finalResult || finalResult.ok) continue;
-                    rememberFailure(failure);
-                }
+                updateLiveStatus(snapshot);
 
-                if (status) {
-                    status.textContent = `2 workers · Découverte ${discoveredCount} · Synchronisation ${completedCount} · ${successCount} réussie${successCount > 1 ? 's' : ''}`;
-                }
-
-                // Publication et sauvegarde distante par lots : elles ne coupent
-                // plus le pipeline à chaque EDT.
-                if (completedCount > 0 && (completedCount % 5 === 0 || step.done || authRequired)) {
+                // Les résultats sont publiés au fil de l'eau, sans attendre la
+                // fin des 216 EDT. Avec quatre workers, un lot de quatre
+                // réussites suffit pour déclencher une écriture Supabase.
+                if (pendingPublishIds.length >= COLLECTOR_DEFAULT_WORKERS || snapshot.done || Date.now() - lastPublishAt > 15000) {
                     await flushPublishedPayloads();
                     const failureRows = [...failures.values()];
                     saveCollectorFailures(failureRows);
                     await persistCollectorFailureRows(failureRows, successfulResourceIds);
                 }
 
-                if (authRequired || step.done) break;
+                if (snapshot.done) break;
+                await new Promise(resolve => window.setTimeout(resolve, COLLECTOR_PROGRESS_POLL_MS));
             }
 
             await flushPublishedPayloads();
@@ -1176,35 +1220,38 @@
             await loadSharedResources();
             useSelectedSharedPayload();
 
+            const finalState = String(lastSnapshot?.state || '');
+            const fatal = finalState === 'failed';
             if (status) {
                 if (authRequired) {
                     status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps terminé${successCount > 1 ? 's' : ''}. Reconnecte-toi à ADE puis relance les échecs.`;
+                } else if (fatal) {
+                    status.textContent = `Collecte interrompue après ${completedCount}/${discoveredCount || '…'} EDT. Les résultats déjà publiés sont conservés.`;
                 } else if (!failureRows.length) {
-                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps synchronisé${successCount > 1 ? 's' : ''}. Tu peux fermer ADE.`;
+                    status.textContent = `${successCount} emplois du temps synchronisés sur ${discoveredCount}. Tu peux fermer ADE.`;
                 } else {
-                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps terminés. ${failureRows.length} restent à relancer.`;
+                    status.textContent = `${successCount} emplois du temps synchronisés sur ${discoveredCount}. ${failureRows.length} restent à relancer.`;
                 }
             }
 
             return {
-                ok: !authRequired && failureRows.length === 0,
+                ok: !authRequired && !fatal && failureRows.length === 0,
+                code: lastSnapshot?.code || null,
+                runId,
                 successCount,
                 discoveredCount,
                 completedCount,
                 failures: failureRows
             };
         } catch (error) {
-            const auth = ['AUTH_REQUIRED', 'ADE_NOT_OPEN'].includes(error?.code);
-            if (auth) authRequired = true;
+            console.warn('Collecteur ADE asynchrone interrompu :', error);
             if (status) {
-                status.textContent = auth
-                    ? 'Reconnecte-toi à ADE puis relance la synchronisation.'
-                    : `Collecte interrompue après ${completedCount} emploi${completedCount > 1 ? 's' : ''} du temps. Les résultats déjà publiés sont conservés.`;
+                status.textContent = `Le suivi du collecteur a été interrompu après ${completedCount}/${discoveredCount || '…'} EDT. Les résultats déjà publiés sont conservés.`;
             }
             const failureRows = [...failures.values()];
             saveCollectorFailures(failureRows);
             try { await persistCollectorFailureRows(failureRows, successfulResourceIds); } catch {}
-            return { ok: false, code: error?.code || 'PIPELINE_FAILED', failures: failureRows };
+            return { ok: false, code: error?.code || 'PIPELINE_FAILED', runId, failures: failureRows };
         } finally {
             setLoading(false);
             renderCollectorRows();
