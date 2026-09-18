@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.11.0.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.12.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -215,7 +215,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.11.0.zip';
+        link.download = 'planilim-collector-v4.12.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1107,6 +1107,14 @@
                 status.textContent = `${COLLECTOR_DEFAULT_WORKERS} workers · ${discoveredCount} EDT détectés · Ouverture des pages ADE…`;
                 return;
             }
+            if (phase === 'repairing_holes') {
+                const repairWorkers = Number(snapshot.repairWorkerCount || 4);
+                const repairPending = Number(snapshot.repairPendingCount || 0);
+                const repairRound = Number(snapshot.repairRound || 1);
+                const repairRecovered = Number(snapshot.repairRecoveredCount || 0);
+                status.textContent = `${repairWorkers} workers de réparation · ${completedCount}/${discoveredCount || '…'} EDT · ${successCount} complets · ${repairPending} avec trous · tour ${repairRound} · ${repairRecovered} réparé${repairRecovered > 1 ? 's' : ''}${formatWorkerProgress(snapshot.workers)}`;
+                return;
+            }
             status.textContent = `${workers} workers · Découverte ${discoveredCount} · Synchronisation ${completedCount}/${discoveredCount || '…'} · ${successCount} réussie${successCount > 1 ? 's' : ''}${failureCount ? ` · ${failureCount} échec${failureCount > 1 ? 's' : ''}` : ''}${formatWorkerProgress(snapshot.workers)}`;
         };
 
@@ -1170,8 +1178,11 @@
                 lastSnapshot = snapshot;
                 discoveredCount = Math.max(discoveredCount, Number(snapshot.discoveredCount || 0));
                 completedCount = Math.max(completedCount, Number(snapshot.completedCount || 0));
-                successCount = Math.max(successCount, Number(snapshot.successCount || 0));
-                failureCount = Math.max(failureCount, Number(snapshot.failureCount || 0));
+                // Les retries et la phase de réparation peuvent transformer un
+                // échec en succès. Ces deux compteurs doivent donc refléter le
+                // snapshot courant et non leur maximum historique.
+                successCount = Number(snapshot.successCount || 0);
+                failureCount = Number(snapshot.failureCount || 0);
                 authRequired = Boolean(snapshot.authRequired || snapshot.state === 'auth_required');
 
                 const discoveredTargets = Array.isArray(snapshot.discoveredTargets) ? snapshot.discoveredTargets : [];
