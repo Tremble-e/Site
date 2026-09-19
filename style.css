@@ -3395,8 +3395,47 @@ body.site-pdf-reader-open { overflow: hidden; }
     .university-access-panel > .primary-btn { grid-column: 1 / -1; width: 100%; justify-content: center; }
     .university-access-panel .planning-verification-status { grid-column: 1 / -1; }
     .site-pdf-reader { padding: 0; }
-    .site-pdf-reader-dialog { width: 100vw; height: 100dvh; border-radius: 0; border-left: 0; border-right: 0; }
-    .site-pdf-reader-header { align-items: flex-start; }
-    .site-pdf-reader-actions .secondary-btn { display: none; }
-    .site-pdf-reader-toolbar { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; }
+    .site-pdf-reader-dialog {
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        border: 0;
+        border-radius: 0;
+        grid-template-rows: auto auto minmax(0, 1fr);
+    }
+    .site-pdf-reader-header {
+        min-height: 54px;
+        align-items: center;
+        padding: max(.55rem, env(safe-area-inset-top)) .7rem .55rem;
+        gap: .5rem;
+    }
+    .site-pdf-reader-heading { flex: 1 1 auto; min-width: 0; }
+    .site-pdf-reader-heading strong { max-width: 100%; font-size: .9rem; }
+    .site-pdf-reader-actions { flex: 0 0 auto; gap: .3rem; }
+    .site-pdf-reader-actions .secondary-btn {
+        display: inline-flex;
+        min-height: 40px;
+        padding: .5rem .65rem;
+        font-size: .76rem;
+    }
+    #site-pdf-reader-fullscreen { display: none; }
+    .site-pdf-reader-actions .icon-btn { width: 40px; height: 40px; }
+    .site-pdf-reader-toolbar {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr) 44px;
+        gap: .45rem .55rem;
+        padding: .55rem .7rem;
+        overflow: visible;
+    }
+    #site-pdf-reader-prev { grid-column: 1; grid-row: 1; }
+    .site-pdf-reader-page { grid-column: 2; grid-row: 1; justify-self: center; }
+    #site-pdf-reader-next { grid-column: 3; grid-row: 1; }
+    .site-pdf-reader-separator { display: none; }
+    #site-pdf-reader-zoom-out { grid-column: 1; grid-row: 2; }
+    #site-pdf-reader-zoom-label { grid-column: 2; grid-row: 2; align-self: center; justify-self: center; font-size: .78rem; }
+    #site-pdf-reader-zoom-in { grid-column: 3; grid-row: 2; }
+    #site-pdf-reader-fit { grid-column: 1 / -1; grid-row: 3; justify-self: stretch; justify-content: center; min-height: 38px; }
+    .site-pdf-reader-toolbar .icon-btn { width: 44px; height: 44px; }
+    .site-pdf-reader-page input { width: 3.8rem; min-height: 40px; }
+    .site-pdf-reader-stage { padding: .35rem; scrollbar-gutter: auto; }
 }

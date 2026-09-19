@@ -13,7 +13,9 @@
         loadingTask: null,
         renderTask: null,
         renderSerial: 0,
-        fallback: false
+        fallback: false,
+        historyToken: '',
+        closingFromHistory: false
     };
 
     const zoomSteps = [50, 67, 75, 90, 100, 110, 125, 150, 175, 200, 250];
@@ -212,6 +214,12 @@
         if (!modal) return false;
 
         if (label) label.textContent = state.title;
+        if (!state.historyToken) {
+            state.historyToken = `pdf-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            try {
+                history.pushState({ ...(history.state || {}), planilimPdfReader: state.historyToken }, '', location.href);
+            } catch {}
+        }
         if (download) {
             download.href = safe;
             const clean = (state.fileName || state.title).replace(/[\\/:*?"<>|]+/g, '-').trim() || 'document';
@@ -226,7 +234,7 @@
         return true;
     }
 
-    function close() {
+    function finalizeClose() {
         const modal = byId('site-pdf-reader');
         const frame = byId('site-pdf-reader-frame');
         const canvas = byId('site-pdf-reader-canvas');
@@ -243,6 +251,20 @@
         state.fileName = '';
         state.numPages = 0;
         state.fallback = false;
+        state.historyToken = '';
+        state.closingFromHistory = false;
+    }
+
+    function close() {
+        const modal = byId('site-pdf-reader');
+        if (!modal || modal.hidden) return;
+        const token = state.historyToken;
+        if (token && history.state?.planilimPdfReader === token && !state.closingFromHistory) {
+            state.closingFromHistory = true;
+            history.back();
+            return;
+        }
+        finalizeClose();
     }
 
     function setPage(value) {
@@ -329,6 +351,12 @@
             else if (event.key === 'ArrowRight' && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) setPage(state.page + 1);
             else if ((event.key === '+' || event.key === '=') && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) zoom(1);
             else if (event.key === '-' && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) zoom(-1);
+        });
+
+        window.addEventListener('popstate', () => {
+            const modal = byId('site-pdf-reader');
+            if (!modal || modal.hidden) return;
+            finalizeClose();
         });
 
         window.addEventListener('resize', onResize, { passive: true });
