@@ -3456,3 +3456,17 @@ body.site-pdf-reader-open { overflow: hidden; }
         touch-action: none;
     }
 }
+
+/* v2.36.9 — gestes PDF Android via Pointer Events */
+.site-pdf-reader-stage {
+    touch-action: none !important;
+    -ms-touch-action: none;
+    cursor: grab;
+}
+.site-pdf-reader-stage.pinching { cursor: grabbing; }
+#site-pdf-reader-canvas,
+.site-pdf-reader-canvas-wrap {
+    touch-action: none !important;
+    pointer-events: auto;
+    -webkit-user-drag: none;
+}

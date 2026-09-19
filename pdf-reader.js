@@ -232,6 +232,7 @@
         state.currentCssScale = 1;
         state.pinch = null;
         state.pan = null;
+        activePointers.clear();
         state.documentId = String(documentId || '');
         state.fileName = String(fileName || '').trim();
 
@@ -284,6 +285,7 @@
         state.pageBaseHeight = 0;
         state.pinch = null;
         state.pan = null;
+        activePointers.clear();
         state.historyToken = '';
         state.closingFromHistory = false;
     }
@@ -343,17 +345,26 @@
         if (!state.fallback) renderPage();
     }
 
-    function touchDistance(touches) {
-        const dx = touches[0].clientX - touches[1].clientX;
-        const dy = touches[0].clientY - touches[1].clientY;
+    // Android/Chrome/Brave : utiliser Pointer Events plutôt que les anciens
+    // événements touch*. Le navigateur nous confie ainsi explicitement les
+    // deux pointeurs du pinch quand touch-action:none est appliqué au stage.
+    const activePointers = new Map();
+
+    function pointerDistance(points) {
+        const dx = points[0].x - points[1].x;
+        const dy = points[0].y - points[1].y;
         return Math.hypot(dx, dy);
     }
 
-    function touchMidpointClient(touches) {
+    function pointerMidpoint(points) {
         return {
-            x: (touches[0].clientX + touches[1].clientX) / 2,
-            y: (touches[0].clientY + touches[1].clientY) / 2
+            x: (points[0].x + points[1].x) / 2,
+            y: (points[0].y + points[1].y) / 2
         };
+    }
+
+    function currentPointerPoints() {
+        return Array.from(activePointers.values()).slice(0, 2);
     }
 
     function clampStageScroll(stage) {
@@ -363,44 +374,41 @@
         stage.scrollTop = Math.max(0, Math.min(maxY, stage.scrollTop));
     }
 
-    function beginPan(event) {
-        if (event.touches.length !== 1 || !state.pdf || state.fallback || state.pinch) return;
+    function beginPanAt(point, pointerId = null) {
+        if (!point || !state.pdf || state.fallback || state.pinch) return;
         const stage = byId('site-pdf-reader-stage');
         if (!stage) return;
-        const touch = event.touches[0];
         state.pan = {
-            startX: touch.clientX,
-            startY: touch.clientY,
+            pointerId,
+            startX: point.x,
+            startY: point.y,
             startScrollLeft: stage.scrollLeft,
             startScrollTop: stage.scrollTop
         };
     }
 
-    function movePan(event) {
-        if (!state.pan || state.pinch || event.touches.length !== 1) return;
+    function movePanAt(point, pointerId = null) {
+        if (!state.pan || state.pinch || !point) return;
+        if (state.pan.pointerId != null && pointerId != null && state.pan.pointerId !== pointerId) return;
         const stage = byId('site-pdf-reader-stage');
         if (!stage) return;
-        event.preventDefault();
-        const touch = event.touches[0];
-        stage.scrollLeft = state.pan.startScrollLeft - (touch.clientX - state.pan.startX);
-        stage.scrollTop = state.pan.startScrollTop - (touch.clientY - state.pan.startY);
+        stage.scrollLeft = state.pan.startScrollLeft - (point.x - state.pan.startX);
+        stage.scrollTop = state.pan.startScrollTop - (point.y - state.pan.startY);
         clampStageScroll(stage);
     }
 
-    function beginPinch(event) {
-        if (event.touches.length !== 2 || !state.pdf || state.fallback) return;
+    function beginPinchAt(points) {
+        if (points.length < 2 || !state.pdf || state.fallback) return;
         const stage = byId('site-pdf-reader-stage');
         const canvas = byId('site-pdf-reader-canvas');
         if (!stage || !canvas || !canvas.clientWidth || !canvas.clientHeight) return;
 
-        event.preventDefault();
-        const mid = touchMidpointClient(event.touches);
+        const mid = pointerMidpoint(points);
         const canvasRect = canvas.getBoundingClientRect();
         state.pan = null;
         state.pinch = {
-            startDistance: Math.max(1, touchDistance(event.touches)),
+            startDistance: Math.max(1, pointerDistance(points)),
             startPercent: Math.max(25, state.currentCssScale * 100),
-            // Position exacte du point du PDF situé sous les deux doigts.
             anchorX: Math.max(0, Math.min(1, (mid.x - canvasRect.left) / Math.max(1, canvasRect.width))),
             anchorY: Math.max(0, Math.min(1, (mid.y - canvasRect.top) / Math.max(1, canvasRect.height))),
             lastPercent: Math.max(25, state.currentCssScale * 100)
@@ -408,25 +416,23 @@
         stage.classList.add('pinching');
     }
 
-    function movePinch(event) {
-        if (!state.pinch || event.touches.length !== 2) return;
+    function movePinchAt(points) {
+        if (!state.pinch || points.length < 2) return;
         const stage = byId('site-pdf-reader-stage');
         const canvas = byId('site-pdf-reader-canvas');
         if (!stage || !canvas || !state.pageBaseWidth || !state.pageBaseHeight) return;
 
-        event.preventDefault();
-        const mid = touchMidpointClient(event.touches);
-        const ratio = touchDistance(event.touches) / state.pinch.startDistance;
+        const mid = pointerMidpoint(points);
+        const ratio = pointerDistance(points) / state.pinch.startDistance;
         const percent = Math.max(40, Math.min(350, state.pinch.startPercent * ratio));
         const width = state.pageBaseWidth * percent / 100;
         const height = state.pageBaseHeight * percent / 100;
 
+        // Redimensionnement visuel instantané pendant le geste. Le canvas n'est
+        // rerendu en haute qualité qu'à la fin du pinch pour rester fluide.
         canvas.style.width = `${Math.max(1, width)}px`;
         canvas.style.height = `${Math.max(1, height)}px`;
 
-        // Après redimensionnement, ramène le même point du PDF sous le milieu des doigts.
-        // On travaille directement en coordonnées écran : cela reste correct même quand le
-        // canvas est centré en mode « Ajuster » puis devient plus large que l'écran.
         const resizedRect = canvas.getBoundingClientRect();
         stage.scrollLeft += (resizedRect.left + state.pinch.anchorX * width) - mid.x;
         stage.scrollTop += (resizedRect.top + state.pinch.anchorY * height) - mid.y;
@@ -437,8 +443,8 @@
         if (zoom) zoom.textContent = `${Math.round(percent)} %`;
     }
 
-    function endPinch(event) {
-        if (!state.pinch || event.touches.length >= 2) return;
+    function finishPinch() {
+        if (!state.pinch) return;
         const stage = byId('site-pdf-reader-stage');
         const percent = state.pinch.lastPercent;
         state.pinch = null;
@@ -448,16 +454,10 @@
         state.currentCssScale = state.manualZoomPercent / 100;
         updateToolbar();
 
-        // Si un doigt reste posé après le pincement, il peut immédiatement servir à déplacer
-        // la page sans devoir lever puis reposer le doigt.
-        if (event.touches.length === 1 && stage) {
-            const touch = event.touches[0];
-            state.pan = {
-                startX: touch.clientX,
-                startY: touch.clientY,
-                startScrollLeft: stage.scrollLeft,
-                startScrollTop: stage.scrollTop
-            };
+        const remaining = currentPointerPoints();
+        if (remaining.length === 1) {
+            const [pointerId, point] = Array.from(activePointers.entries())[0] || [];
+            beginPanAt(point, pointerId);
         } else {
             state.pan = null;
         }
@@ -465,27 +465,83 @@
         if (!state.fallback) renderPage();
     }
 
-    function handleTouchStart(event) {
-        if (event.touches.length === 2) beginPinch(event);
-        else if (event.touches.length === 1) beginPan(event);
+    function handlePointerDown(event) {
+        if (!state.pdf || state.fallback) return;
+        // La souris conserve son comportement habituel. Les gestes personnalisés
+        // sont réservés au tactile/stylet pour ne pas gêner le desktop.
+        if (event.pointerType === 'mouse') return;
+        const stage = byId('site-pdf-reader-stage');
+        if (!stage) return;
+
+        event.preventDefault();
+        try { stage.setPointerCapture(event.pointerId); } catch {}
+        activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+        if (activePointers.size >= 2) {
+            if (!state.pinch) beginPinchAt(currentPointerPoints());
+        } else {
+            beginPanAt({ x: event.clientX, y: event.clientY }, event.pointerId);
+        }
     }
 
-    function handleTouchMove(event) {
+    function handlePointerMove(event) {
+        if (!activePointers.has(event.pointerId)) return;
+        event.preventDefault();
+        activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+        if (activePointers.size >= 2) {
+            const points = currentPointerPoints();
+            if (!state.pinch) beginPinchAt(points);
+            movePinchAt(points);
+        } else if (activePointers.size === 1) {
+            movePanAt({ x: event.clientX, y: event.clientY }, event.pointerId);
+        }
+    }
+
+    function handlePointerUp(event) {
+        if (!activePointers.has(event.pointerId)) return;
+        event.preventDefault();
+        activePointers.delete(event.pointerId);
+
+        if (state.pinch && activePointers.size < 2) {
+            finishPinch();
+        } else if (activePointers.size === 0) {
+            state.pan = null;
+        } else if (activePointers.size === 1 && !state.pinch) {
+            const [pointerId, point] = Array.from(activePointers.entries())[0];
+            beginPanAt(point, pointerId);
+        }
+    }
+
+    // Fallback pour de très vieux WebView ne prenant pas Pointer Events en charge.
+    function handleTouchStartFallback(event) {
+        if ('PointerEvent' in window) return;
         if (event.touches.length === 2) {
-            if (!state.pinch) beginPinch(event);
-            movePinch(event);
+            event.preventDefault();
+            beginPinchAt(Array.from(event.touches).map(t => ({ x: t.clientX, y: t.clientY })));
         } else if (event.touches.length === 1) {
-            movePan(event);
+            event.preventDefault();
+            beginPanAt({ x: event.touches[0].clientX, y: event.touches[0].clientY });
         }
     }
 
-    function handleTouchEnd(event) {
-        if (state.pinch && event.touches.length < 2) {
-            endPinch(event);
-            return;
+    function handleTouchMoveFallback(event) {
+        if ('PointerEvent' in window) return;
+        if (event.touches.length === 2) {
+            event.preventDefault();
+            const points = Array.from(event.touches).map(t => ({ x: t.clientX, y: t.clientY }));
+            if (!state.pinch) beginPinchAt(points);
+            movePinchAt(points);
+        } else if (event.touches.length === 1) {
+            event.preventDefault();
+            movePanAt({ x: event.touches[0].clientX, y: event.touches[0].clientY });
         }
+    }
+
+    function handleTouchEndFallback(event) {
+        if ('PointerEvent' in window) return;
+        if (state.pinch && event.touches.length < 2) finishPinch();
         if (event.touches.length === 0) state.pan = null;
-        else if (event.touches.length === 1 && !state.pinch) beginPan(event);
     }
 
     let resizeTimer = 0;
@@ -512,10 +568,18 @@
         byId('site-pdf-reader-fit')?.addEventListener('click', fitWidth);
 
         const stage = byId('site-pdf-reader-stage');
-        stage?.addEventListener('touchstart', handleTouchStart, { passive: false });
-        stage?.addEventListener('touchmove', handleTouchMove, { passive: false });
-        stage?.addEventListener('touchend', handleTouchEnd, { passive: false });
-        stage?.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+        stage?.addEventListener('pointerdown', handlePointerDown, { passive: false });
+        stage?.addEventListener('pointermove', handlePointerMove, { passive: false });
+        stage?.addEventListener('pointerup', handlePointerUp, { passive: false });
+        stage?.addEventListener('pointercancel', handlePointerUp, { passive: false });
+        stage?.addEventListener('lostpointercapture', handlePointerUp, { passive: false });
+
+        // Compatibilité ancien WebView uniquement : sur les navigateurs modernes,
+        // Pointer Events est la seule voie utilisée afin d'éviter les doubles gestes.
+        stage?.addEventListener('touchstart', handleTouchStartFallback, { passive: false });
+        stage?.addEventListener('touchmove', handleTouchMoveFallback, { passive: false });
+        stage?.addEventListener('touchend', handleTouchEndFallback, { passive: false });
+        stage?.addEventListener('touchcancel', handleTouchEndFallback, { passive: false });
 
         byId('site-pdf-reader-download')?.addEventListener('click', async event => {
             event.preventDefault();
