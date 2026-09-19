@@ -20,10 +20,10 @@
 <link href="pwa-icon-192.png" rel="apple-touch-icon"/>
 <link href="https://cdnjs.cloudflare.com" rel="preconnect"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="style.css?v=2.36.1" rel="stylesheet"/>
+<link href="style.css?v=2.36.3" rel="stylesheet"/>
 <link href="forum.css?v=2.9.5" rel="stylesheet"/>
 <link href="forum_v2.css?v=2.9.5" rel="stylesheet"/>
-<link href="planning.css?v=2.36.1" rel="stylesheet"/>
+<link href="planning.css?v=2.36.3" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -584,8 +584,8 @@
 <div class="glass-panel planning-resource-panel" hidden="" id="planning-resource-panel">
 <div class="planning-resource-copy">
 <span class="section-kicker">Emploi du temps</span>
-<strong>Choisissez une ressource</strong>
-<p>Les emplois du temps de filière et de salle sont disponibles depuis le même calendrier.</p>
+<strong id="planning-resource-mode-title">Votre filière</strong>
+<p id="planning-resource-mode-description">Votre filière est enregistrée dans votre profil et restaurée automatiquement.</p>
 <div aria-label="Type d’emploi du temps" class="planning-resource-mode" role="group">
 <button aria-pressed="true" class="planning-resource-mode-btn is-active" data-planning-resource-mode="program" type="button"><i class="fa-solid fa-graduation-cap"></i> Filière</button>
 <button aria-pressed="false" class="planning-resource-mode-btn" data-planning-resource-mode="room" type="button"><i class="fa-solid fa-door-open"></i> Salle</button>
@@ -1437,10 +1437,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-<script src="pdf-reader.js?v=2.36.1"></script>
-<script src="script.js?v=2.36.1"></script>
-<script src="planning.js?v=2.36.1"></script>
-<script src="forum.js?v=2.36.1"></script>
+<script src="pdf-reader.js?v=2.36.3"></script>
+<script src="script.js?v=2.36.3"></script>
+<script src="planning.js?v=2.36.3"></script>
+<script src="forum.js?v=2.36.3"></script>
 <script src="forum_v2.js?v=2.9.5"></script>
 
 <div aria-labelledby="site-pdf-reader-title" aria-modal="true" class="site-pdf-reader" hidden id="site-pdf-reader" role="dialog">

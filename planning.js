@@ -63,6 +63,8 @@
         adeVerificationLoading: false,
         sharedResources: [],
         selectedResourceId: null,
+        selectedProgramResourceId: null,
+        selectedRoomResourceId: null,
         resourceMode: 'program',
         resourceModeTouched: false,
         collectorRows: [],
@@ -143,6 +145,13 @@
         } catch (error) {
             console.warn('Cache local du planning indisponible :', error);
         }
+        return true;
+    }
+
+
+    function useTransientPayload(payload) {
+        if (!payload?.events || !Array.isArray(payload.events)) return false;
+        state.payload = payload;
         return true;
     }
 
@@ -511,6 +520,18 @@
         });
     }
 
+    function renderResourceModeCopy() {
+        const title = byId('planning-resource-mode-title');
+        const description = byId('planning-resource-mode-description');
+        if (state.resourceMode === 'room') {
+            if (title) title.textContent = 'Consulter une salle';
+            if (description) description.textContent = 'La salle choisie est temporaire et n’est pas enregistrée dans votre profil.';
+        } else {
+            if (title) title.textContent = 'Votre filière';
+            if (description) description.textContent = 'Votre filière est enregistrée dans votre profil et restaurée automatiquement.';
+        }
+    }
+
     function renderResourceChooser() {
         const yearSelect = byId('planning-resource-year');
         const specialitySelect = byId('planning-resource-speciality');
@@ -529,6 +550,7 @@
             state.resourceMode = resourceKind(selectedResource);
         }
         renderResourceModeToggle();
+        renderResourceModeCopy();
         if (programSelectors) programSelectors.hidden = state.resourceMode !== 'program';
         if (roomSelectors) roomSelectors.hidden = state.resourceMode !== 'room';
 
@@ -563,9 +585,9 @@
 
             if (status) {
                 status.textContent = selectedResource && resourceKind(selectedResource) === 'room'
-                    ? `${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
+                    ? `Salle affichée temporairement : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
                     : resources.length
-                        ? 'Choisissez un bâtiment puis une salle.'
+                        ? 'Choisissez un bâtiment puis une salle. Cette sélection ne sera pas enregistrée.'
                         : 'Aucune salle n’a encore été publiée par le collecteur.';
             }
             return;
@@ -613,9 +635,9 @@
 
         if (status) {
             status.textContent = selectedResource && resourceKind(selectedResource) === 'program'
-                ? `${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
+                ? `Filière enregistrée : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
                 : resources.length
-                    ? 'Choisissez votre année, votre spécialité puis votre semestre.'
+                    ? 'Choisissez votre année, votre spécialité puis votre semestre. Cette filière sera enregistrée dans votre profil.'
                     : 'Aucune filière n’a encore été publiée par le collecteur.';
         }
     }
@@ -810,12 +832,19 @@
                 .eq('user_id', state.user.id)
                 .maybeSingle();
             if (error) throw error;
-            state.selectedResourceId = data?.resource_id || null;
+            const resourceId = data?.resource_id ? String(data.resource_id) : null;
+            const resource = resourceId
+                ? state.sharedResources.find(item => String(item.resource_id) === resourceId)
+                : null;
+            // Seules les filières constituent une préférence persistante. Une ancienne
+            // version a pu enregistrer une salle : elle est volontairement ignorée ici.
+            state.selectedProgramResourceId = resource && resourceKind(resource) === 'program' ? resourceId : null;
+            if (state.resourceMode === 'program') state.selectedResourceId = state.selectedProgramResourceId;
         } catch (error) {
             console.warn('Préférence d’emploi du temps indisponible :', error);
         }
         renderResourceChooser();
-        return state.selectedResourceId;
+        return state.selectedProgramResourceId;
     }
 
     function useSelectedSharedPayload() {
@@ -823,7 +852,8 @@
             String(resource.resource_id) === String(state.selectedResourceId)
         );
         if (!selected?.payload?.events || !Array.isArray(selected.payload.events)) return null;
-        saveLocalPayload(selected.payload);
+        if (resourceKind(selected) === 'program') saveLocalPayload(selected.payload);
+        else useTransientPayload(selected.payload);
         state.cloudAvailable = true;
         state.cloudLoaded = true;
         ensureCurrentWeek();
@@ -833,8 +863,52 @@
         return selected.payload;
     }
 
+    function activateTemporaryRoom(resourceId) {
+        const id = resourceId ? String(resourceId) : null;
+        const resource = id
+            ? state.sharedResources.find(item => String(item.resource_id) === id)
+            : null;
+        if (!resource || resourceKind(resource) !== 'room') return false;
+        state.selectedRoomResourceId = id;
+        state.selectedResourceId = id;
+        return Boolean(useSelectedSharedPayload());
+    }
+
+    function activateResourceMode(mode) {
+        state.resourceMode = mode === 'room' ? 'room' : 'program';
+        state.resourceModeTouched = true;
+        if (state.resourceMode === 'program') {
+            ['planning-resource-year', 'planning-resource-speciality', 'planning-resource-semester', 'planning-resource-group']
+                .forEach(id => {
+                    const select = byId(id);
+                    if (select) select.dataset.touched = '0';
+                });
+        }
+        const targetId = state.resourceMode === 'room'
+            ? state.selectedRoomResourceId
+            : state.selectedProgramResourceId;
+        state.selectedResourceId = targetId || null;
+        if (targetId) {
+            useSelectedSharedPayload();
+            updateConnectionUi();
+        } else {
+            // Ne jamais laisser l'EDT de l'autre mode affiché lorsqu'aucune ressource
+            // n'est choisie dans le mode courant.
+            state.payload = null;
+            renderPlanningFilters(true);
+            renderWeek();
+            renderResourceChooser();
+            updateConnectionUi();
+        }
+    }
+
     async function savePlanningPreference(resourceId) {
         if (!state.user?.id || !resourceId || (!state.isAdmin && !state.adeVerified)) return false;
+        const resource = state.sharedResources.find(item => String(item.resource_id) === String(resourceId));
+        if (!resource || resourceKind(resource) !== 'program') {
+            console.warn('Seules les filières peuvent être enregistrées comme préférence.');
+            return false;
+        }
         const client = getSupabase();
         if (!client) return false;
         try {
@@ -844,6 +918,7 @@
                 updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' });
             if (error) throw error;
+            state.selectedProgramResourceId = String(resourceId);
             state.selectedResourceId = String(resourceId);
             useSelectedSharedPayload();
             return true;
@@ -2006,7 +2081,8 @@
             );
 
             if (selectedSharedPayload) {
-                saveLocalPayload(selectedSharedPayload);
+                if (resourceKind(selectedShared) === 'program') saveLocalPayload(selectedSharedPayload);
+                else useTransientPayload(selectedSharedPayload);
                 state.cloudAvailable = true;
                 state.cloudLoaded = true;
             } else if (!sharedSelectionExpected) {
@@ -2473,9 +2549,11 @@
         card.className = `planning-event-modal-card planning-event-${kind}`;
         card.innerHTML = `
             <button class="planning-event-modal-close" type="button" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
-            <div class="planning-event-modal-top"><span class="planning-event-modal-type">${escapePlanning(typeLabel(event))}</span><span class="planning-event-modal-date">${escapePlanning(dateLabel)}</span></div>
-            <h2>${escapePlanning(event.title || 'Cours')}</h2>
-            <div class="planning-event-modal-time"><i class="fa-regular fa-clock"></i>${escapePlanning(event.start || '—')} – ${escapePlanning(event.end || '—')}</div>
+            <div class="planning-event-modal-summary">
+                <div class="planning-event-modal-top"><span class="planning-event-modal-type">${escapePlanning(typeLabel(event))}</span><span class="planning-event-modal-date">${escapePlanning(dateLabel)}</span></div>
+                <h2>${escapePlanning(event.title || 'Cours')}</h2>
+                <div class="planning-event-modal-time"><i class="fa-regular fa-clock"></i>${escapePlanning(event.start || '—')} – ${escapePlanning(event.end || '—')}</div>
+            </div>
             <div class="planning-event-modal-details">
                 ${event.group ? `<div><i class="fa-solid fa-users"></i><span>${escapePlanning(event.group)}</span></div>` : ''}
                 ${event.teacher ? `<div><i class="fa-solid fa-user"></i><span>${escapePlanning(event.teacher)}</span></div>` : ''}
@@ -2710,6 +2788,8 @@
             state.adeVerified = false;
             state.sharedResources = [];
             state.selectedResourceId = null;
+            state.selectedProgramResourceId = null;
+            state.selectedRoomResourceId = null;
             state.resourceMode = 'program';
             state.resourceModeTouched = false;
             state.collectorRows = [];
@@ -2761,23 +2841,27 @@
         byId('planning-verify-ade')?.addEventListener('click', beginAdeVerification);
         document.querySelectorAll('[data-planning-resource-mode]').forEach(button => {
             button.addEventListener('click', () => {
-                state.resourceMode = button.dataset.planningResourceMode === 'room' ? 'room' : 'program';
-                state.resourceModeTouched = true;
-                renderResourceChooser();
+                activateResourceMode(button.dataset.planningResourceMode === 'room' ? 'room' : 'program');
             });
         });
         byId('planning-resource-building')?.addEventListener('change', event => {
             event.target.dataset.touched = '1';
             const room = byId('planning-resource-room');
             if (room) room.value = '';
+            state.selectedRoomResourceId = null;
+            if (state.resourceMode === 'room') {
+                state.selectedResourceId = null;
+                state.payload = null;
+                renderPlanningFilters(true);
+                renderWeek();
+                updateConnectionUi();
+            }
             renderResourceChooser();
         });
-        byId('planning-resource-room')?.addEventListener('change', async event => {
+        byId('planning-resource-room')?.addEventListener('change', event => {
             const resourceId = event.target.value || '';
             if (!resourceId) return;
-            event.target.disabled = true;
-            await savePlanningPreference(resourceId);
-            event.target.disabled = false;
+            activateTemporaryRoom(resourceId);
             ensureCurrentWeek();
             renderWeek();
             updateConnectionUi();
