@@ -74,6 +74,14 @@
         return window.getSiteSupabase?.() || null;
     }
 
+    function publishUniversityAccessState() {
+        window.updateSiteUniversityAccess?.({
+            user: state.user,
+            verified: state.adeVerified,
+            admin: state.isAdmin
+        });
+    }
+
     function isPlanningActive() {
         return byId('planning')?.classList.contains('active') || false;
     }
@@ -491,13 +499,28 @@
         const accountMeta = byId('planning-account-meta');
         const collector = byId('planning-collector-panel');
         const accessGranted = Boolean(state.user && (state.isAdmin || state.adeVerified));
-        if (verification) verification.hidden = !state.user || state.isAdmin || state.adeVerified;
+        if (verification) verification.hidden = accessGranted;
         if (resourcePanel) resourcePanel.hidden = !accessGranted;
         if (accountMeta) accountMeta.hidden = !accessGranted || !state.selectedResourceId;
         if (collector) collector.hidden = !state.isAdmin;
+
+        const title = byId('planning-access-title');
+        const description = byId('planning-access-description');
+        const button = byId('planning-verify-ade');
+        if (!accessGranted && !state.user) {
+            if (title) title.textContent = 'Activer votre compte';
+            if (description) description.textContent = 'Connectez-vous ou créez un compte Planilim, puis validez votre accès universitaire BIOM pour consulter les emplois du temps.';
+            if (button && !state.adeVerificationLoading) button.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte';
+        } else if (!accessGranted) {
+            if (title) title.textContent = 'Activer votre accès universitaire';
+            if (description) description.textContent = 'Votre compte Planilim est connecté. Confirmez maintenant votre accès via BIOM / Université de Limoges.';
+            if (button && !state.adeVerificationLoading) button.innerHTML = '<i class="fa-solid fa-building-columns"></i> Se connecter à BIOM';
+        }
+
         document.querySelectorAll(
             '#planning > .planning-toolbar, #planning > .planning-filter-panel, #planning > .planning-mobile-panel, #planning > .planning-timetable-shell, #planning > .planning-empty'
         ).forEach(element => { element.hidden = !accessGranted; });
+        publishUniversityAccessState();
     }
 
     async function detectAdminRole() {
@@ -558,8 +581,12 @@
         window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash || '#planning'}`);
     }
 
-    async function beginAdeVerification() {
-        if (!state.user || state.adeVerificationLoading) return;
+    async function beginAdeVerification(returnHash = '#planning') {
+        if (!state.user) {
+            window.openAccountModal?.('login');
+            return;
+        }
+        if (state.adeVerificationLoading) return;
         const button = byId('planning-verify-ade');
         const status = byId('planning-verification-status');
         state.adeVerificationLoading = true;
@@ -575,7 +602,8 @@
         try {
             const client = getSupabase();
             if (!client) throw new Error('SUPABASE_UNAVAILABLE');
-            const returnUrl = `${window.location.origin}${window.location.pathname}#planning`;
+            const safeHash = ['#planning', '#courses'].includes(returnHash) ? returnHash : '#planning';
+            const returnUrl = `${window.location.origin}${window.location.pathname}${safeHash}`;
             const { data, error } = await client.functions.invoke('verify-ade', {
                 body: { action: 'start', returnUrl }
             });
@@ -599,7 +627,7 @@
             state.adeVerificationLoading = false;
             if (button) {
                 button.disabled = false;
-                button.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i> Vérifier avec l’Université';
+                button.innerHTML = '<i class="fa-solid fa-building-columns"></i> Se connecter à BIOM';
             }
         }
     }
@@ -2452,7 +2480,7 @@
         state.user = user || null;
         const navButton = document.querySelector('.nav-btn[data-target="planning"]');
         const navItem = navButton?.closest('li');
-        if (navItem) navItem.hidden = !state.user;
+        if (navItem) navItem.hidden = false;
 
         if (!state.user) {
             state.isAdmin = false;
@@ -2470,9 +2498,7 @@
             stopInstallProbe();
             updatePlanningRoleUi();
             renderResourceChooser();
-            if (byId('planning')?.classList.contains('active')) {
-                document.querySelector('.nav-btn[data-target="about"]')?.click();
-            }
+            publishUniversityAccessState();
             return;
         }
 
@@ -2737,6 +2763,8 @@
     window.planilimPlanning = {
         refresh: requestStatusAndPayload,
         render: renderWeek,
+        verifyUniversity: beginAdeVerification,
+        getUniversityAccess: () => ({ user: state.user, verified: state.adeVerified, admin: state.isAdmin, granted: Boolean(state.user && (state.adeVerified || state.isAdmin)) }),
         onAccountChanged
     };
 })();

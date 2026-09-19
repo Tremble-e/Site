@@ -34,6 +34,8 @@ const STORAGE_BUCKETS = {
 
 const LEGACY_PROFILE_IMAGE_URL = 'image/pdp.png';
 const SUPABASE_PUBLIC_STORAGE_MARKER = '/storage/v1/object/public/';
+const COURSE_FILE_SIGNED_URL_TTL_SECONDS = 60 * 60;
+const courseFileSignedUrlCache = new Map();
 
 function isSupabaseStorageUrl(value) {
     try {
@@ -45,7 +47,7 @@ function isSupabaseStorageUrl(value) {
 
 function isRepositoryHostedAsset(value) {
     const raw = String(value || '').trim();
-    if (!raw || /^(data:|blob:)/i.test(raw) || isSupabaseStorageUrl(raw)) return false;
+    if (!raw || /^(data:|blob:|storage:\/\/)/i.test(raw) || isSupabaseStorageUrl(raw)) return false;
     if (!/^https?:\/\//i.test(raw)) return true;
     try {
         const url = new URL(raw);
@@ -97,6 +99,10 @@ let globalResources = [];
 let publicContentLoadError = null;
 let portfolioSettings = { servicesAvailable: true, servicesStatusText: 'Services disponibles actuellement', profileImageUrl: '', profileImageStoragePath: '' };
 
+let siteUniversityAccess = { user: null, verified: false, admin: false, granted: false, initialized: false };
+let protectedStudyContentLoaded = false;
+let publicHomeStatus = { availableCount: null, lastSyncedAt: null, studyDocumentCount: null };
+
 const categoryLabels = {
     application: 'Application',
     tool: 'Outil',
@@ -130,6 +136,99 @@ function safeResourceUrl(url) {
     if (!value) return false;
     if (/^https?:\/\//i.test(value)) return true;
     return !/^[a-z][a-z0-9+.-]*:/i.test(value) && !value.startsWith('//');
+}
+
+
+function privateCourseStorageReference(path) {
+    const clean = String(path || '').replace(/^\/+/, '');
+    return clean ? `storage://${STORAGE_BUCKETS.documents}/${clean}` : '';
+}
+
+function studyDocumentDownloadName(item = {}) {
+    const preferred = String(item.fileName || item.title || 'document').trim() || 'document';
+    const safe = preferred.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'document';
+    if (/\.[a-z0-9]{1,8}$/i.test(safe)) return safe;
+    const source = String(item.storagePath || item.url || '').split('?')[0];
+    const extMatch = source.match(/\.([a-z0-9]{1,8})$/i);
+    return extMatch ? `${safe}.${extMatch[1].toLowerCase()}` : safe;
+}
+
+async function getSignedCourseFileUrl(storagePath, { force = false } = {}) {
+    const path = String(storagePath || '').replace(/^\/+/, '');
+    if (!path) return '';
+    if (!siteUniversityAccess.granted) throw new Error('Activez votre accès universitaire BIOM pour ouvrir ce document.');
+    if (!initSupabaseClient()) throw new Error('Supabase est indisponible.');
+
+    const cached = courseFileSignedUrlCache.get(path);
+    if (!force && cached && cached.expiresAt > Date.now() + 30_000) return cached.url;
+
+    const { data, error } = await supabaseClient.storage
+        .from(STORAGE_BUCKETS.documents)
+        .createSignedUrl(path, COURSE_FILE_SIGNED_URL_TTL_SECONDS);
+    if (error || !data?.signedUrl) throw error || new Error('Impossible de générer un accès temporaire au document.');
+    const url = String(data.signedUrl);
+    courseFileSignedUrlCache.set(path, {
+        url,
+        expiresAt: Date.now() + COURSE_FILE_SIGNED_URL_TTL_SECONDS * 1000
+    });
+    return url;
+}
+
+async function resolveStudyDocumentUrl(item = {}, { force = false } = {}) {
+    if (item.storagePath) return getSignedCourseFileUrl(item.storagePath, { force });
+    const url = String(item.url || '').trim();
+    if (safeResourceUrl(url)) return url;
+    throw new Error('Adresse de document indisponible.');
+}
+
+function findStudyDocumentById(documentId) {
+    const key = String(documentId || '');
+    if (!key) return null;
+    for (const subject of myCourses) {
+        for (const type of ['lessons', 'exercise_statements', 'exercise_corrections', 'sheets']) {
+            const found = (subject[type] || []).find(item => String(item._dbId) === key);
+            if (found) return found;
+        }
+    }
+    return globalResources.find(item => String(item._dbId) === key) || null;
+}
+
+async function forceSiteFileDownload(url, fileName = 'document') {
+    if (!safeResourceUrl(url)) throw new Error('Adresse de téléchargement invalide.');
+    const response = await fetch(url, { method: 'GET', credentials: 'omit', cache: 'no-store' });
+    if (!response.ok) throw new Error(`Téléchargement impossible (${response.status}).`);
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = String(fileName || 'document').replace(/[\\/:*?"<>|]+/g, '-').trim() || 'document';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+    return true;
+}
+window.downloadSiteFile = forceSiteFileDownload;
+
+async function downloadStudyDocument(item = {}) {
+    const url = await resolveStudyDocumentUrl(item, { force: Boolean(item.storagePath) });
+    await forceSiteFileDownload(url, studyDocumentDownloadName(item));
+    if (item._dbId && typeof window.recordSiteDocumentDownload === 'function') {
+        window.recordSiteDocumentDownload(item._dbId);
+    }
+}
+
+async function openStudyDocument(item, viewer = 'course') {
+    if (!item) return;
+    try {
+        const url = await resolveStudyDocumentUrl(item);
+        if (viewer === 'resource') openResourcePdf(item.title, url, item._dbId || '', item);
+        else openPdf(item.title, url, item._dbId || '', item);
+    } catch (error) {
+        console.error('Accès document :', error);
+        showToast(error?.message || 'Impossible d’ouvrir ce document.');
+    }
 }
 
 const projectStatusLabels = {
@@ -369,10 +468,7 @@ window.addEventListener('resize', () => {
 
 /* Navigation */
 function isSectionAvailable(sectionId) {
-    if (sectionId !== 'planning') return true;
-    const button = navButtons.find(item => item.dataset.target === 'planning');
-    const item = button?.closest('li');
-    return Boolean(item && !item.hidden);
+    return VALID_SECTIONS.includes(sectionId);
 }
 
 function activateSection(target, { updateHash = false, scroll = true } = {}) {
@@ -704,6 +800,111 @@ async function getCurrentSiteUser() {
 }
 
 
+function formatHomePlanningSync(value) {
+    if (!value) return 'Aucune synchronisation disponible';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Synchronisation inconnue';
+    return `Dernière synchronisation : ${date.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`;
+}
+
+async function loadPublicHomeStatus() {
+    if (!initSupabaseClient()) return null;
+    try {
+        const { data, error } = await supabaseClient.rpc('get_public_planning_status');
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        publicHomeStatus = {
+            availableCount: Number(row?.available_count ?? 0),
+            lastSyncedAt: row?.last_synced_at || null,
+            studyDocumentCount: Number(row?.study_document_count ?? 0)
+        };
+    } catch (error) {
+        console.warn('Statut public du planning indisponible :', error?.message || error);
+        publicHomeStatus = { availableCount: null, lastSyncedAt: null, studyDocumentCount: null };
+    }
+    const count = document.getElementById('home-planning-count');
+    const sync = document.getElementById('home-planning-sync');
+    if (count) count.textContent = publicHomeStatus.availableCount === null ? '—' : String(publicHomeStatus.availableCount);
+    if (sync) sync.innerHTML = `<i class="fa-regular fa-clock"></i> ${escapeHtmlAttribute(publicHomeStatus.lastSyncedAt ? formatHomePlanningSync(publicHomeStatus.lastSyncedAt) : 'Dernière synchronisation : inconnue')}`;
+    updateStats();
+    return publicHomeStatus;
+}
+
+function updateCoursesAccessUi() {
+    const panel = document.getElementById('courses-access-panel');
+    const protectedContent = document.getElementById('courses-protected-content');
+    const title = document.getElementById('courses-access-title');
+    const description = document.getElementById('courses-access-description');
+    const action = document.getElementById('courses-access-action');
+    if (!panel || !protectedContent) return;
+
+    const granted = Boolean(siteUniversityAccess.granted);
+    panel.hidden = granted;
+    protectedContent.hidden = !granted;
+
+    if (granted) return;
+    if (!siteUniversityAccess.user) {
+        if (title) title.textContent = 'Activer votre compte';
+        if (description) description.textContent = 'Connectez-vous ou créez un compte Planilim, puis validez votre accès universitaire BIOM pour consulter les cours et les ressources.';
+        if (action) action.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte';
+    } else {
+        if (title) title.textContent = 'Activer votre accès universitaire';
+        if (description) description.textContent = 'Votre compte Planilim est connecté. Il reste à confirmer votre accès via BIOM / Université de Limoges.';
+        if (action) action.innerHTML = '<i class="fa-solid fa-building-columns"></i> Se connecter à BIOM';
+    }
+}
+
+async function requestUniversityActivation(returnHash = '#courses') {
+    const status = document.getElementById('courses-access-status');
+    if (!siteUniversityAccess.user) {
+        if (typeof window.openAccountModal === 'function') window.openAccountModal('login');
+        else showToast('Connectez-vous ou créez un compte pour continuer.');
+        return;
+    }
+    if (siteUniversityAccess.granted) return;
+    if (status) status.textContent = 'Ouverture de BIOM / Université de Limoges…';
+    if (window.planilimPlanning?.verifyUniversity) {
+        await window.planilimPlanning.verifyUniversity(returnHash);
+    } else {
+        navigateToSection('planning');
+    }
+}
+
+async function refreshProtectedStudyContent() {
+    if (!siteUniversityAccess.granted) {
+        myCourses = [];
+        globalResources = [];
+        protectedStudyContentLoaded = false;
+        courseSearchEntries = [];
+        renderSubjects();
+        renderGlobalResources();
+        updateStats();
+        return false;
+    }
+    const loaded = await loadRemoteContent();
+    if (loaded) refreshDynamicContent();
+    return loaded;
+}
+
+window.updateSiteUniversityAccess = async detail => {
+    const previousGranted = siteUniversityAccess.granted;
+    siteUniversityAccess = {
+        user: detail?.user || null,
+        verified: Boolean(detail?.verified),
+        admin: Boolean(detail?.admin),
+        granted: Boolean(detail?.user && (detail?.verified || detail?.admin)),
+        initialized: true
+    };
+    updateCoursesAccessUi();
+    if (siteUniversityAccess.granted && (!previousGranted || !protectedStudyContentLoaded)) {
+        await refreshProtectedStudyContent();
+    } else if (!siteUniversityAccess.granted && previousGranted) {
+        await refreshProtectedStudyContent();
+    }
+};
+window.requestUniversityActivation = requestUniversityActivation;
+
+
 /* Favoris et bibliothèque */
 function siteFavoriteKey(type, id) {
     return `${String(type || '')}:${String(id ?? '')}`;
@@ -880,13 +1081,13 @@ async function openResolvedFavorite(key) {
         navigateToSection('courses');
         if (doc.viewer === 'resource') {
             switchMainCourseTab('global-resources-content');
-            window.setTimeout(() => openResourcePdf(doc.title, doc.url, doc._dbId), 60);
+            window.setTimeout(() => openStudyDocument(doc, 'resource'), 60);
         } else {
             switchMainCourseTab('courses-content');
             let tab = doc.type;
             if (['exercise_statements', 'exercise_corrections'].includes(tab)) tab = 'exercises';
             selectSubject(doc.subjectIndex, tab, doc.type);
-            window.setTimeout(() => openPdf(doc.title, doc.url, doc._dbId), 60);
+            window.setTimeout(() => openStudyDocument(doc, 'course'), 60);
         }
         return;
     }
@@ -957,7 +1158,16 @@ async function toggleOfflineDocument(button) {
         return;
     }
     const id = String(button.dataset.offlineDocumentId || '');
-    const url = button.dataset.offlineUrl || '';
+    const item = findStudyDocumentById(id);
+    let url = button.dataset.offlineUrl || '';
+    try {
+        if (item?.storagePath || button.dataset.offlineStoragePath) {
+            url = await getSignedCourseFileUrl(item?.storagePath || button.dataset.offlineStoragePath, { force: true });
+        }
+    } catch (error) {
+        showToast(error?.message || 'Impossible de préparer le document hors connexion.');
+        return;
+    }
     if (!id || !safeResourceUrl(url)) return;
     let entries = getOfflineEntries(user.id);
     const existing = entries.find(item => String(item.id) === id);
@@ -1454,28 +1664,29 @@ function createDocumentList(items, emptyLabel, viewer = 'course') {
         const documentId = escapeHtmlAttribute(item._dbId || '');
         const title = escapeHtmlAttribute(item.title);
         const url = escapeHtmlAttribute(item.url);
+        const storagePath = escapeHtmlAttribute(item.storagePath || '');
+        const fileName = escapeHtmlAttribute(item.fileName || studyDocumentDownloadName(item));
         return `
         <li class="study-document-row">
-            <button class="pdf-item" type="button" data-tooltip="Prévisualiser le document" data-tooltip-placement="bottom" data-viewer="${viewer}" data-document-id="${documentId}" data-title="${title}" data-url="${url}">
+            <button class="pdf-item" type="button" data-tooltip="Prévisualiser le document" data-tooltip-placement="bottom" data-viewer="${viewer}" data-document-id="${documentId}" data-title="${title}" data-url="${url}" data-storage-path="${storagePath}">
                 <span><i class="fa-regular fa-file-lines"></i>${title}</span>
                 <i class="fa-solid fa-eye" aria-hidden="true"></i>
             </button>
             <div class="study-document-actions">
                 ${siteFavoriteButtonMarkup('document', item._dbId, 'Ajouter aux favoris', 'study-document-action')}
-                <button class="study-document-action offline-document-btn" type="button" data-offline-document-id="${documentId}" data-offline-title="${title}" data-offline-url="${url}" data-offline-viewer="${viewer}" data-tooltip="Rendre disponible hors connexion" aria-label="Rendre disponible hors connexion"><i class="fa-solid fa-cloud-arrow-down"></i></button>
+                <button class="study-document-action" type="button" data-study-download-id="${documentId}" data-tooltip="Télécharger le fichier" aria-label="Télécharger le fichier"><i class="fa-solid fa-download"></i></button>
+                <button class="study-document-action offline-document-btn" type="button" data-offline-document-id="${documentId}" data-offline-title="${title}" data-offline-url="${url}" data-offline-storage-path="${storagePath}" data-offline-file-name="${fileName}" data-offline-viewer="${viewer}" data-tooltip="Rendre disponible hors connexion" aria-label="Rendre disponible hors connexion"><i class="fa-solid fa-cloud-arrow-down"></i></button>
             </div>
         </li>`;
     }).join('');
 }
 
-document.addEventListener('click', event => {
-    const documentButton = event.target.closest('.pdf-item[data-url]');
+document.addEventListener('click', async event => {
+    const documentButton = event.target.closest('.pdf-item[data-document-id]');
     if (!documentButton) return;
-    const title = documentButton.dataset.title || 'Document';
-    const url = documentButton.dataset.url || '';
-    const documentId = documentButton.dataset.documentId || '';
-    if (documentButton.dataset.viewer === 'resource') openResourcePdf(title, url, documentId);
-    else openPdf(title, url, documentId);
+    const item = findStudyDocumentById(documentButton.dataset.documentId);
+    if (!item) return showToast('Document introuvable.');
+    await openStudyDocument(item, documentButton.dataset.viewer === 'resource' ? 'resource' : 'course');
 });
 
 function selectSubject(index, preferredTab = 'lessons', preferredExerciseTab = currentExerciseTab, scrollOnMobile = false) {
@@ -1732,7 +1943,7 @@ function openCourseSearchResult(subjectIndex, type, itemIndex) {
     if (type === 'resources') {
         switchMainCourseTab('global-resources-content');
         const item = globalResources[itemIndex];
-        if (item) window.setTimeout(() => openResourcePdf(item.title, item.url, item._dbId || ''), motionReduced ? 0 : 120);
+        if (item) window.setTimeout(() => openStudyDocument(item, 'resource'), motionReduced ? 0 : 120);
         return;
     }
 
@@ -1743,7 +1954,7 @@ function openCourseSearchResult(subjectIndex, type, itemIndex) {
 
     if (itemIndex >= 0 && subject[type]?.[itemIndex]) {
         const item = subject[type][itemIndex];
-        window.setTimeout(() => openPdf(item.title, item.url, item._dbId || ''), motionReduced ? 0 : 120);
+        window.setTimeout(() => openStudyDocument(item, 'course'), motionReduced ? 0 : 120);
     }
 }
 
@@ -1787,7 +1998,8 @@ function openInfoDocumentPreview(title, url) {
     if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) {
         image.src = url; image.alt = title || 'Document'; image.hidden = false;
     } else if (ext === 'pdf') {
-        frame.src = url; frame.hidden = false;
+        window.sitePdfReader?.open({ title: title || 'Document', url });
+        return;
     } else {
         fallback.hidden = false;
     }
@@ -1808,7 +2020,7 @@ function getDocumentViewer(prefix = '') {
     };
 }
 
-function openDocumentViewer(title, url, documentId = '', prefix = '') {
+function openDocumentViewer(title, url, documentId = '', prefix = '', item = null) {
     const { viewerContainer, pdfFrame, imgViewer, odtViewer, pdfFileName, pdfExternalLink, odtDownloadLink } = getDocumentViewer(prefix);
     if (!viewerContainer || !pdfFrame || !imgViewer || !odtViewer) return;
     if (!safeResourceUrl(url)) {
@@ -1817,7 +2029,13 @@ function openDocumentViewer(title, url, documentId = '', prefix = '') {
     }
 
     if (pdfFileName) pdfFileName.innerHTML = `<i class="fa-solid fa-file"></i> ${escapeHtmlAttribute(title)}`;
-    if (pdfExternalLink) { pdfExternalLink.href = url; pdfExternalLink.dataset.documentId = String(documentId || ''); }
+    if (pdfExternalLink) {
+        pdfExternalLink.href = url;
+        pdfExternalLink.dataset.documentId = String(documentId || '');
+        pdfExternalLink.dataset.downloadName = studyDocumentDownloadName(item || { title, url });
+        pdfExternalLink.innerHTML = '<i class="fa-solid fa-download"></i> Télécharger';
+        pdfExternalLink.removeAttribute('target');
+    }
 
     pdfFrame.hidden = true;
     imgViewer.hidden = true;
@@ -1828,16 +2046,22 @@ function openDocumentViewer(title, url, documentId = '', prefix = '') {
     const cleanUrl = url.split('?')[0];
     const ext = cleanUrl.includes('.') ? cleanUrl.split('.').pop().toLowerCase() : '';
 
+    if (ext === 'pdf') {
+        window.sitePdfReader?.open({ title: title || 'Document', url, documentId, fileName: studyDocumentDownloadName(item || { title, url }) });
+        return;
+    }
+
     if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
         imgViewer.src = url;
         imgViewer.alt = title;
         imgViewer.hidden = false;
-    } else if (['odt', 'docx', 'doc'].includes(ext)) {
-        if (odtDownloadLink) { odtDownloadLink.href = url; odtDownloadLink.dataset.documentId = String(documentId || ''); }
-        odtViewer.hidden = false;
     } else {
-        pdfFrame.src = url;
-        pdfFrame.hidden = false;
+        if (odtDownloadLink) {
+            odtDownloadLink.href = url;
+            odtDownloadLink.dataset.documentId = String(documentId || '');
+            odtDownloadLink.dataset.downloadName = studyDocumentDownloadName(item || { title, url });
+        }
+        odtViewer.hidden = false;
     }
 
     viewerContainer.hidden = false;
@@ -1851,9 +2075,9 @@ function closeDocumentViewer(prefix = '') {
     if (imgViewer) imgViewer.src = '';
 }
 
-function openPdf(title, url, documentId = '') { openDocumentViewer(title, url, documentId, ''); }
+function openPdf(title, url, documentId = '', item = null) { openDocumentViewer(title, url, documentId, '', item); }
 function closePdf() { closeDocumentViewer(''); }
-function openResourcePdf(title, url, documentId = '') { openDocumentViewer(title, url, documentId, 'resource-'); }
+function openResourcePdf(title, url, documentId = '', item = null) { openDocumentViewer(title, url, documentId, 'resource-', item); }
 function closeResourcePdf() { closeDocumentViewer('resource-'); }
 
 window.selectSubject = selectSubject;
@@ -1898,6 +2122,7 @@ function showToast(message) {
     window.clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2400);
 }
+window.showToast = showToast;
 
 window.copyToClipboard = copyToClipboard;
 
@@ -1927,7 +2152,8 @@ function updateStats() {
     const exerciseCount = statementCount + correctionCount;
     const sheetCount = myCourses.reduce((sum, subject) => sum + subject.sheets.length, 0);
     const resourceCount = globalResources.length;
-    const documentCount = lessonCount + exerciseCount + sheetCount + resourceCount;
+    const protectedDocumentCount = lessonCount + exerciseCount + sheetCount + resourceCount;
+    const documentCount = siteUniversityAccess.granted ? protectedDocumentCount : (publicHomeStatus.studyDocumentCount ?? protectedDocumentCount);
     const availableCount = myProjects.filter(project => projectStatus(project) === 'available').length;
     const developmentCount = myProjects.filter(project => projectStatus(project) === 'development').length;
 
@@ -2421,30 +2647,40 @@ window.getSiteSupabase = () => {
     return supabaseClient;
 };
 
-async function fetchContentTables({ publishedOnly = false } = {}) {
+async function fetchContentTables({ publishedOnly = false, includeStudies = false } = {}) {
     if (!supabaseClient) throw new Error('Client Supabase indisponible.');
 
-    let subjectsQuery = supabaseClient.from('subjects').select('*');
-    let documentsQuery = supabaseClient.from('documents').select('*');
     let infosQuery = supabaseClient.from('info_blocks').select('*');
     let projectsQuery = supabaseClient.from('projects').select('*');
-
     if (publishedOnly) {
-        subjectsQuery = subjectsQuery.eq('is_published', true);
-        documentsQuery = documentsQuery.eq('is_published', true);
         infosQuery = infosQuery.eq('is_published', true);
         projectsQuery = projectsQuery.eq('is_published', true);
     }
 
-    const [subjects, documents, infos, projects] = await Promise.all([
-        subjectsQuery.order('sort_order').order('name'),
-        documentsQuery.order('sort_order').order('title'),
+    const publicPromises = [
         infosQuery.order('sort_order').order('id'),
         projectsQuery.order('sort_order').order('name')
-    ]);
+    ];
+    const [infos, projects] = await Promise.all(publicPromises);
+    const publicError = [infos, projects].find(result => result.error)?.error;
+    if (publicError) throw publicError;
 
-    const firstError = [subjects, documents, infos, projects].find(result => result.error)?.error;
-    if (firstError) throw firstError;
+    let subjects = { data: [], error: null };
+    let documents = { data: [], error: null };
+    if (includeStudies) {
+        let subjectsQuery = supabaseClient.from('subjects').select('*');
+        let documentsQuery = supabaseClient.from('documents').select('*');
+        if (publishedOnly) {
+            subjectsQuery = subjectsQuery.eq('is_published', true);
+            documentsQuery = documentsQuery.eq('is_published', true);
+        }
+        [subjects, documents] = await Promise.all([
+            subjectsQuery.order('sort_order').order('name'),
+            documentsQuery.order('sort_order').order('title')
+        ]);
+        const studyError = [subjects, documents].find(result => result.error)?.error;
+        if (studyError) throw studyError;
+    }
 
     return {
         subjects: subjects.data || [],
@@ -2519,7 +2755,9 @@ function mapStudyDocument(row) {
     return {
         _dbId: row.id,
         title: row.title || 'Document',
-        url: row.url || '',
+        // Pour un fichier géré par Supabase, l'URL publique historique n'est jamais utilisée.
+        // Une URL signée courte durée est générée uniquement quand l'utilisateur ouvre/télécharge le fichier.
+        url: row.storage_path ? '' : (row.url || ''),
         storagePath: row.storage_path || '',
         fileName: row.file_name || '',
         type: normalizeStudyDocumentType(row.type || 'lessons'),
@@ -2638,9 +2876,10 @@ async function loadRemoteContent() {
 
     try {
         await processDueSiteInfoPublications();
-        const content = await fetchContentTables({ publishedOnly: true });
-        myCourses = buildCoursesFromRows(content.subjects, content.documents);
-        globalResources = buildGlobalResources(content.documents);
+        const content = await fetchContentTables({ publishedOnly: true, includeStudies: siteUniversityAccess.granted });
+        myCourses = siteUniversityAccess.granted ? buildCoursesFromRows(content.subjects, content.documents) : [];
+        globalResources = siteUniversityAccess.granted ? buildGlobalResources(content.documents) : [];
+        protectedStudyContentLoaded = siteUniversityAccess.granted;
         generalInfo = content.infos.map(mapInfoRow);
         myProjects = content.projects.map(mapProjectRow);
         currentSubjectIndex = Math.min(currentSubjectIndex, Math.max(0, myCourses.length - 1));
@@ -2858,7 +3097,7 @@ async function loadAdminCache() {
     }
 
     const [content] = await Promise.all([
-        fetchContentTables({ publishedOnly: false }),
+        fetchContentTables({ publishedOnly: false, includeStudies: true }),
         loadPortfolioSettings()
     ]);
     adminCache = content;
@@ -3140,7 +3379,7 @@ async function migrateRepositoryAssetsToSupabase() {
             try {
                 if (item.kind === 'document') {
                     const uploaded = await migrateLegacyAsset(item.url, STORAGE_BUCKETS.documents, 'documents/migrated', `document-${item.id}`, 50 * 1024 * 1024);
-                    const { error } = await supabaseClient.from('documents').update({ url: uploaded.url, storage_path: uploaded.path, file_name: legacyAssetFileName(item.url, `document-${item.id}`) }).eq('id', item.id);
+                    const { error } = await supabaseClient.from('documents').update({ url: privateCourseStorageReference(uploaded.path), storage_path: uploaded.path, file_name: legacyAssetFileName(item.url, `document-${item.id}`) }).eq('id', item.id);
                     if (error) { await removeStorageFile(STORAGE_BUCKETS.documents, uploaded.path); throw error; }
                 } else if (item.kind === 'project-logo') {
                     const uploaded = await migrateLegacyAsset(item.url, STORAGE_BUCKETS.assets, 'projets/migrated', `projet-${item.id}`, 10 * 1024 * 1024);
@@ -3264,7 +3503,7 @@ function editAdminDocument(id) {
     document.getElementById('admin-doc-title').value = doc.title || '';
     document.getElementById('admin-doc-subject').value = doc.subject_id || '';
     document.getElementById('admin-doc-type').value = normalizeStudyDocumentType(doc.type || 'lessons');
-    document.getElementById('admin-doc-url').value = doc.url || '';
+    document.getElementById('admin-doc-url').value = doc.storage_path ? '' : (doc.url || '');
     document.getElementById('admin-doc-order').value = doc.sort_order || 0;
     document.getElementById('admin-doc-published').checked = doc.is_published !== false;
     document.getElementById('admin-document-form-title').textContent = 'Modifier le document';
@@ -3435,6 +3674,9 @@ async function uploadAdminFile(bucket, folder, file) {
         contentType: file.type || undefined
     });
     if (error) throw error;
+    if (bucket === STORAGE_BUCKETS.documents) {
+        return { path, url: privateCourseStorageReference(path) };
+    }
     const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
     return { path, url: data.publicUrl };
 }
@@ -3459,9 +3701,11 @@ async function handleDocumentSave(event) {
     const id = Number(document.getElementById('admin-doc-id').value || 0);
     const old = id ? adminCache.documents.find(item => Number(item.id) === id) : null;
     const file = document.getElementById('admin-doc-file').files?.[0];
-    let url = document.getElementById('admin-doc-url').value.trim();
+    const typedExternalUrl = document.getElementById('admin-doc-url').value.trim();
+    let url = typedExternalUrl;
     let storagePath = document.getElementById('admin-doc-storage-path').value || '';
     let uploaded = null;
+    const previousStoragePath = old?.storage_path || '';
 
     try {
         setAdminBusy(true, 'Enregistrement du document…');
@@ -3474,8 +3718,14 @@ async function handleDocumentSave(event) {
             url = uploaded.url;
             storagePath = uploaded.path;
         }
+        if (!file && typedExternalUrl) {
+            if (!safeExternalLink(typedExternalUrl)) throw new Error('Utilisez une URL https:// externe ou importez le fichier dans Supabase.');
+            url = typedExternalUrl;
+            storagePath = '';
+        } else if (!file && storagePath) {
+            url = privateCourseStorageReference(storagePath);
+        }
         if (!url) throw new Error('Choisissez un fichier ou renseignez une URL.');
-        if (!file && !safeExternalLink(url)) throw new Error('Les chemins locaux GitHub ne sont plus acceptés. Importez le fichier dans Supabase ou utilisez une URL https:// externe.');
 
         const selectedType = normalizeStudyDocumentType(document.getElementById('admin-doc-type').value);
         const selectedSubject = document.getElementById('admin-doc-subject').value;
@@ -3494,8 +3744,10 @@ async function handleDocumentSave(event) {
 
         await saveDbRecord('documents', payload, id || null);
 
-        if (uploaded && old?.storage_path && old.storage_path !== uploaded.path) {
-            await removeStorageFile(STORAGE_BUCKETS.documents, old.storage_path);
+        if (uploaded && previousStoragePath && previousStoragePath !== uploaded.path) {
+            await removeStorageFile(STORAGE_BUCKETS.documents, previousStoragePath);
+        } else if (!uploaded && previousStoragePath && !storagePath) {
+            await removeStorageFile(STORAGE_BUCKETS.documents, previousStoragePath);
         }
         resetAdminDocumentForm();
         hideAdminEditor('document');
@@ -4102,6 +4354,7 @@ document.addEventListener('keydown', event => {
 });
 
 /* Événements de la bibliothèque et de la PWA */
+document.getElementById('courses-access-action')?.addEventListener('click', () => requestUniversityActivation('#courses'));
 document.getElementById('favorites-btn')?.addEventListener('click', () => openPersonalLibrary('favorites'));
 document.getElementById('pwa-footer-install-btn')?.addEventListener('click', installSitePwa);
 document.getElementById('pwa-install-notice-btn')?.addEventListener('click', installSitePwa);
@@ -4124,6 +4377,37 @@ document.querySelectorAll('[data-favorite-filter]').forEach(button => button.add
 document.addEventListener('click', async event => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+
+    const directDownload = target.closest('[data-study-download-id]');
+    if (directDownload) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const item = findStudyDocumentById(directDownload.dataset.studyDownloadId);
+        if (!item) return showToast('Document introuvable.');
+        directDownload.disabled = true;
+        try {
+            showToast('Préparation du téléchargement…');
+            await downloadStudyDocument(item);
+        } catch (error) {
+            console.error('Téléchargement document :', error);
+            showToast(error?.message || 'Téléchargement impossible.');
+        } finally { directDownload.disabled = false; }
+        return;
+    }
+
+    const viewerDownload = target.closest('#pdf-external-link, #resource-pdf-external-link, #odt-download-link, #resource-odt-download-link');
+    if (viewerDownload?.href && viewerDownload.dataset.downloadName) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        try {
+            showToast('Téléchargement…');
+            await forceSiteFileDownload(viewerDownload.href, viewerDownload.dataset.downloadName);
+        } catch (error) {
+            console.error('Téléchargement viewer :', error);
+            showToast(error?.message || 'Téléchargement impossible.');
+        }
+        return;
+    }
 
     const favorite = target.closest('[data-favorite-type][data-favorite-id]');
     if (favorite) {
@@ -4167,7 +4451,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     initSupabaseClient();
     registerSitePwa().catch(console.warn);
-    await Promise.all([loadRemoteContent(), loadPortfolioSettings()]);
+    updateCoursesAccessUi();
+    await Promise.all([loadRemoteContent(), loadPortfolioSettings(), loadPublicHomeStatus()]);
     applyPortfolioProfileImage();
     await loadSiteFavorites();
     courseSearchEntries = getCourseSearchEntries();
@@ -4201,6 +4486,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (document.getElementById('projects')?.classList.contains('active') || document.getElementById('courses')?.classList.contains('active')) {
             refreshRemoteContentIfStale(55000).catch(console.warn);
         }
+    }, 60000);
+
+    window.setInterval(() => {
+        if (document.visibilityState !== 'visible' || !document.getElementById('about')?.classList.contains('active')) return;
+        loadPublicHomeStatus().catch(console.warn);
     }, 60000);
 });
 

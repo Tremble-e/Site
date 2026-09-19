@@ -1661,6 +1661,7 @@ function recordDocumentDownload(documentId) {
         if (error) console.warn('Statistique de téléchargement :', error);
     });
 }
+window.recordSiteDocumentDownload = recordDocumentDownload;
 
 /* Temps réel */
 
@@ -1889,7 +1890,7 @@ function bindForumEvents() {
     });
 
     document.addEventListener('click', event => {
-        const external = event.target.closest?.('#pdf-external-link, #odt-download-link, #resource-pdf-external-link, #resource-odt-download-link');
+        const external = event.target.closest?.('#pdf-external-link, #odt-download-link, #resource-pdf-external-link, #resource-odt-download-link, #site-pdf-reader-download');
         if (external?.dataset.documentId) recordDocumentDownload(external.dataset.documentId);
     }, true);
 

@@ -20,10 +20,10 @@
 <link href="pwa-icon-192.png" rel="apple-touch-icon"/>
 <link href="https://cdnjs.cloudflare.com" rel="preconnect"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="style.css?v=2.9.5" rel="stylesheet"/>
+<link href="style.css?v=2.34.0" rel="stylesheet"/>
 <link href="forum.css?v=2.9.5" rel="stylesheet"/>
 <link href="forum_v2.css?v=2.9.5" rel="stylesheet"/>
-<link href="planning.css?v=2.32.0" rel="stylesheet"/>
+<link href="planning.css?v=2.34.0" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -49,11 +49,11 @@
 <div class="nav-menu" id="nav-menu">
 <ul>
 <li><button class="nav-btn active" data-target="about" type="button"><i class="fa-solid fa-user"></i><span>À propos</span></button></li>
-<li><button class="nav-btn" data-target="services" type="button"><i class="fa-solid fa-briefcase"></i><span>Services</span></button></li>
+<li><button class="nav-btn" data-target="forum" type="button"><i class="fa-solid fa-comments"></i><span>Forum</span></button></li>
 <li><button class="nav-btn" data-target="projects" type="button"><i class="fa-solid fa-layer-group"></i><span>Projets</span></button></li>
 <li><button class="nav-btn" data-target="courses" type="button"><i class="fa-solid fa-graduation-cap"></i><span>Études</span></button></li>
-<li hidden=""><button class="nav-btn" data-target="planning" type="button"><i class="fa-regular fa-calendar-days"></i><span>Planning</span></button></li>
-<li><button class="nav-btn" data-target="forum" type="button"><i class="fa-solid fa-comments"></i><span>Forum</span></button></li>
+<li><button class="nav-btn" data-target="planning" type="button"><i class="fa-regular fa-calendar-days"></i><span>Planning</span></button></li>
+<li><button class="nav-btn" data-target="services" type="button"><i class="fa-solid fa-briefcase"></i><span>Services</span></button></li>
 </ul>
 <div class="nav-tools">
 <div class="theme-wrapper">
@@ -122,10 +122,13 @@
 <p class="hero-description">
                         J'aime comprendre comment les choses fonctionnent, expérimenter de nouvelles idées et transformer certaines d'entre elles en projets concrets.
                     </p>
-<div class="hero-actions">
-<button class="primary-btn hero-project-btn" data-go="projects" type="button"><i class="fa-solid fa-layer-group"></i> Découvrir mes projets</button>
-<button class="secondary-btn hero-services-btn" data-go="services" type="button"><i class="fa-solid fa-briefcase"></i> Consulter mes services</button>
-<button class="secondary-btn hero-study-btn" data-go="courses" type="button"><i class="fa-solid fa-graduation-cap"></i> Explorer mes ressources</button>
+<div class="home-planning-status-card" id="home-planning-status-card">
+<div class="home-planning-status-icon"><i class="fa-regular fa-calendar-check"></i></div>
+<div class="home-planning-status-copy">
+<span class="section-kicker">Planning universitaire</span>
+<strong><span id="home-planning-count">—</span> emplois du temps disponibles</strong>
+<p id="home-planning-sync"><i class="fa-regular fa-clock"></i> Dernière synchronisation : chargement…</p>
+</div>
 </div>
 </div>
 <div aria-hidden="true" class="hero-visual">
@@ -350,6 +353,18 @@
 </div>
 <p>Cours, exercices, TD, TP, fiches &amp; ressources.</p>
 </div>
+<div class="glass-panel university-access-panel reveal" id="courses-access-panel">
+<div class="university-access-icon"><i class="fa-solid fa-user-lock"></i></div>
+<div class="university-access-copy">
+<span class="section-kicker">Accès universitaire</span>
+<strong id="courses-access-title">Activer votre compte</strong>
+<p id="courses-access-description">Connectez-vous à Planilim puis validez votre accès universitaire BIOM pour consulter les cours et les ressources.</p>
+<small>Vos identifiants universitaires ne sont jamais lus ni enregistrés par le site.</small>
+</div>
+<button class="primary-btn compact-btn" id="courses-access-action" type="button"><i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte</button>
+<p aria-live="polite" class="planning-verification-status" id="courses-access-status" role="status"></p>
+</div>
+<div id="courses-protected-content" hidden>
 <div class="study-overview reveal">
 <div><strong id="study-subject-count">0</strong><span>Matières</span></div>
 <div><strong id="study-lesson-count">0</strong><span>Cours</span></div>
@@ -416,7 +431,7 @@
 <img alt="Prévisualisation" class="pdf-frame image-viewer" hidden="" id="img-viewer" src=""/>
 <div class="pdf-frame odt-placeholder" hidden="" id="odt-viewer">
 <i class="fa-solid fa-file-word"></i>
-<p>La prévisualisation des fichiers <strong>.odt</strong> ou <strong>.docx</strong> n'est pas prise en charge directement.</p>
+<p>Ce type de fichier n'est pas prévisualisé directement dans le navigateur.</p>
 <a class="primary-btn inline-btn" href="#" id="odt-download-link">Télécharger le fichier</a>
 </div>
 </div>
@@ -442,7 +457,7 @@
 <img alt="Prévisualisation" class="pdf-frame image-viewer" hidden="" id="resource-img-viewer" src=""/>
 <div class="pdf-frame odt-placeholder" hidden="" id="resource-odt-viewer">
 <i class="fa-solid fa-file-word"></i>
-<p>La prévisualisation des fichiers <strong>.odt</strong> ou <strong>.docx</strong> n'est pas prise en charge directement.</p>
+<p>Ce type de fichier n'est pas prévisualisé directement dans le navigateur.</p>
 <a class="primary-btn inline-btn" href="#" id="resource-odt-download-link">Télécharger le fichier</a>
 </div>
 </div>
@@ -463,6 +478,7 @@
 </div>
 </div>
 <div class="general-info-content" id="general-info-container"></div>
+</div>
 </div>
 </div>
 </section>
@@ -557,12 +573,12 @@
 <div class="planning-verification-icon"><i class="fa-solid fa-shield-halved"></i></div>
 <div class="planning-verification-copy">
 <span class="section-kicker">Première utilisation</span>
-<strong>Vérifiez votre accès universitaire</strong>
-<p>Vous serez redirigé vers la page officielle de l’Université de Limoges. Planilim ne voit et ne conserve jamais vos identifiants ADE.</p>
-<small>Cette vérification n’est demandée qu’une seule fois.</small>
+<strong id="planning-access-title">Activer votre compte</strong>
+<p id="planning-access-description">Connectez-vous à Planilim puis validez votre accès universitaire BIOM pour consulter votre emploi du temps.</p>
+<small>Cette activation n’est demandée qu’une seule fois. Planilim ne voit et ne conserve jamais vos identifiants universitaires.</small>
 </div>
 <button class="primary-btn compact-btn" id="planning-verify-ade" type="button">
-<i class="fa-solid fa-arrow-up-right-from-square"></i> Vérifier avec l’Université
+<i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte
                 </button>
 <p aria-live="polite" class="planning-verification-status" id="planning-verification-status" role="status"></p>
 </div>
@@ -1114,7 +1130,7 @@
 <label class="field"><span>Ordre</span><input id="admin-doc-order" min="0" step="1" type="number" value="0"/></label>
 <label class="field checkbox-field"><input checked="" id="admin-doc-published" type="checkbox"/><span>Visible sur le site</span></label>
 <label class="field field-wide"><span>Fichier</span><input accept=".pdf,.doc,.docx,.odt,.png,.jpg,.jpeg,.gif,.webp" id="admin-doc-file" type="file"/><small>PDF, Word, ODT et images — 50 Mo maximum. Laissez vide pour conserver le fichier actuel.</small></label>
-<label class="field field-wide"><span>Ou URL du document</span><input id="admin-doc-url" placeholder="https://… ou laisser vide si vous importez un fichier" type="text"/><small>URL externe uniquement. Les nouveaux fichiers importés sont stockés dans Supabase.</small></label>
+<label class="field field-wide"><span>Ou URL du document</span><input id="admin-doc-url" placeholder="https://… ou laisser vide si vous importez un fichier" type="text"/><small>URL externe facultative. Les fichiers importés dans Planilim sont stockés dans le bucket privé Supabase et accessibles uniquement après validation BIOM.</small></label>
 </div>
 <div class="admin-form-actions"><button class="secondary-btn" data-admin-cancel="document" type="button">Annuler</button><button class="primary-btn" type="submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
 </form>
@@ -1394,9 +1410,39 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-<script src="script.js?v=2.13.0"></script>
-<script src="planning.js?v=2.32.0"></script>
-<script src="forum.js?v=2.9.6"></script>
+<script src="pdf-reader.js?v=2.34.0"></script>
+<script src="script.js?v=2.34.0"></script>
+<script src="planning.js?v=2.34.0"></script>
+<script src="forum.js?v=2.34.0"></script>
 <script src="forum_v2.js?v=2.9.5"></script>
+
+<div aria-labelledby="site-pdf-reader-title" aria-modal="true" class="site-pdf-reader" hidden id="site-pdf-reader" role="dialog">
+<div class="site-pdf-reader-backdrop" data-pdf-reader-close></div>
+<div class="site-pdf-reader-dialog">
+<header class="site-pdf-reader-header">
+<div class="site-pdf-reader-heading"><span class="section-kicker">Liseuse du site</span><strong id="site-pdf-reader-title">Document PDF</strong></div>
+<div class="site-pdf-reader-actions">
+<a class="secondary-btn compact-btn" download id="site-pdf-reader-download" href="#"><i class="fa-solid fa-download"></i> Télécharger</a>
+<button aria-label="Plein écran" class="icon-btn" data-tooltip="Plein écran" id="site-pdf-reader-fullscreen" type="button"><i class="fa-solid fa-expand"></i></button>
+<button aria-label="Fermer" class="icon-btn" data-pdf-reader-close data-tooltip="Fermer" type="button"><i class="fa-solid fa-xmark"></i></button>
+</div>
+</header>
+<div class="site-pdf-reader-toolbar" aria-label="Contrôles du PDF">
+<button class="icon-btn" id="site-pdf-reader-prev" type="button" aria-label="Page précédente"><i class="fa-solid fa-chevron-left"></i></button>
+<label class="site-pdf-reader-page">Page <input id="site-pdf-reader-page" min="1" inputmode="numeric" type="number" value="1"></label>
+<button class="icon-btn" id="site-pdf-reader-next" type="button" aria-label="Page suivante"><i class="fa-solid fa-chevron-right"></i></button>
+<span class="site-pdf-reader-separator"></span>
+<button class="icon-btn" id="site-pdf-reader-zoom-out" type="button" aria-label="Dézoomer"><i class="fa-solid fa-minus"></i></button>
+<span id="site-pdf-reader-zoom-label">Largeur</span>
+<button class="icon-btn" id="site-pdf-reader-zoom-in" type="button" aria-label="Zoomer"><i class="fa-solid fa-plus"></i></button>
+<button class="secondary-btn compact-btn" id="site-pdf-reader-fit" type="button"><i class="fa-solid fa-arrows-left-right"></i> Ajuster</button>
+</div>
+<div class="site-pdf-reader-stage">
+<div class="site-pdf-reader-loading" id="site-pdf-reader-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Chargement du document…</span></div>
+<iframe id="site-pdf-reader-frame" title="Liseuse PDF intégrée"></iframe>
+</div>
+<p class="site-pdf-reader-note"><i class="fa-solid fa-shield-halved"></i> Le document est affiché directement dans la liseuse du site, sans service de visualisation tiers.</p>
+</div>
+</div>
 <div aria-label="Aperçu du document" aria-modal="true" class="info-document-modal" hidden="" id="info-document-modal" role="dialog"><div class="info-document-backdrop"></div><div class="info-document-dialog"><div class="info-document-head"><strong id="info-document-title">Document</strong><div><a class="secondary-btn compact-btn" href="#" id="info-document-external" rel="noopener noreferrer" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Ouvrir</a><button aria-label="Fermer" class="icon-btn" id="info-document-close" type="button"><i class="fa-solid fa-xmark"></i></button></div></div><div class="info-document-body"><iframe id="info-document-frame" title="Aperçu du document"></iframe><img alt="" id="info-document-image"/><div class="info-document-fallback" id="info-document-fallback"><i class="fa-solid fa-file-arrow-down"></i><strong>Aperçu non disponible</strong><p>Ce type de fichier peut être ouvert ou téléchargé avec le bouton ci-dessus.</p></div></div></div></div></body>
 </html>
