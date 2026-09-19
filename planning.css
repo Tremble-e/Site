@@ -1358,19 +1358,6 @@
     outline-offset: 2px;
 }
 
-#planning-collector-run:disabled,
-#planning-collector-retry:disabled {
-    cursor: wait !important;
-    pointer-events: none !important;
-    transform: none !important;
-    filter: saturate(.78);
-    opacity: .82;
-    box-shadow: none;
-}
-#planning-collector-run:disabled:hover,
-#planning-collector-retry:disabled:hover {
-    transform: none !important;
-}
 .planning-inline-spinner {
     width: 15px;
     height: 15px;
@@ -1388,3 +1375,152 @@
 /* v2.23.2 — correctif collecteur ADE (limite de profondeur relative) */
 
 /* v2.23.3 — collecteur limité aux nœuds Semestre/AN, sans descendre dans les groupes de cours. */
+
+/* v4.16.0 — choix filière / salle et commandes de synchronisation */
+.planning-resource-mode {
+    display: inline-flex;
+    gap: 4px;
+    margin-top: 13px;
+    padding: 4px;
+    border: 1px solid rgba(148, 163, 184, .15);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, .5);
+}
+
+.planning-resource-mode-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 9px;
+    color: var(--text-muted, #94a3b8);
+    background: transparent;
+    font: inherit;
+    font-size: .76rem;
+    font-weight: 850;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+.planning-resource-mode-btn:hover {
+    color: var(--text-primary, #f8fafc);
+    background: rgba(148, 163, 184, .08);
+}
+
+.planning-resource-mode-btn.is-active {
+    color: #fff;
+    background: color-mix(in srgb, var(--accent, #3b82f6) 75%, #172554 25%);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--accent, #3b82f6) 18%, transparent);
+}
+
+.planning-resource-room-selectors {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.planning-resource-selectors[hidden] {
+    display: none !important;
+}
+
+.planning-collector-control-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.planning-collector-action-group {
+    display: grid;
+    gap: 10px;
+    padding: 13px;
+    border: 1px solid rgba(148, 163, 184, .13);
+    border-radius: 14px;
+    background: rgba(15, 23, 42, .35);
+}
+
+.planning-collector-action-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted, #94a3b8);
+    font-size: .76rem;
+    font-weight: 900;
+    letter-spacing: .02em;
+}
+
+.planning-collector-action-title i {
+    color: color-mix(in srgb, var(--accent, #3b82f6) 74%, white 26%);
+}
+
+.planning-collector-action-group .planning-collector-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.planning-collector-action-group .planning-collector-actions button {
+    justify-content: center;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.planning-action-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding-inline: 5px;
+    margin-left: 2px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, .12);
+    color: currentColor;
+    font-size: .68rem;
+    line-height: 1;
+}
+
+.planning-collector-resource-kind {
+    display: inline-flex !important;
+    width: fit-content;
+    margin: 0 0 4px !important;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, .12);
+    background: rgba(148, 163, 184, .07);
+    color: #cbd5e1 !important;
+    font-size: .62rem !important;
+    font-weight: 850;
+    letter-spacing: .02em;
+}
+
+[data-collector-sync]:disabled,
+[data-collector-retry]:disabled {
+    cursor: wait !important;
+    pointer-events: none !important;
+    transform: none !important;
+    filter: saturate(.78);
+    opacity: .68;
+    box-shadow: none;
+}
+
+@media (max-width: 900px) {
+    .planning-collector-control-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .planning-resource-room-selectors {
+        grid-template-columns: 1fr;
+    }
+
+    .planning-resource-mode {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        width: 100%;
+    }
+
+    .planning-collector-action-group .planning-collector-actions {
+        grid-template-columns: 1fr;
+    }
+}

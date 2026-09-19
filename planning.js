@@ -10,7 +10,7 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.15.8.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.16.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
@@ -24,7 +24,28 @@
     const INSTALL_PROBE_MS = 1500;
     const INSTALL_PROBE_DURATION_MS = 120000;
     const FILTER_KEY_PREFIX = 'planilim-planning-filters-v1:';
-    const COLLECTOR_SCOPE_PATH = 'Groupes Etudiants > Faculté des Sciences et Techniques';
+    const COLLECTOR_PROGRAM_SCOPE_PATH = 'Groupes Etudiants > Faculté des Sciences et Techniques';
+    const COLLECTOR_ROOM_SCOPE_PATH = 'Salles > LIMOGES > LIMOGES La Borie FST';
+    const COLLECTOR_PROFILES = Object.freeze({
+        program: Object.freeze({
+            key: 'program',
+            label: 'Filières',
+            singular: 'filière',
+            plural: 'filières',
+            scopePath: COLLECTOR_PROGRAM_SCOPE_PATH,
+            targetKind: 'program',
+            maxDepth: 4
+        }),
+        room: Object.freeze({
+            key: 'room',
+            label: 'Salles',
+            singular: 'salle',
+            plural: 'salles',
+            scopePath: COLLECTOR_ROOM_SCOPE_PATH,
+            targetKind: 'room',
+            maxDepth: 4
+        })
+    });
 
     const state = {
         extensionDetected: false,
@@ -42,6 +63,8 @@
         adeVerificationLoading: false,
         sharedResources: [],
         selectedResourceId: null,
+        resourceMode: 'program',
+        resourceModeTouched: false,
         collectorRows: [],
         collectorFailures: [],
         collectorRunning: false,
@@ -206,9 +229,30 @@
             .replaceAll("'", '&#039;');
     }
 
-    function pathIsInCollectorScope(path) {
+    function pathIsInProgramScope(path) {
         const value = String(path || '').trim();
-        return value === COLLECTOR_SCOPE_PATH || value.startsWith(`${COLLECTOR_SCOPE_PATH} > `);
+        return value === COLLECTOR_PROGRAM_SCOPE_PATH || value.startsWith(`${COLLECTOR_PROGRAM_SCOPE_PATH} > `);
+    }
+
+    function pathIsInRoomScope(path) {
+        const value = String(path || '').trim();
+        return value === COLLECTOR_ROOM_SCOPE_PATH || value.startsWith(`${COLLECTOR_ROOM_SCOPE_PATH} > `);
+    }
+
+    function pathIsInCollectorScope(path) {
+        return pathIsInProgramScope(path) || pathIsInRoomScope(path);
+    }
+
+    function collectorKindFromPath(path) {
+        return pathIsInRoomScope(path) ? 'room' : 'program';
+    }
+
+    function resourceKind(resource) {
+        return collectorKindFromPath(resource?.path || '');
+    }
+
+    function collectorProfile(kind) {
+        return kind === 'room' ? COLLECTOR_PROFILES.room : COLLECTOR_PROFILES.program;
     }
 
     function extensionInstallUrl() {
@@ -224,7 +268,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.15.8.zip';
+        link.download = 'planilim-collector-v4.16.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -315,11 +359,20 @@
     }
 
     function resourceDisplayLabel(resource) {
-        const path = String(resource?.path || '')
-            .split(' > ')
-            .filter(part => part && part !== 'Groupes Etudiants')
-            .join(' › ');
-        return path || resource?.label || `Formation ${resource?.resource_id || ''}`;
+        const parts = String(resource?.path || '')
+            .split('>')
+            .map(part => part.trim())
+            .filter(Boolean);
+        if (resourceKind(resource) === 'room') {
+            const useful = parts.filter(part =>
+                !/^Salles$/i.test(part) &&
+                !/^LIMOGES$/i.test(part) &&
+                !/^LIMOGES La Borie FST$/i.test(part)
+            );
+            return useful.join(' › ') || resource?.label || `Salle ${resource?.resource_id || ''}`;
+        }
+        const useful = parts.filter(part => part && part !== 'Groupes Etudiants');
+        return useful.join(' › ') || resource?.label || `Formation ${resource?.resource_id || ''}`;
     }
 
     function resourceHierarchy(resource) {
@@ -375,6 +428,31 @@
         };
     }
 
+    function roomHierarchy(resource) {
+        const parts = String(resource?.path || '')
+            .split('>')
+            .map(part => part.trim())
+            .filter(Boolean);
+        const room = String(resource?.label || parts.at(-1) || '').trim();
+        let building = '';
+        for (let index = parts.length - 2; index >= 0; index -= 1) {
+            if (/^B(?:A|Â)TIMENT\b/i.test(parts[index])) {
+                building = parts[index];
+                break;
+            }
+        }
+        if (!building) {
+            const siteIndex = parts.findIndex(part => /^LIMOGES La Borie FST$/i.test(part));
+            if (siteIndex >= 0 && parts[siteIndex + 1] && parts[siteIndex + 1] !== room) {
+                building = parts[siteIndex + 1];
+            }
+        }
+        return {
+            building: building || 'Autres salles',
+            room: room || `Salle ${resource?.resource_id || ''}`
+        };
+    }
+
     function hierarchySort(values) {
         const order = new Map([['L1', 1], ['L2', 2], ['L3', 3], ['M1', 4], ['M2', 5], ['BUT 1', 6], ['BUT 2', 7], ['BUT 3', 8]]);
         return [...new Set(values.filter(Boolean))].sort((a, b) => {
@@ -395,7 +473,9 @@
     }
 
     function hierarchyResources() {
-        return state.sharedResources.map(resource => ({ resource, hierarchy: resourceHierarchy(resource) }));
+        return state.sharedResources
+            .filter(resource => resourceKind(resource) === 'program')
+            .map(resource => ({ resource, hierarchy: resourceHierarchy(resource) }));
     }
 
     function hierarchyCandidates({ year = '', speciality = '', semester = '' } = {}) {
@@ -406,11 +486,29 @@
         );
     }
 
-    function selectedHierarchy() {
-        const selected = state.sharedResources.find(resource =>
+    function roomResources() {
+        return state.sharedResources
+            .filter(resource => resourceKind(resource) === 'room')
+            .map(resource => ({ resource, hierarchy: roomHierarchy(resource) }));
+    }
+
+    function selectedSharedResource() {
+        return state.sharedResources.find(resource =>
             String(resource.resource_id) === String(state.selectedResourceId)
-        );
-        return selected ? resourceHierarchy(selected) : null;
+        ) || null;
+    }
+
+    function selectedHierarchy() {
+        const selected = selectedSharedResource();
+        return selected && resourceKind(selected) === 'program' ? resourceHierarchy(selected) : null;
+    }
+
+    function renderResourceModeToggle() {
+        document.querySelectorAll('[data-planning-resource-mode]').forEach(button => {
+            const active = button.dataset.planningResourceMode === state.resourceMode;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
     }
 
     function renderResourceChooser() {
@@ -419,8 +517,59 @@
         const semesterSelect = byId('planning-resource-semester');
         const groupSelect = byId('planning-resource-group');
         const groupField = byId('planning-resource-group-field');
+        const buildingSelect = byId('planning-resource-building');
+        const roomSelect = byId('planning-resource-room');
+        const programSelectors = byId('planning-resource-program-selectors');
+        const roomSelectors = byId('planning-resource-room-selectors');
         const status = byId('planning-resource-status');
         if (!yearSelect || !specialitySelect || !semesterSelect) return;
+
+        const selectedResource = selectedSharedResource();
+        if (!state.resourceModeTouched && selectedResource) {
+            state.resourceMode = resourceKind(selectedResource);
+        }
+        renderResourceModeToggle();
+        if (programSelectors) programSelectors.hidden = state.resourceMode !== 'program';
+        if (roomSelectors) roomSelectors.hidden = state.resourceMode !== 'room';
+
+        if (state.resourceMode === 'room') {
+            const resources = roomResources();
+            const selected = selectedResource && resourceKind(selectedResource) === 'room'
+                ? roomHierarchy(selectedResource)
+                : null;
+            const requestedBuilding = buildingSelect?.dataset.touched === '1'
+                ? buildingSelect.value
+                : (selected?.building || buildingSelect?.value || '');
+            const buildings = [...new Set(resources.map(item => item.hierarchy.building).filter(Boolean))]
+                .sort((a, b) => String(a).localeCompare(String(b), 'fr', { numeric: true }));
+            const building = buildings.includes(requestedBuilding) ? requestedBuilding : '';
+            setSelectOptions(buildingSelect, 'Choisissez un bâtiment…', buildings, building);
+
+            const candidates = resources.filter(item => !building || item.hierarchy.building === building);
+            if (roomSelect) {
+                const options = candidates
+                    .slice()
+                    .sort((a, b) => String(a.hierarchy.room).localeCompare(String(b.hierarchy.room), 'fr', { numeric: true }))
+                    .map(item => ({ value: String(item.resource.resource_id), label: item.hierarchy.room }));
+                roomSelect.innerHTML = [
+                    `<option value="">${building ? 'Choisissez une salle…' : 'Choisissez d’abord un bâtiment…'}</option>`,
+                    ...options.map(item => `<option value="${escapePlanning(item.value)}">${escapePlanning(item.label)}</option>`)
+                ].join('');
+                roomSelect.disabled = !building || options.length === 0;
+                if (selectedResource && resourceKind(selectedResource) === 'room' && options.some(item => item.value === String(state.selectedResourceId))) {
+                    roomSelect.value = String(state.selectedResourceId);
+                }
+            }
+
+            if (status) {
+                status.textContent = selectedResource && resourceKind(selectedResource) === 'room'
+                    ? `${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
+                    : resources.length
+                        ? 'Choisissez un bâtiment puis une salle.'
+                        : 'Aucune salle n’a encore été publiée par le collecteur.';
+            }
+            return;
+        }
 
         const resources = hierarchyResources();
         const selected = selectedHierarchy();
@@ -463,12 +612,11 @@
         }
 
         if (status) {
-            const selectedResource = state.sharedResources.find(resource => String(resource.resource_id) === String(state.selectedResourceId));
-            status.textContent = selectedResource
+            status.textContent = selectedResource && resourceKind(selectedResource) === 'program'
                 ? `${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
                 : resources.length
                     ? 'Choisissez votre année, votre spécialité puis votre semestre.'
-                    : 'Aucune formation n’a encore été publiée par le collecteur.';
+                    : 'Aucune filière n’a encore été publiée par le collecteur.';
         }
     }
 
@@ -646,7 +794,7 @@
                 .filter(resource => pathIsInCollectorScope(resource.path));
         } catch (error) {
             state.sharedResources = [];
-            console.warn('Catalogue partagé des formations indisponible :', error);
+            console.warn('Catalogue partagé des emplois du temps indisponible :', error);
         }
         renderResourceChooser();
         return state.sharedResources;
@@ -664,7 +812,7 @@
             if (error) throw error;
             state.selectedResourceId = data?.resource_id || null;
         } catch (error) {
-            console.warn('Préférence de formation indisponible :', error);
+            console.warn('Préférence d’emploi du temps indisponible :', error);
         }
         renderResourceChooser();
         return state.selectedResourceId;
@@ -700,7 +848,7 @@
             useSelectedSharedPayload();
             return true;
         } catch (error) {
-            console.warn('Enregistrement de la formation impossible :', error);
+            console.warn('Enregistrement de l’emploi du temps impossible :', error);
             return false;
         }
     }
@@ -872,28 +1020,67 @@
         }
     }
 
+    function collectorItemKind(item) {
+        return collectorKindFromPath(item?.path || '');
+    }
+
+    function collectorFailuresForKind(kind) {
+        if (kind === 'all') return [...state.collectorFailures];
+        return state.collectorFailures.filter(item => collectorItemKind(item) === kind);
+    }
+
+    function replaceCollectorFailuresForKinds(kinds, failures = []) {
+        const kindSet = new Set((Array.isArray(kinds) ? kinds : [kinds]).map(kind => kind === 'room' ? 'room' : 'program'));
+        const preserved = state.collectorFailures.filter(item => !kindSet.has(collectorItemKind(item)));
+        const merged = new Map(preserved.map(item => [collectorFailureKey(item), item]));
+        for (const item of failures || []) merged.set(collectorFailureKey(item), item);
+        saveCollectorFailures([...merged.values()]);
+    }
+
+    async function clearCollectorFailuresForKinds(kinds) {
+        const normalized = [...new Set((Array.isArray(kinds) ? kinds : [kinds]).map(kind => kind === 'room' ? 'room' : 'program'))];
+        replaceCollectorFailuresForKinds(normalized, []);
+        if (!state.isAdmin) return;
+        const client = getSupabase();
+        if (!client) return;
+        for (const kind of normalized) {
+            const profile = collectorProfile(kind);
+            try {
+                const { error } = await client.from(SYNC_FAILURES_TABLE)
+                    .delete()
+                    .like('path', `${profile.scopePath}%`);
+                if (error) throw error;
+            } catch (error) {
+                console.warn(`Nettoyage des échecs ${profile.plural} impossible :`, error);
+            }
+        }
+    }
+
     function updateCollectorActionButtons() {
-        const run = byId('planning-collector-run');
-        const retry = byId('planning-collector-retry');
-        if (run) {
-            const blocked = Boolean(state.busy || state.collectorRunning);
-            run.disabled = blocked;
-            run.toggleAttribute('disabled', blocked);
-            run.setAttribute('aria-disabled', blocked ? 'true' : 'false');
-            run.setAttribute('aria-busy', state.collectorRunning ? 'true' : 'false');
-            run.innerHTML = state.collectorRunning
-                ? '<span class="planning-inline-spinner" aria-hidden="true"></span> Synchronisation en cours…'
-                : '<i class="fa-solid fa-cloud-arrow-up"></i> Récupérer et synchroniser les EDT';
-        }
-        if (retry) {
-            const count = state.collectorFailures.length;
-            retry.hidden = count === 0;
-            const retryBlocked = Boolean(state.busy || state.collectorRunning || count === 0);
-            retry.disabled = retryBlocked;
-            retry.toggleAttribute('disabled', retryBlocked);
-            retry.setAttribute('aria-disabled', retryBlocked ? 'true' : 'false');
-            retry.innerHTML = `<i class="fa-solid fa-rotate-right"></i> Relancer les échecs${count ? ` (${count})` : ''}`;
-        }
+        const blocked = Boolean(state.busy || state.collectorRunning);
+        document.querySelectorAll('[data-collector-sync]').forEach(button => {
+            button.disabled = blocked;
+            button.toggleAttribute('disabled', blocked);
+            button.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+            button.setAttribute('aria-busy', state.collectorRunning ? 'true' : 'false');
+        });
+
+        const programCount = collectorFailuresForKind('program').length;
+        const roomCount = collectorFailuresForKind('room').length;
+        const allCount = state.collectorFailures.length;
+        const counts = { program: programCount, room: roomCount, all: allCount };
+        document.querySelectorAll('[data-failure-count]').forEach(node => {
+            node.textContent = String(counts[node.dataset.failureCount] ?? 0);
+        });
+        document.querySelectorAll('[data-collector-retry]').forEach(button => {
+            const kind = button.dataset.collectorRetry || 'all';
+            const count = counts[kind] ?? 0;
+            const disabled = blocked || count === 0;
+            button.disabled = disabled;
+            button.toggleAttribute('disabled', disabled);
+            button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+            button.setAttribute('aria-busy', state.collectorRunning ? 'true' : 'false');
+        });
     }
 
     function collectorRowKey(row) {
@@ -914,8 +1101,6 @@
             merged.set(key, {
                 ...previous,
                 ...row,
-                // Conserver les informations de chemin/nom déjà découvertes
-                // quand ExtJS virtualise momentanément une partie de l'arbre.
                 label: row?.label || previous?.label || null,
                 path: row?.path || previous?.path || null,
                 pathParts: Array.isArray(row?.pathParts) && row.pathParts.length
@@ -937,10 +1122,12 @@
             const failureText = failure
                 ? [failure.code, failure.message].filter(Boolean).join(' · ')
                 : '';
+            const kind = collectorItemKind(row);
             return `
             <article class="planning-collector-resource${failure ? ' is-failed' : ''}">
                 <i class="fa-solid ${failure ? 'fa-triangle-exclamation' : 'fa-check'}" aria-hidden="true"></i>
                 <span>
+                    <small class="planning-collector-resource-kind">${kind === 'room' ? 'Salle' : 'Filière'}</small>
                     <strong>${escapePlanning(row.label || `Planning ${row.resourceId}`)}</strong>
                     <small>${escapePlanning(row.path || '')}</small>
                     ${failureText ? `<small class="planning-collector-error">${escapePlanning(failureText)}</small>` : ''}
@@ -955,10 +1142,14 @@
     }
 
     function isCollectorTarget(row) {
-        return row?.resourceId != null &&
-            row.level >= 3 &&
-            isCollectorTerminalLabel(row.label) &&
-            pathIsInCollectorScope(row.path);
+        if (row?.resourceId == null) return false;
+        if (pathIsInRoomScope(row.path)) {
+            const parts = String(row.path || '').split('>').map(part => part.trim()).filter(Boolean);
+            const scopeParts = COLLECTOR_ROOM_SCOPE_PATH.split('>').map(part => part.trim()).filter(Boolean);
+            const label = String(row.label || parts.at(-1) || '').trim();
+            return parts.length >= scopeParts.length + 1 && row.branchToggle !== true && !/^B(?:A|Â)TIMENT\b/i.test(label);
+        }
+        return row.level >= 3 && isCollectorTerminalLabel(row.label) && pathIsInProgramScope(row.path);
     }
 
     async function refreshCollectorTree() {
@@ -981,7 +1172,7 @@
                         maxDurationMs: 45000,
                         maxDepth: 4,
                         scopeRoot: 'Groupes Etudiants',
-                        scopePath: COLLECTOR_SCOPE_PATH
+                        scopePath: COLLECTOR_PROGRAM_SCOPE_PATH
                     }
                 });
                 if (!result?.ok) {
@@ -1030,12 +1221,12 @@
             const authRequired = ['AUTH_REQUIRED', 'ADE_NOT_OPEN'].includes(error?.code);
             if (authRequired) {
                 sessionStorage.setItem('planilim-admin-collector-resume', '1');
-                if (status) status.textContent = 'Connecte-toi dans ADE. Reviens ensuite sur Planilim : la synchronisation reprendra automatiquement.';
+                if (status) status.textContent = 'Connexion ADE requise. Après authentification, revenir sur Planilim pour reprendre la synchronisation.';
                 try { await requestExtension('PLANILIM_ADE_CONNECT', { timeout: 20000 }); } catch {}
             } else if (status) {
                 status.textContent = state.collectorRows.length
-                    ? 'La lecture a été interrompue. Les filières déjà trouvées sont conservées ; relance pour reprendre.'
-                    : 'Le collecteur n’a pas pu lire ADE. Réessaie dans quelques instants.';
+                    ? 'La lecture a été interrompue. Les filières déjà trouvées sont conservées ; une nouvelle tentative peut reprendre la lecture.'
+                    : 'Le collecteur n’a pas pu lire ADE. Une nouvelle tentative peut être lancée dans quelques instants.';
             }
             return { ok: false, code: error?.code || 'CATALOG_FAILED', authRequired };
         } finally {
@@ -1045,12 +1236,10 @@
     }
 
 
-    async function runCollectorPipeline() {
+    async function runCollectorPipeline(profile = COLLECTOR_PROFILES.program) {
         if (!state.isAdmin || state.busy) return { ok: false, code: 'BUSY' };
         const status = byId('planning-collector-status');
-        state.collectorRows = [];
-        renderCollectorRows();
-        saveCollectorFailures([]);
+        const activeProfile = collectorProfile(profile?.key || profile?.targetKind || 'program');
         updateCollectorActionButtons();
 
         let successCount = 0;
@@ -1135,11 +1324,11 @@
                 : `${workers} workers`;
             const phase = String(snapshot.phase || '');
             if (phase.startsWith('coordinator') || phase === 'catalog_ready') {
-                status.textContent = `${COLLECTOR_DEFAULT_WORKERS} workers · Lecture de l’arbre ADE · ${Number(snapshot.discoveredCount || 0)} EDT détectés`;
+                status.textContent = `${activeProfile.label} · Lecture de l’arbre ADE · ${Number(snapshot.discoveredCount || 0)} EDT détectés`;
                 return;
             }
             if (phase === 'worker_pool_bootstrap') {
-                status.textContent = `${COLLECTOR_DEFAULT_WORKERS} workers de base · ${discoveredCount} EDT détectés · Ouverture des pages ADE…`;
+                status.textContent = `${activeProfile.label} · ${COLLECTOR_DEFAULT_WORKERS} workers · ${discoveredCount} EDT détectés · Ouverture des pages ADE…`;
                 return;
             }
             if (phase === 'repairing_holes') {
@@ -1159,9 +1348,9 @@
         setLoading(
             true,
             'Synchronisation en cours…',
-            `Le coordinateur lit l’arbre puis démarre ${COLLECTOR_DEFAULT_WORKERS} workers stables. La réparation finale des semaines manquantes reste limitée à 4 workers.`
+            `${activeProfile.label} · lecture du catalogue puis démarrage de ${COLLECTOR_DEFAULT_WORKERS} workers stables.`
         );
-        if (status) status.textContent = 'Lecture de l’arbre ADE…';
+        if (status) status.textContent = `${activeProfile.label} · lecture de l’arbre ADE…`;
 
         try {
             // Le démarrage rend immédiatement un runId. Le travail continue
@@ -1171,8 +1360,9 @@
             const started = await requestExtension('PLANILIM_COLLECTOR_ASYNC_START', {
                 timeout: 20000,
                 payload: {
-                    scopePath: COLLECTOR_SCOPE_PATH,
-                    maxDepth: 4,
+                    scopePath: activeProfile.scopePath,
+                    targetKind: activeProfile.targetKind,
+                    maxDepth: activeProfile.maxDepth,
                     maxActions: 600,
                     workerCount: COLLECTOR_DEFAULT_WORKERS,
                     adaptiveMaxWorkerCount: COLLECTOR_ADAPTIVE_MAX_WORKERS
@@ -1256,7 +1446,7 @@
                 if (pendingPublishIds.length >= COLLECTOR_DEFAULT_WORKERS || snapshot.done || Date.now() - lastPublishAt > 15000) {
                     await flushPublishedPayloads();
                     const failureRows = [...failures.values()];
-                    saveCollectorFailures(failureRows);
+                    replaceCollectorFailuresForKinds([activeProfile.key], failureRows);
                     await persistCollectorFailureRows(failureRows, successfulResourceIds);
                 }
 
@@ -1266,7 +1456,7 @@
 
             await flushPublishedPayloads();
             const failureRows = [...failures.values()];
-            saveCollectorFailures(failureRows);
+            replaceCollectorFailuresForKinds([activeProfile.key], failureRows);
             await persistCollectorFailureRows(failureRows, successfulResourceIds);
             await loadSharedResources();
             useSelectedSharedPayload();
@@ -1275,13 +1465,13 @@
             const fatal = finalState === 'failed';
             if (status) {
                 if (authRequired) {
-                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps terminé${successCount > 1 ? 's' : ''}. Reconnecte-toi à ADE puis relance les échecs.`;
+                    status.textContent = `${activeProfile.label} · ${successCount} emploi${successCount > 1 ? 's' : ''} du temps terminé${successCount > 1 ? 's' : ''}. Une reconnexion ADE est nécessaire avant la relance des échecs.`;
                 } else if (fatal) {
-                    status.textContent = `Collecte interrompue après ${completedCount}/${discoveredCount || '…'} EDT. Les résultats déjà publiés sont conservés.`;
+                    status.textContent = `${activeProfile.label} · collecte interrompue après ${completedCount}/${discoveredCount || '…'} EDT. Les résultats déjà publiés sont conservés.`;
                 } else if (!failureRows.length) {
-                    status.textContent = `${successCount} emplois du temps synchronisés sur ${discoveredCount}. Tu peux fermer ADE.`;
+                    status.textContent = `${activeProfile.label} · ${successCount} emplois du temps synchronisés sur ${discoveredCount}. ADE peut être fermé.`;
                 } else {
-                    status.textContent = `${successCount} emplois du temps synchronisés sur ${discoveredCount}. ${failureRows.length} restent à relancer.`;
+                    status.textContent = `${activeProfile.label} · ${successCount} emplois du temps synchronisés sur ${discoveredCount}. ${failureRows.length} restent à relancer.`;
                 }
             }
 
@@ -1292,17 +1482,18 @@
                 successCount,
                 discoveredCount,
                 completedCount,
-                failures: failureRows
+                failures: failureRows,
+                profile: activeProfile.key
             };
         } catch (error) {
             console.warn('Collecteur ADE asynchrone interrompu :', error);
             if (status) {
-                status.textContent = `Le suivi du collecteur a été interrompu après ${completedCount}/${discoveredCount || '…'} EDT. Les résultats déjà publiés sont conservés.`;
+                status.textContent = `${activeProfile.label} · suivi interrompu après ${completedCount}/${discoveredCount || '…'} EDT. Les résultats déjà publiés sont conservés.`;
             }
             const failureRows = [...failures.values()];
-            saveCollectorFailures(failureRows);
+            replaceCollectorFailuresForKinds([activeProfile.key], failureRows);
             try { await persistCollectorFailureRows(failureRows, successfulResourceIds); } catch {}
-            return { ok: false, code: error?.code || 'PIPELINE_FAILED', runId, failures: failureRows };
+            return { ok: false, code: error?.code || 'PIPELINE_FAILED', runId, failures: failureRows, profile: activeProfile.key };
         } finally {
             setLoading(false);
             renderCollectorRows();
@@ -1356,6 +1547,9 @@
             ? targetOverride
             : state.collectorRows.filter(isCollectorTarget);
         if (!targets.length) return;
+        const failureKinds = Array.isArray(options.failureKinds) && options.failureKinds.length
+            ? options.failureKinds
+            : [...new Set(targets.map(target => collectorItemKind(target)))];
 
         const status = byId('planning-collector-status');
         setLoading(true, 'Synchronisation en cours…', `${targets.length} emploi${targets.length > 1 ? 's' : ''} du temps à récupérer.`);
@@ -1463,7 +1657,7 @@
                     code: item.code,
                     message: item.message || null
                 }));
-                saveCollectorFailures(interimRows);
+                replaceCollectorFailuresForKinds(failureKinds, interimRows);
                 await persistCollectorFailureRows(interimRows, successfulResourceIds);
 
                 if (authRequired) break;
@@ -1477,9 +1671,9 @@
             useSelectedSharedPayload();
             if (status) {
                 if (authRequired) {
-                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps terminé${successCount > 1 ? 's' : ''}. Reconnecte-toi à ADE puis relance les échecs.`;
+                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps terminé${successCount > 1 ? 's' : ''}. Une reconnexion ADE est nécessaire avant la relance.`;
                 } else if (!failures.length) {
-                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps synchronisé${successCount > 1 ? 's' : ''}. Tu peux fermer ADE.`;
+                    status.textContent = `${successCount} emploi${successCount > 1 ? 's' : ''} du temps synchronisé${successCount > 1 ? 's' : ''}. ADE peut être fermé.`;
                 } else {
                     status.textContent = `${successCount} sur ${targets.length} emplois du temps terminés. ${failures.length} restent à relancer.`;
                 }
@@ -1502,7 +1696,7 @@
                 code: item.code,
                 message: item.message || null
             }));
-            saveCollectorFailures(failureRows);
+            replaceCollectorFailuresForKinds(failureKinds, failureRows);
             await persistCollectorFailureRows(failureRows, successfulResourceIds);
 
             return {
@@ -1522,9 +1716,12 @@
         return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
     }
 
-    async function runAdminCollector() {
+    async function runAdminCollector(kind = 'all') {
         if (!state.isAdmin || state.busy || state.collectorRunning) return;
         const status = byId('planning-collector-status');
+        const profiles = kind === 'all'
+            ? [COLLECTOR_PROFILES.program, COLLECTOR_PROFILES.room]
+            : [collectorProfile(kind)];
         state.collectorRunning = true;
         updateCollectorActionButtons();
 
@@ -1534,28 +1731,54 @@
             }
             if (!state.extensionDetected) {
                 if (isMobileDevice()) {
-                    if (status) status.textContent = 'Ouverture du collecteur sur ce téléphone…';
+                    if (status) status.textContent = 'Ouverture du collecteur sur cet appareil…';
                     window.location.href = 'planilim-collector://sync';
                 } else {
-                    if (status) status.textContent = 'Le collecteur PC n’est pas détecté. Installe-le puis relance ce bouton.';
+                    if (status) status.textContent = 'Le collecteur PC n’est pas détecté. Installation requise avant la synchronisation.';
                     launchExtensionInstall();
                 }
                 return;
             }
 
             sessionStorage.removeItem('planilim-admin-collector-resume');
-            saveCollectorFailures([]);
-            await runCollectorPipeline();
+            state.collectorRows = [];
+            renderCollectorRows();
+            await clearCollectorFailuresForKinds(profiles.map(profile => profile.key));
+
+            const results = [];
+            for (let index = 0; index < profiles.length; index += 1) {
+                const profile = profiles[index];
+                if (status && profiles.length > 1) {
+                    status.textContent = `${index + 1}/${profiles.length} · ${profile.label} · préparation…`;
+                }
+                const result = await runCollectorPipeline(profile);
+                results.push(result || { ok: false, profile: profile.key });
+                if (result?.authRequired || result?.code === 'AUTH_REQUIRED') break;
+            }
+
+            await loadSharedResources();
+            useSelectedSharedPayload();
+            if (status && profiles.length > 1) {
+                const totalSuccess = results.reduce((sum, item) => sum + Number(item?.successCount || 0), 0);
+                const totalDiscovered = results.reduce((sum, item) => sum + Number(item?.discoveredCount || 0), 0);
+                const remaining = profiles.reduce((sum, profile) => sum + collectorFailuresForKind(profile.key).length, 0);
+                status.textContent = remaining
+                    ? `${totalSuccess} emplois du temps synchronisés sur ${totalDiscovered}. ${remaining} échec${remaining > 1 ? 's' : ''} à relancer.`
+                    : `${totalSuccess} emplois du temps synchronisés sur ${totalDiscovered}. ADE peut être fermé.`;
+            }
         } finally {
             state.collectorRunning = false;
             updateCollectorActionButtons();
         }
     }
 
-    async function retryFailedCollectorResources() {
+    async function retryFailedCollectorResources(kind = 'all') {
         if (!state.isAdmin || state.busy || state.collectorRunning) return;
         const status = byId('planning-collector-status');
-        let remaining = [...state.collectorFailures];
+        const failureKinds = kind === 'all' ? ['program', 'room'] : [kind === 'room' ? 'room' : 'program'];
+        let remaining = kind === 'all'
+            ? [...state.collectorFailures]
+            : collectorFailuresForKind(failureKinds[0]);
         if (!remaining.length) return;
 
         state.collectorRunning = true;
@@ -1565,19 +1788,19 @@
             for (let passIndex = 0; passIndex < passes.length && remaining.length; passIndex += 1) {
                 const weekConcurrency = passes[passIndex];
                 if (status) {
-                    status.textContent = `Rattrapage ${passIndex + 1}/${passes.length} : ${remaining.length} emploi${remaining.length > 1 ? 's' : ''} du temps · ${weekConcurrency} semaine${weekConcurrency > 1 ? 's' : ''} en parallèle…`;
+                    status.textContent = `Rattrapage : ${remaining.length} emploi${remaining.length > 1 ? 's' : ''} du temps à relancer…`;
                 }
 
-                const result = await syncCollectorResources(remaining, { weekConcurrency });
-                remaining = Array.isArray(result?.failures) ? result.failures : [...state.collectorFailures];
+                const result = await syncCollectorResources(remaining, { weekConcurrency, failureKinds });
+                remaining = Array.isArray(result?.failures) ? result.failures : failureKinds.flatMap(current => collectorFailuresForKind(current));
                 if (result?.authRequired || !remaining.length) break;
-
-                // On laisse ADE respirer avant de réduire encore la concurrence.
                 await new Promise(resolve => window.setTimeout(resolve, 650 + passIndex * 450));
             }
 
             if (status && remaining.length) {
                 status.textContent = `${remaining.length} emploi${remaining.length > 1 ? 's' : ''} du temps restent en échec. Le détail technique est affiché sur les lignes concernées.`;
+            } else if (status) {
+                status.textContent = 'Rattrapage terminé. ADE peut être fermé.';
             }
         } finally {
             state.collectorRunning = false;
@@ -2487,6 +2710,8 @@
             state.adeVerified = false;
             state.sharedResources = [];
             state.selectedResourceId = null;
+            state.resourceMode = 'program';
+            state.resourceModeTouched = false;
             state.collectorRows = [];
             state.collectorFailures = [];
             state.payload = null;
@@ -2534,6 +2759,29 @@
 
     function bindControls() {
         byId('planning-verify-ade')?.addEventListener('click', beginAdeVerification);
+        document.querySelectorAll('[data-planning-resource-mode]').forEach(button => {
+            button.addEventListener('click', () => {
+                state.resourceMode = button.dataset.planningResourceMode === 'room' ? 'room' : 'program';
+                state.resourceModeTouched = true;
+                renderResourceChooser();
+            });
+        });
+        byId('planning-resource-building')?.addEventListener('change', event => {
+            event.target.dataset.touched = '1';
+            const room = byId('planning-resource-room');
+            if (room) room.value = '';
+            renderResourceChooser();
+        });
+        byId('planning-resource-room')?.addEventListener('change', async event => {
+            const resourceId = event.target.value || '';
+            if (!resourceId) return;
+            event.target.disabled = true;
+            await savePlanningPreference(resourceId);
+            event.target.disabled = false;
+            ensureCurrentWeek();
+            renderWeek();
+            updateConnectionUi();
+        });
         byId('planning-resource-year')?.addEventListener('change', event => {
             resetHierarchyAfter(event.target, ['planning-resource-speciality', 'planning-resource-semester', 'planning-resource-group']);
             renderResourceChooser();
@@ -2561,8 +2809,12 @@
             renderWeek();
             updateConnectionUi();
         });
-        byId('planning-collector-run')?.addEventListener('click', runAdminCollector);
-        byId('planning-collector-retry')?.addEventListener('click', retryFailedCollectorResources);
+        document.querySelectorAll('[data-collector-sync]').forEach(button => {
+            button.addEventListener('click', () => runAdminCollector(button.dataset.collectorSync || 'all'));
+        });
+        document.querySelectorAll('[data-collector-retry]').forEach(button => {
+            button.addEventListener('click', () => retryFailedCollectorResources(button.dataset.collectorRetry || 'all'));
+        });
         byId('planning-prev-week')?.addEventListener('click', () => moveWeek(-1));
         byId('planning-next-week')?.addEventListener('click', () => moveWeek(1));
         byId('planning-today')?.addEventListener('click', () => {

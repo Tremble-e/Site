@@ -20,10 +20,10 @@
 <link href="pwa-icon-192.png" rel="apple-touch-icon"/>
 <link href="https://cdnjs.cloudflare.com" rel="preconnect"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="style.css?v=2.35.0" rel="stylesheet"/>
+<link href="style.css?v=2.36.0" rel="stylesheet"/>
 <link href="forum.css?v=2.9.5" rel="stylesheet"/>
 <link href="forum_v2.css?v=2.9.5" rel="stylesheet"/>
-<link href="planning.css?v=2.35.0" rel="stylesheet"/>
+<link href="planning.css?v=2.36.0" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -564,17 +564,17 @@
 <div class="section-heading planning-heading">
 <div>
 <span class="section-kicker">Université</span>
-<h1 id="planning-title"><i class="fa-regular fa-calendar-days"></i> Mon emploi du temps</h1>
+<h1 id="planning-title"><i class="fa-regular fa-calendar-days"></i> Emplois du temps</h1>
 </div>
-<p>Retrouvez vos cours en choisissant simplement votre filière.</p>
+<p>Consultez un emploi du temps de filière ou de salle.</p>
 </div>
 <div class="glass-panel planning-verification-panel" hidden="" id="planning-verification-panel">
 <div class="planning-verification-icon"><i class="fa-solid fa-shield-halved"></i></div>
 <div class="planning-verification-copy">
 <span class="section-kicker">Première utilisation</span>
 <strong id="planning-access-title">Activer votre compte</strong>
-<p id="planning-access-description">Connectez-vous à Planilim puis validez votre accès universitaire BIOM pour consulter votre emploi du temps.</p>
-<small>Cette activation n’est demandée qu’une seule fois. Planilim ne voit et ne conserve jamais vos identifiants universitaires.</small>
+<p id="planning-access-description">Connectez-vous à Planilim puis validez votre accès universitaire BIOM pour consulter les emplois du temps.</p>
+<small>Cette activation n’est demandée qu’une seule fois. Planilim ne voit et ne conserve jamais les identifiants universitaires.</small>
 </div>
 <button class="primary-btn compact-btn" id="planning-verify-ade" type="button">
 <i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte
@@ -583,11 +583,15 @@
 </div>
 <div class="glass-panel planning-resource-panel" hidden="" id="planning-resource-panel">
 <div class="planning-resource-copy">
-<span class="section-kicker">Ma formation</span>
-<strong>Choisissez votre emploi du temps</strong>
-<p>Il s’affichera ensuite automatiquement sur ordinateur comme sur téléphone.</p>
+<span class="section-kicker">Emploi du temps</span>
+<strong>Choisissez une ressource</strong>
+<p>Les emplois du temps de filière et de salle sont disponibles depuis le même calendrier.</p>
+<div aria-label="Type d’emploi du temps" class="planning-resource-mode" role="group">
+<button aria-pressed="true" class="planning-resource-mode-btn is-active" data-planning-resource-mode="program" type="button"><i class="fa-solid fa-graduation-cap"></i> Filière</button>
+<button aria-pressed="false" class="planning-resource-mode-btn" data-planning-resource-mode="room" type="button"><i class="fa-solid fa-door-open"></i> Salle</button>
 </div>
-<div aria-label="Choix de la formation" class="planning-resource-selectors">
+</div>
+<div class="planning-resource-selectors" id="planning-resource-program-selectors" aria-label="Choix de la filière">
 <label class="planning-resource-field" for="planning-resource-year">
 <span>Année</span>
 <select disabled="" id="planning-resource-year"><option value="">Chargement…</option></select>
@@ -605,6 +609,16 @@
 <select disabled="" id="planning-resource-group"><option value="">Choisissez votre groupe…</option></select>
 </label>
 </div>
+<div class="planning-resource-selectors planning-resource-room-selectors" id="planning-resource-room-selectors" aria-label="Choix de la salle" hidden>
+<label class="planning-resource-field" for="planning-resource-building">
+<span>Bâtiment</span>
+<select disabled="" id="planning-resource-building"><option value="">Chargement…</option></select>
+</label>
+<label class="planning-resource-field" for="planning-resource-room">
+<span>Salle</span>
+<select disabled="" id="planning-resource-room"><option value="">Choisissez d’abord un bâtiment…</option></select>
+</label>
+</div>
 <p aria-live="polite" class="planning-resource-status" id="planning-resource-status"></p>
 </div>
 <div aria-live="polite" class="planning-account-meta" hidden="" id="planning-account-meta">
@@ -616,15 +630,29 @@
 <div class="planning-collector-heading">
 <div>
 <span class="section-kicker">Administration</span>
-<h2>Synchronisation des emplois du temps</h2>
-<p>Ce panneau t’est réservé. Le collecteur détecte les filières, récupère leurs cours et les publie sur Planilim.</p>
+<h2>Synchronisation ADE</h2>
+<p>Collecte et publication des emplois du temps de filière et de salle. Les données incomplètes ne sont pas publiées.</p>
 </div>
+</div>
+<div class="planning-collector-control-grid">
+<section class="planning-collector-action-group" aria-labelledby="planning-sync-title">
+<div class="planning-collector-action-title" id="planning-sync-title"><i class="fa-solid fa-cloud-arrow-up"></i><span>Synchroniser</span></div>
+<div class="planning-collector-actions planning-collector-actions-primary">
+<button class="secondary-btn" data-collector-sync="program" id="planning-collector-sync-program" type="button"><i class="fa-solid fa-graduation-cap"></i> Filières</button>
+<button class="secondary-btn" data-collector-sync="room" id="planning-collector-sync-room" type="button"><i class="fa-solid fa-door-open"></i> Salles</button>
+<button class="primary-btn" data-collector-sync="all" id="planning-collector-sync-all" type="button"><i class="fa-solid fa-layer-group"></i> Les deux</button>
+</div>
+</section>
+<section class="planning-collector-action-group" aria-labelledby="planning-retry-title">
+<div class="planning-collector-action-title" id="planning-retry-title"><i class="fa-solid fa-rotate-right"></i><span>Relancer les échecs</span></div>
 <div class="planning-collector-actions">
-<button class="primary-btn" id="planning-collector-run" type="button"><i class="fa-solid fa-cloud-arrow-up"></i> Récupérer et synchroniser les EDT</button>
-<button class="secondary-btn" hidden="" id="planning-collector-retry" type="button"><i class="fa-solid fa-rotate-right"></i> Relancer les échecs</button>
+<button class="secondary-btn" data-collector-retry="program" id="planning-collector-retry-program" type="button"><i class="fa-solid fa-graduation-cap"></i> Filières <span class="planning-action-count" data-failure-count="program">0</span></button>
+<button class="secondary-btn" data-collector-retry="room" id="planning-collector-retry-room" type="button"><i class="fa-solid fa-door-open"></i> Salles <span class="planning-action-count" data-failure-count="room">0</span></button>
+<button class="secondary-btn" data-collector-retry="all" id="planning-collector-retry-all" type="button"><i class="fa-solid fa-layer-group"></i> Tous <span class="planning-action-count" data-failure-count="all">0</span></button>
 </div>
+</section>
 </div>
-<p aria-live="polite" class="planning-collector-status" id="planning-collector-status">Prêt à lancer la synchronisation.</p>
+<p aria-live="polite" class="planning-collector-status" id="planning-collector-status">Prêt à lancer une synchronisation.</p>
 <div class="planning-collector-resources" id="planning-collector-resources"></div>
 </div>
 <div class="glass-panel planning-toolbar">
@@ -1409,10 +1437,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-<script src="pdf-reader.js?v=2.35.0"></script>
-<script src="script.js?v=2.35.0"></script>
-<script src="planning.js?v=2.35.0"></script>
-<script src="forum.js?v=2.35.0"></script>
+<script src="pdf-reader.js?v=2.36.0"></script>
+<script src="script.js?v=2.36.0"></script>
+<script src="planning.js?v=2.36.0"></script>
+<script src="forum.js?v=2.36.0"></script>
 <script src="forum_v2.js?v=2.9.5"></script>
 
 <div aria-labelledby="site-pdf-reader-title" aria-modal="true" class="site-pdf-reader" hidden id="site-pdf-reader" role="dialog">
