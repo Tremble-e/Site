@@ -10,11 +10,11 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.12.0.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.13.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
-    const COLLECTOR_DEFAULT_WORKERS = 15;
+    const COLLECTOR_DEFAULT_WORKERS = 4;
     const COLLECTOR_PROGRESS_POLL_MS = 1000;
     const SLOT_MINUTES = 15;
     const DEFAULT_DAY_START = 8 * 60;
@@ -215,7 +215,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.12.0.zip';
+        link.download = 'planilim-collector-v4.13.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
