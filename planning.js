@@ -10,11 +10,12 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.13.0.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.14.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
     const COLLECTOR_DEFAULT_WORKERS = 4;
+    const COLLECTOR_ADAPTIVE_MAX_WORKERS = 6;
     const COLLECTOR_PROGRESS_POLL_MS = 1000;
     const SLOT_MINUTES = 15;
     const DEFAULT_DAY_START = 8 * 60;
@@ -215,7 +216,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.13.0.zip';
+        link.download = 'planilim-collector-v4.14.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1098,13 +1099,19 @@
         const updateLiveStatus = snapshot => {
             if (!status || !snapshot) return;
             const workers = Number(snapshot.workerCount || snapshot.requestedWorkerCount || COLLECTOR_DEFAULT_WORKERS);
+            const adaptiveMax = Math.max(workers, Number(snapshot.adaptiveMaxWorkerCount || COLLECTOR_ADAPTIVE_MAX_WORKERS));
+            const adaptiveFrozen = Boolean(snapshot.adaptiveScaleFrozen);
+            const adaptiveState = String(snapshot.adaptiveScaleState || '');
+            const workerLabel = adaptiveMax > COLLECTOR_DEFAULT_WORKERS
+                ? `${workers}/${adaptiveMax} workers adaptatifs${adaptiveFrozen ? ' · mode stable' : ''}`
+                : `${workers} workers`;
             const phase = String(snapshot.phase || '');
             if (phase.startsWith('coordinator') || phase === 'catalog_ready') {
-                status.textContent = `${COLLECTOR_DEFAULT_WORKERS} workers · Lecture de l’arbre ADE · ${Number(snapshot.discoveredCount || 0)} EDT détectés`;
+                status.textContent = `${COLLECTOR_DEFAULT_WORKERS}→${COLLECTOR_ADAPTIVE_MAX_WORKERS} workers adaptatifs · Lecture de l’arbre ADE · ${Number(snapshot.discoveredCount || 0)} EDT détectés`;
                 return;
             }
             if (phase === 'worker_pool_bootstrap') {
-                status.textContent = `${COLLECTOR_DEFAULT_WORKERS} workers · ${discoveredCount} EDT détectés · Ouverture des pages ADE…`;
+                status.textContent = `${COLLECTOR_DEFAULT_WORKERS} workers de base · ${discoveredCount} EDT détectés · Ouverture des pages ADE…`;
                 return;
             }
             if (phase === 'repairing_holes') {
@@ -1115,13 +1122,16 @@
                 status.textContent = `${repairWorkers} workers de réparation · ${completedCount}/${discoveredCount || '…'} EDT · ${successCount} complets · ${repairPending} avec trous · tour ${repairRound} · ${repairRecovered} réparé${repairRecovered > 1 ? 's' : ''}${formatWorkerProgress(snapshot.workers)}`;
                 return;
             }
-            status.textContent = `${workers} workers · Découverte ${discoveredCount} · Synchronisation ${completedCount}/${discoveredCount || '…'} · ${successCount} réussie${successCount > 1 ? 's' : ''}${failureCount ? ` · ${failureCount} échec${failureCount > 1 ? 's' : ''}` : ''}${formatWorkerProgress(snapshot.workers)}`;
+            const scaleNote = adaptiveState === 'opening_worker'
+                ? ' · ouverture d’un worker supplémentaire…'
+                : (adaptiveState === 'fallback_4' ? ' · retour automatique au mode 4 workers' : '');
+            status.textContent = `${workerLabel} · Découverte ${discoveredCount} · Synchronisation ${completedCount}/${discoveredCount || '…'} · ${successCount} réussie${successCount > 1 ? 's' : ''}${failureCount ? ` · ${failureCount} échec${failureCount > 1 ? 's' : ''}` : ''}${scaleNote}${formatWorkerProgress(snapshot.workers)}`;
         };
 
         setLoading(
             true,
             'Synchronisation en cours…',
-            `Le coordinateur lit l’arbre puis ${COLLECTOR_DEFAULT_WORKERS} workers ADE indépendants récupèrent les emplois du temps en parallèle.`
+            `Le coordinateur lit l’arbre puis démarre avec ${COLLECTOR_DEFAULT_WORKERS} workers. Si ADE reste stable, Planilim monte automatiquement à ${COLLECTOR_ADAPTIVE_MAX_WORKERS} workers puis revient à 4 au moindre signe de dégradation.`
         );
         if (status) status.textContent = 'Lecture de l’arbre ADE…';
 
@@ -1136,7 +1146,8 @@
                     scopePath: COLLECTOR_SCOPE_PATH,
                     maxDepth: 4,
                     maxActions: 600,
-                    workerCount: COLLECTOR_DEFAULT_WORKERS
+                    workerCount: COLLECTOR_DEFAULT_WORKERS,
+                    adaptiveMaxWorkerCount: COLLECTOR_ADAPTIVE_MAX_WORKERS
                 }
             });
             if (!started?.ok || !started?.runId) {
