@@ -1551,3 +1551,67 @@
     border-left: 2px solid color-mix(in srgb, var(--accent, #3b82f6) 46%, transparent);
     padding-left: .85rem;
 }
+
+
+/* v2.36.6 — fiche de cours : surface réellement opaque, sans effet de transparence. */
+.planning-event-modal-card {
+    --event-surface: #12315d;
+    --event-panel: #1e4f94;
+    --event-subpanel: #162a49;
+    opacity: 1 !important;
+    background: var(--event-surface) !important;
+    background-image: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    isolation: isolate;
+    box-shadow: 0 28px 90px rgba(0,0,0,.72), 0 0 0 1px rgba(255,255,255,.03) inset;
+}
+.planning-event-modal-card.planning-event-cm {
+    --event-surface: #173c72;
+    --event-panel: #245aa6;
+    --event-subpanel: #17345e;
+    border-color: #4b8fe8;
+}
+.planning-event-modal-card.planning-event-td {
+    --event-surface: #3c286d;
+    --event-panel: #6845b8;
+    --event-subpanel: #33235c;
+    border-color: #9b79ef;
+}
+.planning-event-modal-card.planning-event-tp {
+    --event-surface: #62400c;
+    --event-panel: #9a650f;
+    --event-subpanel: #51350c;
+    border-color: #efad32;
+}
+.planning-event-modal-card.planning-event-exam {
+    --event-surface: #682831;
+    --event-panel: #a13a46;
+    --event-subpanel: #57232c;
+    border-color: #ef6972;
+}
+.planning-event-modal-card.planning-event-other {
+    --event-surface: #0f504d;
+    --event-panel: #167f79;
+    --event-subpanel: #103f3d;
+    border-color: #35c3b8;
+}
+.planning-event-modal-card .planning-event-modal-summary {
+    background: var(--event-panel) !important;
+    background-image: none !important;
+    border-color: rgba(255,255,255,.22) !important;
+}
+.planning-event-modal-card .planning-event-modal-details {
+    background: var(--event-subpanel);
+    margin-left: -.25rem;
+    margin-right: -.25rem;
+    padding: .9rem .25rem;
+}
+.planning-event-modal-card .planning-event-modal-visibility {
+    background: var(--event-subpanel) !important;
+    border: 1px solid rgba(255,255,255,.08);
+}
+.planning-event-modal-card .planning-event-modal-close {
+    background: var(--event-subpanel) !important;
+    border-color: rgba(255,255,255,.14);
+}
