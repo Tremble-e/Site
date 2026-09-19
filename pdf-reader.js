@@ -7,6 +7,11 @@
         page: 1,
         numPages: 0,
         zoomIndex: -1,
+        manualZoomPercent: null,
+        currentCssScale: 1,
+        pageBaseWidth: 0,
+        pageBaseHeight: 0,
+        pinch: null,
         documentId: '',
         fileName: '',
         pdf: null,
@@ -29,7 +34,13 @@
     }
 
     function zoomLabel() {
+        if (Number.isFinite(state.manualZoomPercent)) return `${Math.round(state.manualZoomPercent)} %`;
         return state.zoomIndex < 0 ? 'Largeur' : `${zoomSteps[state.zoomIndex]} %`;
+    }
+
+    function explicitZoomPercent() {
+        if (Number.isFinite(state.manualZoomPercent)) return state.manualZoomPercent;
+        return state.zoomIndex >= 0 ? zoomSteps[state.zoomIndex] : null;
     }
 
     function setLoading(visible, label = 'Chargement du document…') {
@@ -118,9 +129,13 @@
             if (serial !== state.renderSerial) return;
 
             const baseViewport = page.getViewport({ scale: 1 });
-            const cssScale = state.zoomIndex < 0
+            state.pageBaseWidth = baseViewport.width;
+            state.pageBaseHeight = baseViewport.height;
+            const manualPercent = explicitZoomPercent();
+            const cssScale = manualPercent == null
                 ? Math.max(0.1, stageAvailableWidth(baseViewport) / baseViewport.width)
-                : zoomSteps[state.zoomIndex] / 100;
+                : manualPercent / 100;
+            state.currentCssScale = cssScale;
             const cssViewport = page.getViewport({ scale: cssScale });
 
             // Un DPR plafonné à 2 garde un texte net sans multiplier inutilement
@@ -205,6 +220,9 @@
         state.page = 1;
         state.numPages = 0;
         state.zoomIndex = -1;
+        state.manualZoomPercent = null;
+        state.currentCssScale = 1;
+        state.pinch = null;
         state.documentId = String(documentId || '');
         state.fileName = String(fileName || '').trim();
 
@@ -251,6 +269,11 @@
         state.fileName = '';
         state.numPages = 0;
         state.fallback = false;
+        state.manualZoomPercent = null;
+        state.currentCssScale = 1;
+        state.pageBaseWidth = 0;
+        state.pageBaseHeight = 0;
+        state.pinch = null;
         state.historyToken = '';
         state.closingFromHistory = false;
     }
@@ -284,22 +307,112 @@
         renderPage();
     }
 
+    function nearestZoomIndex(percent) {
+        let best = 0;
+        let distance = Infinity;
+        zoomSteps.forEach((value, index) => {
+            const current = Math.abs(value - percent);
+            if (current < distance) { distance = current; best = index; }
+        });
+        return best;
+    }
+
     function zoom(delta) {
-        if (state.zoomIndex < 0) state.zoomIndex = zoomSteps.indexOf(100);
-        state.zoomIndex = Math.max(0, Math.min(zoomSteps.length - 1, state.zoomIndex + delta));
+        const currentPercent = explicitZoomPercent() ?? Math.max(50, Math.min(250, state.currentCssScale * 100));
+        const baseIndex = nearestZoomIndex(currentPercent);
+        state.manualZoomPercent = null;
+        state.zoomIndex = Math.max(0, Math.min(zoomSteps.length - 1, baseIndex + delta));
         updateToolbar();
         if (!state.fallback) renderPage();
     }
 
     function fitWidth() {
+        state.manualZoomPercent = null;
         state.zoomIndex = -1;
+        updateToolbar();
+        if (!state.fallback) renderPage();
+    }
+
+    function touchDistance(touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.hypot(dx, dy);
+    }
+
+    function touchMidpoint(touches, stageRect) {
+        return {
+            x: ((touches[0].clientX + touches[1].clientX) / 2) - stageRect.left,
+            y: ((touches[0].clientY + touches[1].clientY) / 2) - stageRect.top
+        };
+    }
+
+    function beginPinch(event) {
+        if (event.touches.length !== 2 || !state.pdf || state.fallback) return;
+        const stage = byId('site-pdf-reader-stage');
+        const canvas = byId('site-pdf-reader-canvas');
+        if (!stage || !canvas || !canvas.clientWidth || !canvas.clientHeight) return;
+
+        const stageRect = stage.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
+        const mid = touchMidpoint(event.touches, stageRect);
+        const canvasContentLeft = canvasRect.left - stageRect.left + stage.scrollLeft;
+        const canvasContentTop = canvasRect.top - stageRect.top + stage.scrollTop;
+
+        state.pinch = {
+            startDistance: Math.max(1, touchDistance(event.touches)),
+            startPercent: Math.max(25, state.currentCssScale * 100),
+            anchorX: Math.max(0, Math.min(1, (stage.scrollLeft + mid.x - canvasContentLeft) / canvas.clientWidth)),
+            anchorY: Math.max(0, Math.min(1, (stage.scrollTop + mid.y - canvasContentTop) / canvas.clientHeight)),
+            lastPercent: Math.max(25, state.currentCssScale * 100)
+        };
+        stage.classList.add('pinching');
+    }
+
+    function movePinch(event) {
+        if (!state.pinch || event.touches.length !== 2) return;
+        const stage = byId('site-pdf-reader-stage');
+        const canvas = byId('site-pdf-reader-canvas');
+        if (!stage || !canvas || !state.pageBaseWidth || !state.pageBaseHeight) return;
+
+        event.preventDefault();
+        const stageRect = stage.getBoundingClientRect();
+        const mid = touchMidpoint(event.touches, stageRect);
+        const ratio = touchDistance(event.touches) / state.pinch.startDistance;
+        const percent = Math.max(40, Math.min(300, state.pinch.startPercent * ratio));
+        const width = state.pageBaseWidth * percent / 100;
+        const height = state.pageBaseHeight * percent / 100;
+
+        canvas.style.width = `${Math.max(1, width)}px`;
+        canvas.style.height = `${Math.max(1, height)}px`;
+
+        // Conserve sous les doigts la zone du PDF autour de laquelle le pincement a commencé.
+        const resizedRect = canvas.getBoundingClientRect();
+        const contentLeft = resizedRect.left - stageRect.left + stage.scrollLeft;
+        const contentTop = resizedRect.top - stageRect.top + stage.scrollTop;
+        stage.scrollLeft = contentLeft + state.pinch.anchorX * width - mid.x;
+        stage.scrollTop = contentTop + state.pinch.anchorY * height - mid.y;
+
+        state.pinch.lastPercent = percent;
+        const zoom = byId('site-pdf-reader-zoom-label');
+        if (zoom) zoom.textContent = `${Math.round(percent)} %`;
+    }
+
+    function endPinch(event) {
+        if (!state.pinch || event.touches.length >= 2) return;
+        const stage = byId('site-pdf-reader-stage');
+        const percent = state.pinch.lastPercent;
+        state.pinch = null;
+        stage?.classList.remove('pinching');
+        state.manualZoomPercent = Math.max(40, Math.min(300, percent));
+        state.zoomIndex = -1;
+        state.currentCssScale = state.manualZoomPercent / 100;
         updateToolbar();
         if (!state.fallback) renderPage();
     }
 
     let resizeTimer = 0;
     function onResize() {
-        if (state.zoomIndex >= 0 || !state.pdf || state.fallback) return;
+        if (explicitZoomPercent() != null || !state.pdf || state.fallback) return;
         clearTimeout(resizeTimer);
         resizeTimer = window.setTimeout(() => renderPage(), 120);
     }
@@ -319,6 +432,12 @@
         byId('site-pdf-reader-zoom-out')?.addEventListener('click', () => zoom(-1));
         byId('site-pdf-reader-zoom-in')?.addEventListener('click', () => zoom(1));
         byId('site-pdf-reader-fit')?.addEventListener('click', fitWidth);
+
+        const stage = byId('site-pdf-reader-stage');
+        stage?.addEventListener('touchstart', beginPinch, { passive: true });
+        stage?.addEventListener('touchmove', movePinch, { passive: false });
+        stage?.addEventListener('touchend', endPinch, { passive: true });
+        stage?.addEventListener('touchcancel', endPinch, { passive: true });
 
         byId('site-pdf-reader-download')?.addEventListener('click', async event => {
             event.preventDefault();
