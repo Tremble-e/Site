@@ -12,6 +12,7 @@
         pageBaseWidth: 0,
         pageBaseHeight: 0,
         pinch: null,
+        pan: null,
         documentId: '',
         fileName: '',
         pdf: null,
@@ -157,6 +158,13 @@
             canvas.style.width = `${Math.max(1, cssViewport.width)}px`;
             canvas.style.height = `${Math.max(1, cssViewport.height)}px`;
 
+            // En mode Ajuster, la page doit toujours repartir parfaitement dans le viewport.
+            // Cela évite de conserver un ancien décalage horizontal après un zoom tactile.
+            if (manualPercent == null) {
+                const stage = byId('site-pdf-reader-stage');
+                if (stage) stage.scrollLeft = 0;
+            }
+
             const context = canvas.getContext('2d', { alpha: false });
             context.save();
             context.fillStyle = '#ffffff';
@@ -223,6 +231,7 @@
         state.manualZoomPercent = null;
         state.currentCssScale = 1;
         state.pinch = null;
+        state.pan = null;
         state.documentId = String(documentId || '');
         state.fileName = String(fileName || '').trim();
 
@@ -274,6 +283,7 @@
         state.pageBaseWidth = 0;
         state.pageBaseHeight = 0;
         state.pinch = null;
+        state.pan = null;
         state.historyToken = '';
         state.closingFromHistory = false;
     }
@@ -339,11 +349,42 @@
         return Math.hypot(dx, dy);
     }
 
-    function touchMidpoint(touches, stageRect) {
+    function touchMidpointClient(touches) {
         return {
-            x: ((touches[0].clientX + touches[1].clientX) / 2) - stageRect.left,
-            y: ((touches[0].clientY + touches[1].clientY) / 2) - stageRect.top
+            x: (touches[0].clientX + touches[1].clientX) / 2,
+            y: (touches[0].clientY + touches[1].clientY) / 2
         };
+    }
+
+    function clampStageScroll(stage) {
+        const maxX = Math.max(0, stage.scrollWidth - stage.clientWidth);
+        const maxY = Math.max(0, stage.scrollHeight - stage.clientHeight);
+        stage.scrollLeft = Math.max(0, Math.min(maxX, stage.scrollLeft));
+        stage.scrollTop = Math.max(0, Math.min(maxY, stage.scrollTop));
+    }
+
+    function beginPan(event) {
+        if (event.touches.length !== 1 || !state.pdf || state.fallback || state.pinch) return;
+        const stage = byId('site-pdf-reader-stage');
+        if (!stage) return;
+        const touch = event.touches[0];
+        state.pan = {
+            startX: touch.clientX,
+            startY: touch.clientY,
+            startScrollLeft: stage.scrollLeft,
+            startScrollTop: stage.scrollTop
+        };
+    }
+
+    function movePan(event) {
+        if (!state.pan || state.pinch || event.touches.length !== 1) return;
+        const stage = byId('site-pdf-reader-stage');
+        if (!stage) return;
+        event.preventDefault();
+        const touch = event.touches[0];
+        stage.scrollLeft = state.pan.startScrollLeft - (touch.clientX - state.pan.startX);
+        stage.scrollTop = state.pan.startScrollTop - (touch.clientY - state.pan.startY);
+        clampStageScroll(stage);
     }
 
     function beginPinch(event) {
@@ -352,17 +393,16 @@
         const canvas = byId('site-pdf-reader-canvas');
         if (!stage || !canvas || !canvas.clientWidth || !canvas.clientHeight) return;
 
-        const stageRect = stage.getBoundingClientRect();
+        event.preventDefault();
+        const mid = touchMidpointClient(event.touches);
         const canvasRect = canvas.getBoundingClientRect();
-        const mid = touchMidpoint(event.touches, stageRect);
-        const canvasContentLeft = canvasRect.left - stageRect.left + stage.scrollLeft;
-        const canvasContentTop = canvasRect.top - stageRect.top + stage.scrollTop;
-
+        state.pan = null;
         state.pinch = {
             startDistance: Math.max(1, touchDistance(event.touches)),
             startPercent: Math.max(25, state.currentCssScale * 100),
-            anchorX: Math.max(0, Math.min(1, (stage.scrollLeft + mid.x - canvasContentLeft) / canvas.clientWidth)),
-            anchorY: Math.max(0, Math.min(1, (stage.scrollTop + mid.y - canvasContentTop) / canvas.clientHeight)),
+            // Position exacte du point du PDF situé sous les deux doigts.
+            anchorX: Math.max(0, Math.min(1, (mid.x - canvasRect.left) / Math.max(1, canvasRect.width))),
+            anchorY: Math.max(0, Math.min(1, (mid.y - canvasRect.top) / Math.max(1, canvasRect.height))),
             lastPercent: Math.max(25, state.currentCssScale * 100)
         };
         stage.classList.add('pinching');
@@ -375,22 +415,22 @@
         if (!stage || !canvas || !state.pageBaseWidth || !state.pageBaseHeight) return;
 
         event.preventDefault();
-        const stageRect = stage.getBoundingClientRect();
-        const mid = touchMidpoint(event.touches, stageRect);
+        const mid = touchMidpointClient(event.touches);
         const ratio = touchDistance(event.touches) / state.pinch.startDistance;
-        const percent = Math.max(40, Math.min(300, state.pinch.startPercent * ratio));
+        const percent = Math.max(40, Math.min(350, state.pinch.startPercent * ratio));
         const width = state.pageBaseWidth * percent / 100;
         const height = state.pageBaseHeight * percent / 100;
 
         canvas.style.width = `${Math.max(1, width)}px`;
         canvas.style.height = `${Math.max(1, height)}px`;
 
-        // Conserve sous les doigts la zone du PDF autour de laquelle le pincement a commencé.
+        // Après redimensionnement, ramène le même point du PDF sous le milieu des doigts.
+        // On travaille directement en coordonnées écran : cela reste correct même quand le
+        // canvas est centré en mode « Ajuster » puis devient plus large que l'écran.
         const resizedRect = canvas.getBoundingClientRect();
-        const contentLeft = resizedRect.left - stageRect.left + stage.scrollLeft;
-        const contentTop = resizedRect.top - stageRect.top + stage.scrollTop;
-        stage.scrollLeft = contentLeft + state.pinch.anchorX * width - mid.x;
-        stage.scrollTop = contentTop + state.pinch.anchorY * height - mid.y;
+        stage.scrollLeft += (resizedRect.left + state.pinch.anchorX * width) - mid.x;
+        stage.scrollTop += (resizedRect.top + state.pinch.anchorY * height) - mid.y;
+        clampStageScroll(stage);
 
         state.pinch.lastPercent = percent;
         const zoom = byId('site-pdf-reader-zoom-label');
@@ -403,11 +443,49 @@
         const percent = state.pinch.lastPercent;
         state.pinch = null;
         stage?.classList.remove('pinching');
-        state.manualZoomPercent = Math.max(40, Math.min(300, percent));
+        state.manualZoomPercent = Math.max(40, Math.min(350, percent));
         state.zoomIndex = -1;
         state.currentCssScale = state.manualZoomPercent / 100;
         updateToolbar();
+
+        // Si un doigt reste posé après le pincement, il peut immédiatement servir à déplacer
+        // la page sans devoir lever puis reposer le doigt.
+        if (event.touches.length === 1 && stage) {
+            const touch = event.touches[0];
+            state.pan = {
+                startX: touch.clientX,
+                startY: touch.clientY,
+                startScrollLeft: stage.scrollLeft,
+                startScrollTop: stage.scrollTop
+            };
+        } else {
+            state.pan = null;
+        }
+
         if (!state.fallback) renderPage();
+    }
+
+    function handleTouchStart(event) {
+        if (event.touches.length === 2) beginPinch(event);
+        else if (event.touches.length === 1) beginPan(event);
+    }
+
+    function handleTouchMove(event) {
+        if (event.touches.length === 2) {
+            if (!state.pinch) beginPinch(event);
+            movePinch(event);
+        } else if (event.touches.length === 1) {
+            movePan(event);
+        }
+    }
+
+    function handleTouchEnd(event) {
+        if (state.pinch && event.touches.length < 2) {
+            endPinch(event);
+            return;
+        }
+        if (event.touches.length === 0) state.pan = null;
+        else if (event.touches.length === 1 && !state.pinch) beginPan(event);
     }
 
     let resizeTimer = 0;
@@ -434,10 +512,10 @@
         byId('site-pdf-reader-fit')?.addEventListener('click', fitWidth);
 
         const stage = byId('site-pdf-reader-stage');
-        stage?.addEventListener('touchstart', beginPinch, { passive: true });
-        stage?.addEventListener('touchmove', movePinch, { passive: false });
-        stage?.addEventListener('touchend', endPinch, { passive: true });
-        stage?.addEventListener('touchcancel', endPinch, { passive: true });
+        stage?.addEventListener('touchstart', handleTouchStart, { passive: false });
+        stage?.addEventListener('touchmove', handleTouchMove, { passive: false });
+        stage?.addEventListener('touchend', handleTouchEnd, { passive: false });
+        stage?.addEventListener('touchcancel', handleTouchEnd, { passive: false });
 
         byId('site-pdf-reader-download')?.addEventListener('click', async event => {
             event.preventDefault();
