@@ -20,10 +20,10 @@
 <link href="pwa-icon-192.png" rel="apple-touch-icon"/>
 <link href="https://cdnjs.cloudflare.com" rel="preconnect"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="style.css?v=2.36.0" rel="stylesheet"/>
+<link href="style.css?v=2.36.1" rel="stylesheet"/>
 <link href="forum.css?v=2.9.5" rel="stylesheet"/>
 <link href="forum_v2.css?v=2.9.5" rel="stylesheet"/>
-<link href="planning.css?v=2.36.0" rel="stylesheet"/>
+<link href="planning.css?v=2.36.1" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -1437,17 +1437,17 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-<script src="pdf-reader.js?v=2.36.0"></script>
-<script src="script.js?v=2.36.0"></script>
-<script src="planning.js?v=2.36.0"></script>
-<script src="forum.js?v=2.36.0"></script>
+<script src="pdf-reader.js?v=2.36.1"></script>
+<script src="script.js?v=2.36.1"></script>
+<script src="planning.js?v=2.36.1"></script>
+<script src="forum.js?v=2.36.1"></script>
 <script src="forum_v2.js?v=2.9.5"></script>
 
 <div aria-labelledby="site-pdf-reader-title" aria-modal="true" class="site-pdf-reader" hidden id="site-pdf-reader" role="dialog">
 <div class="site-pdf-reader-backdrop" data-pdf-reader-close></div>
 <div class="site-pdf-reader-dialog">
 <header class="site-pdf-reader-header">
-<div class="site-pdf-reader-heading"><span class="section-kicker">Liseuse du site</span><strong id="site-pdf-reader-title">Document PDF</strong></div>
+<div class="site-pdf-reader-heading"><strong id="site-pdf-reader-title">Document PDF</strong></div>
 <div class="site-pdf-reader-actions">
 <a class="secondary-btn compact-btn" download id="site-pdf-reader-download" href="#"><i class="fa-solid fa-download"></i> Télécharger</a>
 <button aria-label="Plein écran" class="icon-btn" data-tooltip="Plein écran" id="site-pdf-reader-fullscreen" type="button"><i class="fa-solid fa-expand"></i></button>
@@ -1468,7 +1468,6 @@
 <div class="site-pdf-reader-loading" id="site-pdf-reader-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Chargement du document…</span></div>
 <iframe id="site-pdf-reader-frame" title="Liseuse PDF intégrée"></iframe>
 </div>
-<p class="site-pdf-reader-note"><i class="fa-solid fa-shield-halved"></i> Le document est affiché directement dans la liseuse du site, sans service de visualisation tiers.</p>
 </div>
 </div>
 <div aria-label="Aperçu du document" aria-modal="true" class="info-document-modal" hidden="" id="info-document-modal" role="dialog"><div class="info-document-backdrop"></div><div class="info-document-dialog"><div class="info-document-head"><strong id="info-document-title">Document</strong><div><a class="secondary-btn compact-btn" href="#" id="info-document-external" rel="noopener noreferrer" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Ouvrir</a><button aria-label="Fermer" class="icon-btn" id="info-document-close" type="button"><i class="fa-solid fa-xmark"></i></button></div></div><div class="info-document-body"><iframe id="info-document-frame" title="Aperçu du document"></iframe><img alt="" id="info-document-image"/><div class="info-document-fallback" id="info-document-fallback"><i class="fa-solid fa-file-arrow-down"></i><strong>Aperçu non disponible</strong><p>Ce type de fichier peut être ouvert ou téléchargé avec le bouton ci-dessus.</p></div></div></div></div></body>
