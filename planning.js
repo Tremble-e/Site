@@ -10,12 +10,12 @@
     const PREFERENCES_TABLE = 'user_planning_preferences';
     const SYNC_FAILURES_TABLE = 'planning_sync_failures';
     const EXTENSION_STORE_URL = '';
-    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.14.0.zip';
+    const EXTENSION_PACKAGE_URL = './downloads/planilim-collector-v4.15.0.zip';
     const BRIDGE_TIMEOUT = 2500;
     const SYNC_TIMEOUT = 180000;
     const COLLECTOR_SYNC_TIMEOUT = 600000;
     const COLLECTOR_DEFAULT_WORKERS = 4;
-    const COLLECTOR_ADAPTIVE_MAX_WORKERS = 6;
+    const COLLECTOR_ADAPTIVE_MAX_WORKERS = 4;
     const COLLECTOR_PROGRESS_POLL_MS = 1000;
     const SLOT_MINUTES = 15;
     const DEFAULT_DAY_START = 8 * 60;
@@ -224,7 +224,7 @@
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'planilim-collector-v4.14.0.zip';
+        link.download = 'planilim-collector-v4.15.0.zip';
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -1135,7 +1135,7 @@
                 : `${workers} workers`;
             const phase = String(snapshot.phase || '');
             if (phase.startsWith('coordinator') || phase === 'catalog_ready') {
-                status.textContent = `${COLLECTOR_DEFAULT_WORKERS}→${COLLECTOR_ADAPTIVE_MAX_WORKERS} workers adaptatifs · Lecture de l’arbre ADE · ${Number(snapshot.discoveredCount || 0)} EDT détectés`;
+                status.textContent = `${COLLECTOR_DEFAULT_WORKERS} workers · Lecture de l’arbre ADE · ${Number(snapshot.discoveredCount || 0)} EDT détectés`;
                 return;
             }
             if (phase === 'worker_pool_bootstrap') {
@@ -1159,7 +1159,7 @@
         setLoading(
             true,
             'Synchronisation en cours…',
-            `Le coordinateur lit l’arbre puis démarre avec ${COLLECTOR_DEFAULT_WORKERS} workers. Si ADE reste stable, Planilim monte automatiquement à ${COLLECTOR_ADAPTIVE_MAX_WORKERS} workers puis revient à 4 au moindre signe de dégradation.`
+            `Le coordinateur lit l’arbre puis démarre ${COLLECTOR_DEFAULT_WORKERS} workers stables. La réparation finale des semaines manquantes reste limitée à 4 workers.`
         );
         if (status) status.textContent = 'Lecture de l’arbre ADE…';
 

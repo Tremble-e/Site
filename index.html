@@ -20,10 +20,10 @@
 <link href="pwa-icon-192.png" rel="apple-touch-icon"/>
 <link href="https://cdnjs.cloudflare.com" rel="preconnect"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="style.css?v=2.34.0" rel="stylesheet"/>
+<link href="style.css?v=2.35.0" rel="stylesheet"/>
 <link href="forum.css?v=2.9.5" rel="stylesheet"/>
 <link href="forum_v2.css?v=2.9.5" rel="stylesheet"/>
-<link href="planning.css?v=2.34.0" rel="stylesheet"/>
+<link href="planning.css?v=2.35.0" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -122,14 +122,7 @@
 <p class="hero-description">
                         J'aime comprendre comment les choses fonctionnent, expérimenter de nouvelles idées et transformer certaines d'entre elles en projets concrets.
                     </p>
-<div class="home-planning-status-card" id="home-planning-status-card">
-<div class="home-planning-status-icon"><i class="fa-regular fa-calendar-check"></i></div>
-<div class="home-planning-status-copy">
-<span class="section-kicker">Planning universitaire</span>
-<strong><span id="home-planning-count">—</span> emplois du temps disponibles</strong>
-<p id="home-planning-sync"><i class="fa-regular fa-clock"></i> Dernière synchronisation : chargement…</p>
-</div>
-</div>
+
 </div>
 <div aria-hidden="true" class="hero-visual">
 <div class="hero-orbit orbit-one"></div>
@@ -156,6 +149,12 @@
 <span class="home-stat-icon study-stat-icon"><i class="fa-solid fa-graduation-cap"></i></span>
 <span class="stat-value" id="stat-documents">0</span>
 <span class="stat-label">documents d'étude</span>
+</div>
+<div class="stat-card planning-summary-stat" id="home-planning-status-card">
+<span class="home-stat-icon planning-stat-icon"><i class="fa-regular fa-calendar-check"></i></span>
+<span class="stat-value" id="home-planning-count">—</span>
+<span class="stat-label">emplois du temps disponibles</span>
+<div class="planning-stat-details" id="home-planning-sync"><i class="fa-regular fa-clock"></i> Dernière synchronisation : chargement…</div>
 </div>
 <div class="stat-card services-availability-stat is-available" id="stat-services">
 <span class="service-stat-icon"><i class="fa-solid fa-briefcase"></i></span>
@@ -1410,10 +1409,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-<script src="pdf-reader.js?v=2.34.0"></script>
-<script src="script.js?v=2.34.0"></script>
-<script src="planning.js?v=2.34.0"></script>
-<script src="forum.js?v=2.34.0"></script>
+<script src="pdf-reader.js?v=2.35.0"></script>
+<script src="script.js?v=2.35.0"></script>
+<script src="planning.js?v=2.35.0"></script>
+<script src="forum.js?v=2.35.0"></script>
 <script src="forum_v2.js?v=2.9.5"></script>
 
 <div aria-labelledby="site-pdf-reader-title" aria-modal="true" class="site-pdf-reader" hidden id="site-pdf-reader" role="dialog">

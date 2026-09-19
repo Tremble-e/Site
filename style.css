@@ -913,6 +913,7 @@ main {
     font-size: 0.82rem;
 }
 
+.home-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .home-stats-grid .stat-card { position: relative; overflow: hidden; }
 .home-stat-icon,
 .service-stat-icon {
@@ -921,6 +922,13 @@ main {
 }
 .project-stat-icon { color: var(--accent-light); background: rgba(var(--accent-rgb),.1); }
 .study-stat-icon { color: var(--accent-secondary-light); background: rgba(var(--accent-secondary-rgb),.1); }
+.planning-stat-icon { color: var(--accent-color); background: rgba(var(--accent-rgb), .11); }
+.planning-summary-stat .stat-label { max-width: calc(100% - 46px); }
+.planning-stat-details {
+    display: inline-flex; align-items: center; gap: .42rem; width: max-content; max-width: calc(100% - 42px);
+    margin-top: .34rem; color: var(--text-muted); font-size: .76rem; line-height: 1.35;
+}
+.planning-stat-details i { color: var(--text-soft); }
 .project-stat-details {
     display: flex;
     align-items: center;
