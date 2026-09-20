@@ -3443,7 +3443,6 @@ body.site-pdf-reader-open { overflow: hidden; }
     #site-pdf-reader-next { grid-column: 3; grid-row: 1; }
     .site-pdf-reader-separator { display: none; }
     #site-pdf-reader-zoom-out { grid-column: 1; grid-row: 2; }
-    #site-pdf-reader-zoom-label { grid-column: 2; grid-row: 2; align-self: center; justify-self: center; font-size: .78rem; }
     #site-pdf-reader-zoom-in { grid-column: 3; grid-row: 2; }
     #site-pdf-reader-fit { grid-column: 1 / -1; grid-row: 3; justify-self: stretch; justify-content: center; min-height: 38px; }
     .site-pdf-reader-toolbar .icon-btn { width: 44px; height: 44px; }
@@ -3489,4 +3488,162 @@ body.site-pdf-reader-open { overflow: hidden; }
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
+}
+
+/* v2.36.12 — liseuse PDF continue, zoom éditable et plein écran mobile */
+.site-pdf-reader-page input,
+.site-pdf-reader-zoom-field input {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+.site-pdf-reader-page input::-webkit-outer-spin-button,
+.site-pdf-reader-page input::-webkit-inner-spin-button,
+.site-pdf-reader-zoom-field input::-webkit-outer-spin-button,
+.site-pdf-reader-zoom-field input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.site-pdf-reader-zoom-field {
+    display: inline-flex;
+    align-items: center;
+    gap: .28rem;
+    color: var(--text-muted);
+}
+.site-pdf-reader-zoom-field input {
+    width: 4.4rem;
+    min-height: 34px;
+    padding: .42rem .48rem;
+    border: 1px solid var(--border-color);
+    border-radius: .6rem;
+    color: var(--text);
+    background: var(--input-bg, rgba(255,255,255,.04));
+    text-align: center;
+    font: inherit;
+    font-weight: 700;
+}
+.site-pdf-reader-zoom-field input:focus,
+.site-pdf-reader-page input:focus {
+    outline: 2px solid color-mix(in srgb, var(--accent) 72%, transparent);
+    outline-offset: 1px;
+}
+.site-pdf-reader-canvas-wrap {
+    width: max-content;
+    min-width: 100%;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(.75rem, 1.3vw, 1.15rem);
+    box-sizing: border-box;
+    padding: 0 0 .5rem;
+}
+.site-pdf-reader-page-shell {
+    position: relative;
+    flex: 0 0 auto;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 8px 28px rgba(0,0,0,.32);
+    transition: box-shadow .15s ease;
+}
+.site-pdf-reader-page-surface {
+    width: 100%;
+    height: 100%;
+    background: #fff;
+}
+.site-pdf-reader-page-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    background: #fff;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.site-pdf-reader-page-badge {
+    position: absolute;
+    right: .45rem;
+    bottom: .4rem;
+    min-width: 1.8rem;
+    padding: .18rem .42rem;
+    border-radius: .5rem;
+    background: rgba(15, 23, 42, .74);
+    color: #fff;
+    font-size: .68rem;
+    line-height: 1.2;
+    text-align: center;
+    pointer-events: none;
+    opacity: .5;
+}
+.site-pdf-reader-page-shell:not(.is-rendered)::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(110deg, transparent 34%, rgba(226,232,240,.58) 48%, transparent 62%),
+        #f8fafc;
+    background-size: 220% 100%;
+    animation: site-pdf-page-shimmer 1.4s linear infinite;
+}
+@keyframes site-pdf-page-shimmer {
+    to { background-position: -220% 0; }
+}
+.site-pdf-reader-pseudo-fullscreen {
+    padding: 0 !important;
+}
+.site-pdf-reader-pseudo-fullscreen .site-pdf-reader-dialog {
+    width: 100vw !important;
+    max-width: none !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+}
+.site-pdf-reader:fullscreen,
+.site-pdf-reader:-webkit-full-screen {
+    width: 100vw;
+    height: 100vh;
+    padding: 0;
+    background: #0b1220;
+}
+.site-pdf-reader:fullscreen .site-pdf-reader-dialog,
+.site-pdf-reader:-webkit-full-screen .site-pdf-reader-dialog {
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+}
+
+@media (max-width: 760px) {
+    #site-pdf-reader-fullscreen {
+        display: inline-grid !important;
+    }
+    .site-pdf-reader-actions {
+        gap: .22rem;
+    }
+    .site-pdf-reader-actions .secondary-btn {
+        padding-inline: .55rem;
+    }
+    .site-pdf-reader-toolbar {
+        grid-template-columns: 44px minmax(0, 1fr) 44px;
+    }
+    #site-pdf-reader-zoom-out { grid-column: 1; grid-row: 2; }
+    .site-pdf-reader-zoom-field {
+        grid-column: 2;
+        grid-row: 2;
+        justify-self: center;
+    }
+    #site-pdf-reader-zoom-in { grid-column: 3; grid-row: 2; }
+    .site-pdf-reader-zoom-field input {
+        width: 4.2rem;
+        min-height: 40px;
+    }
+    .site-pdf-reader-canvas-wrap {
+        gap: .7rem;
+    }
+    .site-pdf-reader-page-badge {
+        font-size: .62rem;
+    }
 }
