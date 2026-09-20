@@ -652,13 +652,35 @@
     }
 
     function resetHierarchyAfter(select, ids) {
+        // Une modification d'un niveau parent invalide volontairement tous les niveaux
+        // descendants. Ils restent vides jusqu'à un nouveau choix explicite de l'utilisateur.
         for (const id of ids) {
             const el = byId(id);
             if (!el) continue;
-            el.dataset.touched = '0';
+            el.dataset.touched = '1';
             el.value = '';
         }
         select.dataset.touched = '1';
+    }
+
+    function clearCurrentProgramSelection() {
+        state.selectedProgramResourceId = null;
+        if (state.resourceMode !== 'program') return;
+        state.selectedResourceId = null;
+        state.payload = null;
+        renderPlanningFilters(true);
+        renderWeek();
+        updateConnectionUi();
+    }
+
+    function clearCurrentRoomSelection() {
+        state.selectedRoomResourceId = null;
+        if (state.resourceMode !== 'room') return;
+        state.selectedResourceId = null;
+        state.payload = null;
+        renderPlanningFilters(true);
+        renderWeek();
+        updateConnectionUi();
     }
 
     async function chooseHierarchyResource() {
@@ -3298,20 +3320,21 @@
         byId('planning-resource-building')?.addEventListener('change', event => {
             event.target.dataset.touched = '1';
             const room = byId('planning-resource-room');
-            if (room) room.value = '';
-            state.selectedRoomResourceId = null;
-            if (state.resourceMode === 'room') {
-                state.selectedResourceId = null;
-                state.payload = null;
-                renderPlanningFilters(true);
-                renderWeek();
-                updateConnectionUi();
+            if (room) {
+                room.value = '';
+                room.dataset.touched = '1';
             }
+            clearCurrentRoomSelection();
             renderResourceChooser();
         });
         byId('planning-resource-room')?.addEventListener('change', event => {
             const resourceId = event.target.value || '';
-            if (!resourceId) return;
+            event.target.dataset.touched = '1';
+            if (!resourceId) {
+                clearCurrentRoomSelection();
+                renderResourceChooser();
+                return;
+            }
             activateTemporaryRoom(resourceId);
             ensureCurrentWeek();
             renderWeek();
@@ -3319,14 +3342,17 @@
         });
         byId('planning-resource-year')?.addEventListener('change', event => {
             resetHierarchyAfter(event.target, ['planning-resource-speciality', 'planning-resource-semester', 'planning-resource-group']);
+            clearCurrentProgramSelection();
             renderResourceChooser();
         });
         byId('planning-resource-speciality')?.addEventListener('change', event => {
             resetHierarchyAfter(event.target, ['planning-resource-semester', 'planning-resource-group']);
+            clearCurrentProgramSelection();
             renderResourceChooser();
         });
         byId('planning-resource-semester')?.addEventListener('change', async event => {
             resetHierarchyAfter(event.target, ['planning-resource-group']);
+            clearCurrentProgramSelection();
             renderResourceChooser();
             if (await chooseHierarchyResource()) {
                 ensureCurrentWeek();
@@ -3336,7 +3362,12 @@
         });
         byId('planning-resource-group')?.addEventListener('change', async event => {
             const resourceId = event.target.value || '';
-            if (!resourceId) return;
+            event.target.dataset.touched = '1';
+            if (!resourceId) {
+                clearCurrentProgramSelection();
+                renderResourceChooser();
+                return;
+            }
             event.target.disabled = true;
             await savePlanningPreference(resourceId);
             event.target.disabled = false;
