@@ -20,10 +20,10 @@
 <link href="pwa-icon-192.png" rel="apple-touch-icon"/>
 <link href="https://cdnjs.cloudflare.com" rel="preconnect"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="style.css?v=2.36.9" rel="stylesheet"/>
+<link href="style.css?v=2.36.10" rel="stylesheet"/>
 <link href="forum.css?v=2.9.5" rel="stylesheet"/>
 <link href="forum_v2.css?v=2.9.5" rel="stylesheet"/>
-<link href="planning.css?v=2.36.9" rel="stylesheet"/>
+<link href="planning.css?v=2.36.10" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -1438,10 +1438,10 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="pdf-reader.js?v=2.36.9"></script>
-<script src="script.js?v=2.36.9"></script>
-<script src="planning.js?v=2.36.9"></script>
-<script src="forum.js?v=2.36.9"></script>
+<script src="pdf-reader.js?v=2.36.10"></script>
+<script src="script.js?v=2.36.10"></script>
+<script src="planning.js?v=2.36.10"></script>
+<script src="forum.js?v=2.36.10"></script>
 <script src="forum_v2.js?v=2.9.5"></script>
 
 <div aria-labelledby="site-pdf-reader-title" aria-modal="true" class="site-pdf-reader" hidden id="site-pdf-reader" role="dialog">
@@ -1465,7 +1465,7 @@
 <button class="icon-btn" id="site-pdf-reader-zoom-in" type="button" aria-label="Zoomer"><i class="fa-solid fa-plus"></i></button>
 <button class="secondary-btn compact-btn" id="site-pdf-reader-fit" type="button"><i class="fa-solid fa-arrows-left-right"></i> Ajuster</button>
 </div>
-<div class="site-pdf-reader-stage">
+<div class="site-pdf-reader-stage" id="site-pdf-reader-stage">
 <div class="site-pdf-reader-loading" id="site-pdf-reader-loading"><i class="fa-solid fa-circle-notch fa-spin"></i><span>Chargement du document…</span></div>
 <div class="site-pdf-reader-canvas-wrap" id="site-pdf-reader-canvas-wrap"><canvas id="site-pdf-reader-canvas" aria-label="Page du document PDF"></canvas></div>
 <iframe hidden id="site-pdf-reader-frame" title="Liseuse PDF de secours"></iframe>

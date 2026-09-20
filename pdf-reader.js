@@ -27,6 +27,10 @@
     const zoomSteps = [50, 67, 75, 90, 100, 110, 125, 150, 175, 200, 250];
     const byId = id => document.getElementById(id);
 
+    function getStage() {
+        return document.getElementById('site-pdf-reader-stage') || document.querySelector('.site-pdf-reader-stage');
+    }
+
     function safePdfUrl(value) {
         try {
             const url = new URL(String(value || ''), window.location.href);
@@ -109,7 +113,7 @@
     }
 
     function stageAvailableWidth(pageViewport) {
-        const stage = byId('site-pdf-reader-stage');
+        const stage = getStage();
         if (!stage) return pageViewport.width;
         const style = getComputedStyle(stage);
         const horizontalPadding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
@@ -161,7 +165,7 @@
             // En mode Ajuster, la page doit toujours repartir parfaitement dans le viewport.
             // Cela évite de conserver un ancien décalage horizontal après un zoom tactile.
             if (manualPercent == null) {
-                const stage = byId('site-pdf-reader-stage');
+                const stage = getStage();
                 if (stage) stage.scrollLeft = 0;
             }
 
@@ -376,7 +380,7 @@
 
     function beginPanAt(point, pointerId = null) {
         if (!point || !state.pdf || state.fallback || state.pinch) return;
-        const stage = byId('site-pdf-reader-stage');
+        const stage = getStage();
         if (!stage) return;
         state.pan = {
             pointerId,
@@ -390,7 +394,7 @@
     function movePanAt(point, pointerId = null) {
         if (!state.pan || state.pinch || !point) return;
         if (state.pan.pointerId != null && pointerId != null && state.pan.pointerId !== pointerId) return;
-        const stage = byId('site-pdf-reader-stage');
+        const stage = getStage();
         if (!stage) return;
         stage.scrollLeft = state.pan.startScrollLeft - (point.x - state.pan.startX);
         stage.scrollTop = state.pan.startScrollTop - (point.y - state.pan.startY);
@@ -399,7 +403,7 @@
 
     function beginPinchAt(points) {
         if (points.length < 2 || !state.pdf || state.fallback) return;
-        const stage = byId('site-pdf-reader-stage');
+        const stage = getStage();
         const canvas = byId('site-pdf-reader-canvas');
         if (!stage || !canvas || !canvas.clientWidth || !canvas.clientHeight) return;
 
@@ -418,7 +422,7 @@
 
     function movePinchAt(points) {
         if (!state.pinch || points.length < 2) return;
-        const stage = byId('site-pdf-reader-stage');
+        const stage = getStage();
         const canvas = byId('site-pdf-reader-canvas');
         if (!stage || !canvas || !state.pageBaseWidth || !state.pageBaseHeight) return;
 
@@ -445,7 +449,7 @@
 
     function finishPinch() {
         if (!state.pinch) return;
-        const stage = byId('site-pdf-reader-stage');
+        const stage = getStage();
         const percent = state.pinch.lastPercent;
         state.pinch = null;
         stage?.classList.remove('pinching');
@@ -470,7 +474,7 @@
         // La souris conserve son comportement habituel. Les gestes personnalisés
         // sont réservés au tactile/stylet pour ne pas gêner le desktop.
         if (event.pointerType === 'mouse') return;
-        const stage = byId('site-pdf-reader-stage');
+        const stage = getStage();
         if (!stage) return;
 
         event.preventDefault();
@@ -567,7 +571,7 @@
         byId('site-pdf-reader-zoom-in')?.addEventListener('click', () => zoom(1));
         byId('site-pdf-reader-fit')?.addEventListener('click', fitWidth);
 
-        const stage = byId('site-pdf-reader-stage');
+        const stage = getStage();
         stage?.addEventListener('pointerdown', handlePointerDown, { passive: false });
         stage?.addEventListener('pointermove', handlePointerMove, { passive: false });
         stage?.addEventListener('pointerup', handlePointerUp, { passive: false });
