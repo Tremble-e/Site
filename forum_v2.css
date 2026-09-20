@@ -277,6 +277,40 @@
     18%, 72% { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .17), 0 16px 45px rgba(var(--accent-rgb), .16); border-color: rgba(var(--accent-rgb), .62); }
 }
 
+/* Afficher / masquer les mots de passe des formulaires de compte. */
+.account-password-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+.account-password-field input {
+    padding-right: 3rem !important;
+}
+.account-password-toggle {
+    position: absolute;
+    right: .45rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2.2rem;
+    height: 2.2rem;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 9px;
+    color: var(--text-muted);
+    background: transparent;
+    cursor: pointer;
+    transition: color .18s ease, background .18s ease;
+}
+.account-password-toggle:hover,
+.account-password-toggle:focus-visible {
+    color: white;
+    background: rgba(255,255,255,.06);
+    outline: none;
+}
+.account-password-toggle i { pointer-events: none; }
+
 /* Champs ajoutés dynamiquement dans le forum et la messagerie. */
 #forum input:not([type="checkbox"]):not([type="radio"]),
 #forum textarea,

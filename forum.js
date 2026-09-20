@@ -550,7 +550,7 @@ async function handleAccountRegister(event) {
         forumToast('Compte créé avec succès.');
         refreshForumCurrentView();
     } else {
-        setMessage('account-auth-message', 'Compte créé. Consultez votre e-mail pour confirmer votre adresse avant de vous connecter.', 'success');
+        setMessage('account-auth-message', 'Compte créé. Consultez votre e-mail pour confirmer votre adresse avant de vous connecter. Si vous ne le voyez pas, vérifiez vos courriers indésirables / spams.', 'success');
     }
 }
 
@@ -560,7 +560,7 @@ async function handleForgotPassword(event) {
     const email = document.getElementById('account-forgot-email').value.trim();
     const redirectTo = `${window.location.origin}${window.location.pathname}#forum`;
     const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
-    setMessage('account-auth-message', error ? (error.message || 'Envoi impossible.') : 'Lien envoyé. Consultez votre boîte mail.', error ? 'error' : 'success');
+    setMessage('account-auth-message', error ? (error.message || 'Envoi impossible.') : 'Lien envoyé. Consultez votre boîte mail et vos courriers indésirables / spams si nécessaire.', error ? 'error' : 'success');
 }
 
 function showPasswordRecovery() {
@@ -1714,6 +1714,27 @@ function bindForumEvents() {
     document.getElementById('account-profile-cancel')?.addEventListener('click', () => closeModalById('accountModal'));
     document.getElementById('account-delete-btn')?.addEventListener('click', deleteOwnForumAccount);
     document.getElementById('my-discussions-btn')?.addEventListener('click', showMyTopics);
+
+    document.querySelectorAll('[data-password-toggle]').forEach(button => {
+        button.addEventListener('click', () => {
+            const input = document.getElementById(button.dataset.passwordToggle || '');
+            if (!input) return;
+            const reveal = input.type === 'password';
+            const selectionStart = input.selectionStart;
+            const selectionEnd = input.selectionEnd;
+            input.type = reveal ? 'text' : 'password';
+            button.innerHTML = reveal
+                ? '<i class="fa-regular fa-eye-slash"></i>'
+                : '<i class="fa-regular fa-eye"></i>';
+            const label = reveal ? 'Masquer le mot de passe' : 'Afficher le mot de passe';
+            button.setAttribute('aria-label', label);
+            button.title = label;
+            input.focus({ preventScroll: true });
+            if (selectionStart !== null && selectionEnd !== null) {
+                try { input.setSelectionRange(selectionStart, selectionEnd); } catch {}
+            }
+        });
+    });
 
     document.querySelectorAll('[data-auth-tab]').forEach(btn => btn.addEventListener('click', () => switchAuthTab(btn.dataset.authTab)));
     document.getElementById('account-login-form')?.addEventListener('submit', handleAccountLogin);

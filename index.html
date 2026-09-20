@@ -20,10 +20,10 @@
 <link href="pwa-icon-192.png" rel="apple-touch-icon"/>
 <link href="https://cdnjs.cloudflare.com" rel="preconnect"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="style.css?v=2.36.19" rel="stylesheet"/>
+<link href="style.css?v=2.36.22" rel="stylesheet"/>
 <link href="forum.css?v=2.9.5" rel="stylesheet"/>
-<link href="forum_v2.css?v=2.9.5" rel="stylesheet"/>
-<link href="planning.css?v=2.36.19" rel="stylesheet"/>
+<link href="forum_v2.css?v=2.9.6" rel="stylesheet"/>
+<link href="planning.css?v=2.36.22" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -851,21 +851,21 @@
 </div>
 <form class="account-form" id="account-login-form">
 <label class="field"><span>E-mail</span><input autocomplete="email" id="account-login-email" placeholder="vous@exemple.fr" required="" type="email"/></label>
-<label class="field"><span>Mot de passe</span><input autocomplete="current-password" id="account-login-password" minlength="6" placeholder="Votre mot de passe" required="" type="password"/></label>
+<label class="field"><span>Mot de passe</span><div class="account-password-field"><input autocomplete="current-password" id="account-login-password" minlength="6" placeholder="Votre mot de passe" required="" type="password"/><button aria-label="Afficher le mot de passe" class="account-password-toggle" data-password-toggle="account-login-password" type="button"><i class="fa-regular fa-eye"></i></button></div></label>
 <div class="account-form-row"><button class="text-link subtle-link" id="account-forgot-btn" type="button">Mot de passe oublié ?</button></div>
 <button class="primary-btn account-submit" type="submit"><i class="fa-solid fa-right-to-bracket"></i> Se connecter</button>
 </form>
 <form class="account-form" hidden="" id="account-register-form">
 <label class="field"><span>Pseudo public</span><input id="account-register-username" maxlength="30" minlength="3" pattern="[A-Za-z0-9_.-]+" placeholder="Ex. MathUser" required=""/><small>Lettres, chiffres, point, tiret et underscore.</small></label>
 <label class="field"><span>E-mail</span><input autocomplete="email" id="account-register-email" placeholder="vous@exemple.fr" required="" type="email"/></label>
-<label class="field"><span>Mot de passe</span><input autocomplete="new-password" id="account-register-password" minlength="8" placeholder="8 caractères minimum" required="" type="password"/></label>
+<label class="field"><span>Mot de passe</span><div class="account-password-field"><input autocomplete="new-password" id="account-register-password" minlength="8" placeholder="8 caractères minimum" required="" type="password"/><button aria-label="Afficher le mot de passe" class="account-password-toggle" data-password-toggle="account-register-password" type="button"><i class="fa-regular fa-eye"></i></button></div></label>
 <button class="primary-btn account-submit" type="submit"><i class="fa-solid fa-user-plus"></i> Créer mon compte</button>
-<p class="account-confirm-note"><i class="fa-solid fa-envelope-circle-check"></i> Une confirmation par e-mail peut être demandée avant la première connexion.</p>
+<p class="account-confirm-note"><i class="fa-solid fa-envelope-circle-check"></i> Une confirmation par e-mail peut être demandée avant la première connexion. Si vous ne la recevez pas, pensez à vérifier vos courriers indésirables / spams.</p>
 </form>
 <form class="account-form" hidden="" id="account-forgot-form">
 <button class="text-link subtle-link" id="account-forgot-back" type="button"><i class="fa-solid fa-arrow-left"></i> Retour</button>
 <h3>Réinitialiser le mot de passe</h3>
-<p class="form-help">Nous enverrons un lien de réinitialisation à votre adresse e-mail.</p>
+<p class="form-help">Nous enverrons un lien de réinitialisation à votre adresse e-mail. Pensez aussi à vérifier vos courriers indésirables / spams.</p>
 <label class="field"><span>E-mail</span><input autocomplete="email" id="account-forgot-email" placeholder="vous@exemple.fr" required="" type="email"/></label>
 <button class="primary-btn account-submit" type="submit"><i class="fa-solid fa-paper-plane"></i> Envoyer le lien</button>
 </form>
@@ -876,7 +876,7 @@
 <span class="section-kicker">Sécurité</span>
 <h2>Nouveau mot de passe</h2>
 <form class="account-form" id="account-recovery-form">
-<label class="field"><span>Nouveau mot de passe</span><input autocomplete="new-password" id="account-recovery-password" minlength="8" required="" type="password"/></label>
+<label class="field"><span>Nouveau mot de passe</span><div class="account-password-field"><input autocomplete="new-password" id="account-recovery-password" minlength="8" required="" type="password"/><button aria-label="Afficher le mot de passe" class="account-password-toggle" data-password-toggle="account-recovery-password" type="button"><i class="fa-regular fa-eye"></i></button></div></label>
 <button class="primary-btn account-submit" type="submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button>
 </form>
 <p aria-live="polite" class="account-message" hidden="" id="account-recovery-message" role="status"></p>
@@ -916,7 +916,7 @@
 <button aria-label="Fermer" class="modal-close-btn" data-tooltip="Fermer" id="university-email-close" type="button"><i class="fa-solid fa-xmark"></i></button>
 <div class="university-email-head">
 <div class="university-email-icon"><i class="fa-solid fa-envelope-circle-check"></i></div>
-<div><span class="section-kicker">Accès universitaire</span><h2 id="university-email-title">Vérifier votre adresse universitaire</h2><p>Un code à 6 chiffres valable 5 minutes vous sera envoyé par e-mail.</p></div>
+<div><span class="section-kicker">Accès universitaire</span><h2 id="university-email-title">Vérifier votre adresse universitaire</h2><p>Un code à 6 chiffres valable 5 minutes vous sera envoyé par e-mail. S’il n’arrive pas, vérifiez vos courriers indésirables / spams.</p></div>
 </div>
 <div class="university-email-step" id="university-email-step-address">
 <label class="field"><span>Adresse universitaire</span><input autocomplete="email" id="university-email-input" inputmode="email" placeholder="prenom.nom@etu.unilim.fr ou @unilim.fr" type="email"/><small>Adresses acceptées : @etu.unilim.fr (étudiants) et @unilim.fr (personnel / enseignants).</small></label>
@@ -927,6 +927,7 @@
 <i class="fa-solid fa-circle-check"></i>
 <div><strong>Code envoyé</strong><span id="university-email-target"></span></div>
 </div>
+<p class="form-help"><i class="fa-solid fa-triangle-exclamation"></i> Vous ne voyez pas l’e-mail ? Vérifiez vos courriers indésirables / spams.</p>
 <label class="field university-code-field"><span>Code de vérification</span><input autocomplete="one-time-code" id="university-code-input" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="000000" type="text"/></label>
 <div class="university-code-meta"><span><i class="fa-regular fa-clock"></i> Expire dans <strong id="university-code-expiry">05:00</strong></span><button class="text-link" id="university-code-change" type="button">Changer d’adresse</button></div>
 <button class="primary-btn university-email-primary" id="university-code-verify" type="button"><i class="fa-solid fa-shield-check"></i> Valider le code</button>
@@ -1485,10 +1486,10 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="pdf-reader.js?v=2.36.19"></script>
-<script src="script.js?v=2.36.19"></script>
-<script src="planning.js?v=2.36.19"></script>
-<script src="forum.js?v=2.36.19"></script>
+<script src="pdf-reader.js?v=2.36.22"></script>
+<script src="script.js?v=2.36.22"></script>
+<script src="planning.js?v=2.36.22"></script>
+<script src="forum.js?v=2.36.22"></script>
 <script src="forum_v2.js?v=2.9.5"></script>
 
 <div aria-labelledby="site-pdf-reader-title" aria-modal="true" class="site-pdf-reader" hidden id="site-pdf-reader" role="dialog">

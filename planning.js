@@ -699,7 +699,12 @@
 
         document.querySelectorAll(
             '#planning > .planning-toolbar, #planning > .planning-filter-panel, #planning > .planning-mobile-panel, #planning > .planning-timetable-shell, #planning > .planning-empty'
-        ).forEach(element => { element.hidden = !accessGranted; });
+        ).forEach(element => {
+            element.hidden = !accessGranted;
+            // Sécurité visuelle : certains anciens CSS forçaient le panneau de tri à rester affiché malgré [hidden].
+            if (!accessGranted) element.style.setProperty('display', 'none', 'important');
+            else element.style.removeProperty('display');
+        });
         publishUniversityAccessState();
     }
 
@@ -867,8 +872,17 @@
             case 'SUPABASE_EMAIL_NOT_AUTHORIZED': return 'Supabase Auth refuse l’envoi à cette adresse avec son service mail intégré. Consultez la note de configuration du projet.';
             case 'SUPABASE_EMAIL_RATE_LIMIT': return 'La limite d’envoi de Supabase Auth est atteinte. Réessayez un peu plus tard.';
             case 'EMAIL_SEND_FAILED': return 'L’e-mail n’a pas pu être envoyé pour le moment. Réessayez dans quelques instants.';
+            case 'SCHEMA_NOT_INSTALLED': return 'La base de données de vérification n’est pas encore installée. Exécutez le fichier supabase/email_verification_setup.sql dans Supabase.';
+            case 'BACKEND_OUTDATED':
+            case 'INVALID_ACTION': return 'La fonction de vérification déployée n’est pas à jour. Redéployez la fonction Supabase « verify-ade ».';
+            case 'REQUEST_LOOKUP_FAILED':
+            case 'REQUEST_CREATION_FAILED': return 'Le stockage des codes OTP n’est pas disponible. Vérifiez que le script SQL de vérification a bien été exécuté.';
+            case 'AUTH_TARGET_CREATION_FAILED': return 'Supabase Auth n’a pas pu préparer l’adresse universitaire pour l’envoi. Vérifiez les journaux de la fonction « verify-ade ».';
             case 'SERVER_NOT_CONFIGURED': return 'Le service de vérification n’est pas disponible pour le moment.';
-            default: return 'La vérification est momentanément indisponible. Réessayez dans quelques instants.';
+            default: {
+                const suffix = result?.code ? ` (erreur : ${result.code})` : '';
+                return `La vérification est momentanément indisponible${suffix}. Réessayez dans quelques instants.`;
+            }
         }
     }
 
@@ -939,7 +953,7 @@
             const key = universityVerificationStorageKey();
             if (key) localStorage.setItem(key, email);
             showUniversityCodeStep(result.masked_email || email);
-            universityVerificationMessage(resend ? 'Un nouveau code a été envoyé. L’ancien n’est plus valable.' : 'Code envoyé. Consultez votre messagerie universitaire.', 'success');
+            universityVerificationMessage(resend ? 'Un nouveau code a été envoyé. L’ancien n’est plus valable. Vérifiez aussi vos courriers indésirables / spams.' : 'Code envoyé. Consultez votre messagerie universitaire et, si besoin, vos courriers indésirables / spams.', 'success');
         } catch (error) {
             console.error('Envoi du code universitaire impossible :', error);
             universityVerificationMessage('Impossible d’envoyer le code pour le moment. Réessayez dans quelques instants.', 'error');

@@ -12,6 +12,7 @@ const RATE_WINDOW_MS = 60 * 60 * 1000;
 const MAX_SENDS_PER_WINDOW = 5;
 const MAX_VERIFY_ATTEMPTS = 8;
 const ALLOWED_UNIVERSITY_DOMAINS = new Set(["etu.unilim.fr", "unilim.fr"]);
+const VERIFY_ADE_VERSION = "2.36.21";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -43,6 +44,13 @@ function authCode(error: unknown) {
 
 function authStatus(error: unknown) {
   return Number((error as { status?: number } | null)?.status || 0);
+}
+
+function isMissingSchemaError(error: unknown) {
+  const code = String((error as { code?: string } | null)?.code || "");
+  const message = String((error as { message?: string } | null)?.message || "").toLowerCase();
+  return ["42P01", "PGRST205"].includes(code)
+    || message.includes("ade_email_verification_codes") && (message.includes("does not exist") || message.includes("schema cache"));
 }
 
 function isExistingAuthUserError(error: unknown) {
@@ -176,6 +184,7 @@ Deno.serve(async (request) => {
       .maybeSingle();
     if (currentError) {
       console.error("OTP lookup failed", currentError);
+      if (isMissingSchemaError(currentError)) return json({ ok: false, code: "SCHEMA_NOT_INSTALLED" }, 503);
       return json({ ok: false, code: "REQUEST_LOOKUP_FAILED" }, 500);
     }
 
@@ -252,6 +261,7 @@ Deno.serve(async (request) => {
     if (upsertError) {
       console.error("OTP request storage failed", upsertError);
       if (!current?.shadow_auth_user_id && shadowAuthUserId) await deleteShadowUser(admin, shadowAuthUserId);
+      if (isMissingSchemaError(upsertError)) return json({ ok: false, code: "SCHEMA_NOT_INSTALLED" }, 503);
       return json({ ok: false, code: "REQUEST_CREATION_FAILED" }, 500);
     }
 
@@ -261,6 +271,7 @@ Deno.serve(async (request) => {
       masked_email: maskEmail(email),
       expires_in_seconds: OTP_TTL_MS / 1000,
       resend_after_seconds: RESEND_COOLDOWN_MS / 1000,
+      backend_version: VERIFY_ADE_VERSION,
     });
   }
 
@@ -366,7 +377,7 @@ Deno.serve(async (request) => {
       await deleteShadowUser(admin, pending.shadow_auth_user_id || (verifiedUserIsShadow ? otpData.user.id : null));
     }
 
-    return json({ ok: true, code: "VERIFIED", university_email: pending.student_email });
+    return json({ ok: true, code: "VERIFIED", university_email: pending.student_email, backend_version: VERIFY_ADE_VERSION });
   }
 
   return json({ ok: false, code: "INVALID_ACTION" }, 400);
