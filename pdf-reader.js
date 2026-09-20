@@ -22,7 +22,10 @@
         fallback: false,
         historyToken: '',
         closingFromHistory: false,
-        pseudoFullscreen: false
+        pseudoFullscreen: false,
+        returnScrollX: 0,
+        returnScrollY: 0,
+        previousScrollRestoration: null
     };
 
     const zoomSteps = [50, 67, 75, 90, 100, 110, 125, 150, 175, 200, 250];
@@ -37,6 +40,34 @@
             const url = new URL(String(value || ''), window.location.href);
             return ['http:', 'https:', 'blob:'].includes(url.protocol) ? url.href : '';
         } catch { return ''; }
+    }
+
+    function rememberPageScroll() {
+        state.returnScrollX = window.scrollX || document.documentElement.scrollLeft || 0;
+        state.returnScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+        try {
+            state.previousScrollRestoration = history.scrollRestoration;
+            history.scrollRestoration = 'manual';
+        } catch {
+            state.previousScrollRestoration = null;
+        }
+    }
+
+    function restorePageScroll() {
+        const x = Number.isFinite(state.returnScrollX) ? state.returnScrollX : 0;
+        const y = Number.isFinite(state.returnScrollY) ? state.returnScrollY : 0;
+        const restore = () => window.scrollTo({ left: x, top: y, behavior: 'auto' });
+        // Le retour d'historique peut appliquer son propre scroll juste après popstate.
+        // On restaure donc après le rendu courant, puis une seconde fois très brièvement après.
+        requestAnimationFrame(() => requestAnimationFrame(restore));
+        window.setTimeout(restore, 80);
+        const previousScrollRestoration = state.previousScrollRestoration;
+        window.setTimeout(() => {
+            try {
+                if (previousScrollRestoration) history.scrollRestoration = previousScrollRestoration;
+            } catch {}
+        }, 120);
+        state.previousScrollRestoration = null;
     }
 
     function zoomLabel() {
@@ -250,6 +281,7 @@
         if (!modal) return false;
 
         if (label) label.textContent = state.title;
+        rememberPageScroll();
         if (!state.historyToken) {
             state.historyToken = `pdf-${Date.now()}-${Math.random().toString(36).slice(2)}`;
             try {
@@ -292,6 +324,7 @@
         exitPseudoFullscreen();
         destroyDocument();
         document.body.classList.remove('site-pdf-reader-open');
+        restorePageScroll();
         state.url = '';
         state.documentId = '';
         state.fileName = '';

@@ -4057,7 +4057,9 @@ const imageLightboxState = {
     pinch: null,
     lastPanPoint: null,
     moved: false,
-    suppressClickUntil: 0
+    suppressClickUntil: 0,
+    returnScrollX: 0,
+    returnScrollY: 0
 };
 
 function imageLightboxElements() {
@@ -4138,6 +4140,8 @@ function openImageLightbox(image) {
     const { lightbox, image: lightboxImage } = imageLightboxElements();
     if (!lightbox || !lightboxImage || !image?.src) return;
 
+    imageLightboxState.returnScrollX = window.scrollX || document.documentElement.scrollLeft || 0;
+    imageLightboxState.returnScrollY = window.scrollY || document.documentElement.scrollTop || 0;
     resetImageLightboxView();
     lightboxImage.src = image.currentSrc || image.src;
     lightboxImage.alt = image.alt || 'Image agrandie';
@@ -4159,6 +4163,11 @@ function closeImageLightbox() {
     imageLightboxState.lastPanPoint = null;
     lightbox.classList.remove('active');
     document.body.classList.remove('image-lightbox-open');
+    const returnX = imageLightboxState.returnScrollX;
+    const returnY = imageLightboxState.returnScrollY;
+    requestAnimationFrame(() => {
+        window.scrollTo({ left: returnX, top: returnY, behavior: 'auto' });
+    });
     window.setTimeout(() => {
         if (lightbox.classList.contains('active')) return;
         lightbox.hidden = true;
