@@ -1615,3 +1615,116 @@
     background: var(--event-subpanel) !important;
     border-color: rgba(255,255,255,.14);
 }
+
+
+/* v2.36.15 — sélecteurs de filière/salle plus lisibles sur mobile */
+@media (max-width: 760px) and (pointer: coarse) {
+    .planning-resource-field select {
+        min-height: 50px;
+        border-color: rgba(148, 163, 184, .22);
+        background-color: #0b1428;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+    }
+}
+
+body.planning-mobile-select-open {
+    overflow: hidden;
+}
+
+.planning-mobile-select-sheet[hidden] {
+    display: none !important;
+}
+
+.planning-mobile-select-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 15000;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 12px;
+}
+
+.planning-mobile-select-backdrop {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(2, 6, 23, .72);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+}
+
+.planning-mobile-select-panel {
+    position: relative;
+    width: min(100%, 560px);
+    max-height: min(72dvh, 620px);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, .2);
+    border-radius: 20px;
+    background: #0b1428;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
+}
+
+.planning-mobile-select-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 58px;
+    padding: 12px 14px 12px 18px;
+    border-bottom: 1px solid rgba(148, 163, 184, .14);
+}
+
+.planning-mobile-select-header strong {
+    color: #f8fafc;
+    font-size: .98rem;
+}
+
+.planning-mobile-select-close {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(148, 163, 184, .16);
+    border-radius: 12px;
+    color: #cbd5e1;
+    background: rgba(15, 23, 42, .9);
+}
+
+.planning-mobile-select-options {
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 8px;
+}
+
+.planning-mobile-select-option {
+    width: 100%;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 12px;
+    color: #e2e8f0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+}
+
+.planning-mobile-select-option + .planning-mobile-select-option {
+    margin-top: 3px;
+}
+
+.planning-mobile-select-option:active,
+.planning-mobile-select-option.is-selected {
+    color: #fff;
+    background: color-mix(in srgb, var(--accent, #3b82f6) 22%, #0f172a 78%);
+}
+
+.planning-mobile-select-option.is-selected i {
+    color: color-mix(in srgb, var(--accent, #3b82f6) 72%, white 28%);
+}

@@ -264,7 +264,7 @@
         }
 
         state.pseudoFullscreen = false;
-        modal.classList.remove('site-pdf-reader-pseudo-fullscreen');
+        modal.classList.remove('site-pdf-reader-pseudo-fullscreen', 'site-pdf-reader-mobile-fullscreen', 'site-pdf-reader-tools-collapsed');
         modal.hidden = false;
         document.body.classList.add('site-pdf-reader-open');
         updateFullscreenButton();
@@ -641,10 +641,36 @@
         return document.fullscreenElement || document.webkitFullscreenElement || null;
     }
 
+    function fullscreenActive() {
+        return Boolean(fullscreenElement() || state.pseudoFullscreen);
+    }
+
+    function isMobileViewport() {
+        return window.matchMedia?.('(max-width: 760px)').matches ?? window.innerWidth <= 760;
+    }
+
+    function setFullscreenToolsCollapsed(collapsed) {
+        const reader = byId('site-pdf-reader');
+        const button = byId('site-pdf-reader-fs-tools-toggle');
+        if (!reader) return;
+        const value = Boolean(collapsed);
+        reader.classList.toggle('site-pdf-reader-tools-collapsed', value);
+        if (button) {
+            button.setAttribute('aria-expanded', String(!value));
+            button.setAttribute('aria-label', value ? 'Afficher les outils' : 'Masquer les outils');
+            button.dataset.tooltip = value ? 'Afficher les outils' : 'Masquer les outils';
+            const icon = button.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-chevron-down', value);
+                icon.classList.toggle('fa-chevron-up', !value);
+            }
+        }
+    }
+
     function updateFullscreenButton() {
         const button = byId('site-pdf-reader-fullscreen');
         if (!button) return;
-        const active = Boolean(fullscreenElement() || state.pseudoFullscreen);
+        const active = fullscreenActive();
         button.setAttribute('aria-label', active ? 'Quitter le plein écran' : 'Plein écran');
         button.dataset.tooltip = active ? 'Quitter le plein écran' : 'Plein écran';
         const icon = button.querySelector('i');
@@ -654,10 +680,26 @@
         }
     }
 
+    function syncFullscreenLayout() {
+        const reader = byId('site-pdf-reader');
+        if (!reader) return;
+        const mobileActive = fullscreenActive() && isMobileViewport();
+        const wasMobileActive = reader.classList.contains('site-pdf-reader-mobile-fullscreen');
+        reader.classList.toggle('site-pdf-reader-mobile-fullscreen', mobileActive);
+
+        // En entrant en plein écran mobile, les outils secondaires sont repliés
+        // par défaut : seule la navigation de pages reste visible.
+        if (mobileActive && !wasMobileActive) setFullscreenToolsCollapsed(true);
+        if (!mobileActive) setFullscreenToolsCollapsed(false);
+
+        updateFullscreenButton();
+        window.setTimeout(() => onResize(), 40);
+    }
+
     function exitPseudoFullscreen() {
         state.pseudoFullscreen = false;
         byId('site-pdf-reader')?.classList.remove('site-pdf-reader-pseudo-fullscreen');
-        updateFullscreenButton();
+        syncFullscreenLayout();
     }
 
     async function toggleFullscreen() {
@@ -689,8 +731,7 @@
 
         state.pseudoFullscreen = !state.pseudoFullscreen;
         reader.classList.toggle('site-pdf-reader-pseudo-fullscreen', state.pseudoFullscreen);
-        updateFullscreenButton();
-        setTimeout(() => onResize(), 40);
+        syncFullscreenLayout();
     }
 
     let resizeTimer = 0;
@@ -763,16 +804,26 @@
         });
 
         byId('site-pdf-reader-fullscreen')?.addEventListener('click', toggleFullscreen);
-        document.addEventListener('fullscreenchange', updateFullscreenButton);
-        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+        byId('site-pdf-reader-fs-exit')?.addEventListener('click', toggleFullscreen);
+        byId('site-pdf-reader-fs-tools-toggle')?.addEventListener('click', () => {
+            const reader = byId('site-pdf-reader');
+            if (!reader?.classList.contains('site-pdf-reader-mobile-fullscreen')) return;
+            setFullscreenToolsCollapsed(!reader.classList.contains('site-pdf-reader-tools-collapsed'));
+        });
+        document.addEventListener('fullscreenchange', syncFullscreenLayout);
+        document.addEventListener('webkitfullscreenchange', syncFullscreenLayout);
 
         document.addEventListener('keydown', event => {
             const modal = byId('site-pdf-reader');
             if (!modal || modal.hidden) return;
             if (event.key === 'Escape' && !document.fullscreenElement) close();
-            else if (event.key === 'ArrowLeft' && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) setPage(state.page - 1);
-            else if (event.key === 'ArrowRight' && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) setPage(state.page + 1);
-            else if ((event.key === '+' || event.key === '=') && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) zoom(1);
+            else if (event.key === 'ArrowLeft' && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) {
+                event.preventDefault();
+                setPage(state.page - 1);
+            } else if (event.key === 'ArrowRight' && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) {
+                event.preventDefault();
+                setPage(state.page + 1);
+            } else if ((event.key === '+' || event.key === '=') && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) zoom(1);
             else if (event.key === '-' && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) zoom(-1);
         });
 

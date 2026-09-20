@@ -845,11 +845,11 @@ function updateCoursesAccessUi() {
     if (granted) return;
     if (!siteUniversityAccess.user) {
         if (title) title.textContent = 'Activer votre compte';
-        if (description) description.textContent = 'Connectez-vous ou créez un compte Planilim, puis validez votre accès universitaire BIOM pour consulter les cours et les ressources.';
+        if (description) description.textContent = 'Connectez-vous ou créez un compte, puis validez votre accès universitaire BIOM pour consulter les cours et les ressources.';
         if (action) action.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte';
     } else {
         if (title) title.textContent = 'Activer votre accès universitaire';
-        if (description) description.textContent = 'Votre compte Planilim est connecté. Il reste à confirmer votre accès via BIOM / Université de Limoges.';
+        if (description) description.textContent = 'Votre compte est connecté. Il reste à confirmer votre accès via BIOM / Université de Limoges.';
         if (action) action.innerHTML = '<i class="fa-solid fa-building-columns"></i> Se connecter à BIOM';
     }
 }

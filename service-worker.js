@@ -1,20 +1,20 @@
 'use strict';
 
-const SHELL_CACHE = 'tremble-shell-v2.36.13';
-const RUNTIME_CACHE = 'tremble-runtime-v2.36.13';
+const SHELL_CACHE = 'tremble-shell-v2.36.15';
+const RUNTIME_CACHE = 'tremble-runtime-v2.36.15';
 const OFFLINE_DOCUMENT_CACHE = 'tremble-offline-documents-v1';
 
 const SHELL_ASSETS = [
     './',
     './index.html',
-    './style.css?v=2.36.13',
-    './planning.css?v=2.36.13',
+    './style.css?v=2.36.15',
+    './planning.css?v=2.36.15',
     './forum.css?v=2.9.5',
     './forum_v2.css?v=2.9.5',
-    './pdf-reader.js?v=2.36.13',
-    './script.js?v=2.36.13',
-    './planning.js?v=2.36.13',
-    './forum.js?v=2.36.13',
+    './pdf-reader.js?v=2.36.15',
+    './script.js?v=2.36.15',
+    './planning.js?v=2.36.15',
+    './forum.js?v=2.36.15',
     './forum_v2.js?v=2.9.5',
     './manifest.webmanifest',
     './site-logo.svg',

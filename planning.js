@@ -525,10 +525,10 @@
         const description = byId('planning-resource-mode-description');
         if (state.resourceMode === 'room') {
             if (title) title.textContent = 'Consulter une salle';
-            if (description) description.textContent = 'La salle choisie est temporaire et n’est pas enregistrée dans votre profil.';
+            if (description) description.textContent = 'Choisissez un bâtiment et une salle pour afficher son emploi du temps.';
         } else {
             if (title) title.textContent = 'Votre filière';
-            if (description) description.textContent = 'Votre filière est enregistrée dans votre profil et restaurée automatiquement.';
+            if (description) description.textContent = 'Choisissez votre filière pour afficher vos cours.';
         }
     }
 
@@ -585,9 +585,9 @@
 
             if (status) {
                 status.textContent = selectedResource && resourceKind(selectedResource) === 'room'
-                    ? `Salle affichée temporairement : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
+                    ? `Salle : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
                     : resources.length
-                        ? 'Choisissez un bâtiment puis une salle. Cette sélection ne sera pas enregistrée.'
+                        ? 'Choisissez un bâtiment puis une salle.'
                         : 'Aucune salle n’a encore été publiée par le collecteur.';
             }
             return;
@@ -635,9 +635,9 @@
 
         if (status) {
             status.textContent = selectedResource && resourceKind(selectedResource) === 'program'
-                ? `Filière enregistrée : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
+                ? `Filière : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
                 : resources.length
-                    ? 'Choisissez votre année, votre spécialité puis votre semestre. Cette filière sera enregistrée dans votre profil.'
+                    ? 'Choisissez votre année, votre spécialité puis votre semestre.'
                     : 'Aucune filière n’a encore été publiée par le collecteur.';
         }
     }
@@ -679,11 +679,11 @@
         const button = byId('planning-verify-ade');
         if (!accessGranted && !state.user) {
             if (title) title.textContent = 'Activer votre compte';
-            if (description) description.textContent = 'Connectez-vous ou créez un compte Planilim, puis validez votre accès universitaire BIOM pour consulter les emplois du temps.';
+            if (description) description.textContent = 'Connectez-vous ou créez un compte, puis validez votre accès universitaire BIOM pour consulter les emplois du temps.';
             if (button && !state.adeVerificationLoading) button.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte';
         } else if (!accessGranted) {
             if (title) title.textContent = 'Activer votre accès universitaire';
-            if (description) description.textContent = 'Votre compte Planilim est connecté. Confirmez maintenant votre accès via BIOM / Université de Limoges.';
+            if (description) description.textContent = 'Votre compte est connecté. Confirmez maintenant votre accès via BIOM / Université de Limoges.';
             if (button && !state.adeVerificationLoading) button.innerHTML = '<i class="fa-solid fa-building-columns"></i> Se connecter à BIOM';
         }
 
@@ -2837,7 +2837,114 @@
         if (state.isAdmin) await requestStatusAndPayload({ persistIfCloudEmpty: true });
     }
 
+    function isMobilePlanningSelectUi() {
+        return window.matchMedia('(max-width: 760px) and (pointer: coarse)').matches;
+    }
+
+    function ensureMobilePlanningSelectSheet() {
+        let sheet = byId('planning-mobile-select-sheet');
+        if (sheet) return sheet;
+        sheet = document.createElement('div');
+        sheet.id = 'planning-mobile-select-sheet';
+        sheet.className = 'planning-mobile-select-sheet';
+        sheet.hidden = true;
+        sheet.innerHTML = `
+            <button class="planning-mobile-select-backdrop" type="button" aria-label="Fermer"></button>
+            <section class="planning-mobile-select-panel" role="dialog" aria-modal="true" aria-labelledby="planning-mobile-select-title">
+                <div class="planning-mobile-select-header">
+                    <strong id="planning-mobile-select-title">Choisir</strong>
+                    <button class="planning-mobile-select-close" type="button" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="planning-mobile-select-options" role="listbox"></div>
+            </section>`;
+        document.body.appendChild(sheet);
+        const close = () => {
+            sheet.hidden = true;
+            document.body.classList.remove('planning-mobile-select-open');
+            sheet.dataset.selectId = '';
+        };
+        sheet.querySelector('.planning-mobile-select-backdrop')?.addEventListener('click', close);
+        sheet.querySelector('.planning-mobile-select-close')?.addEventListener('click', close);
+        sheet._closePlanningSelect = close;
+        return sheet;
+    }
+
+    function openMobilePlanningSelect(select) {
+        if (!select || select.disabled || !isMobilePlanningSelectUi()) return false;
+        const sheet = ensureMobilePlanningSelectSheet();
+        const title = sheet.querySelector('#planning-mobile-select-title');
+        const optionsHost = sheet.querySelector('.planning-mobile-select-options');
+        const fieldLabel = select.closest('.planning-resource-field')?.querySelector(':scope > span')?.textContent?.trim();
+        if (title) title.textContent = fieldLabel || 'Choisir';
+        if (!optionsHost) return false;
+
+        optionsHost.innerHTML = '';
+        Array.from(select.options).forEach(option => {
+            if (option.disabled || !option.value) return;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'planning-mobile-select-option';
+            button.setAttribute('role', 'option');
+            const selected = option.value === select.value;
+            button.setAttribute('aria-selected', selected ? 'true' : 'false');
+            if (selected) button.classList.add('is-selected');
+            button.innerHTML = `<span>${escapePlanning(option.textContent || option.label || option.value)}</span>${selected ? '<i class="fa-solid fa-check"></i>' : ''}`;
+            button.addEventListener('click', () => {
+                if (select.value !== option.value) {
+                    select.value = option.value;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                sheet._closePlanningSelect?.();
+                select.focus({ preventScroll: true });
+            });
+            optionsHost.appendChild(button);
+        });
+
+        if (!optionsHost.children.length) return false;
+        sheet.dataset.selectId = select.id || '';
+        sheet.hidden = false;
+        document.body.classList.add('planning-mobile-select-open');
+        requestAnimationFrame(() => {
+            optionsHost.querySelector('.is-selected')?.scrollIntoView({ block: 'nearest' });
+        });
+        return true;
+    }
+
+    function bindMobilePlanningSelects() {
+        const selectors = [
+            'planning-resource-year',
+            'planning-resource-speciality',
+            'planning-resource-semester',
+            'planning-resource-group',
+            'planning-resource-building',
+            'planning-resource-room'
+        ];
+        selectors.forEach(id => {
+            const select = byId(id);
+            if (!select || select.dataset.mobileSelectBound === '1') return;
+            select.dataset.mobileSelectBound = '1';
+            const interceptMobileSelect = event => {
+                if (!isMobilePlanningSelectUi() || select.disabled) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const now = Date.now();
+                const lastOpen = Number(select.dataset.mobileSelectOpenedAt || 0);
+                if (now - lastOpen < 300) return;
+                select.dataset.mobileSelectOpenedAt = String(now);
+                openMobilePlanningSelect(select);
+            };
+            select.addEventListener('pointerdown', interceptMobileSelect, { passive: false });
+            select.addEventListener('touchstart', interceptMobileSelect, { passive: false });
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            const sheet = byId('planning-mobile-select-sheet');
+            if (sheet && !sheet.hidden) sheet._closePlanningSelect?.();
+        });
+    }
+
     function bindControls() {
+        bindMobilePlanningSelects();
         byId('planning-verify-ade')?.addEventListener('click', beginAdeVerification);
         document.querySelectorAll('[data-planning-resource-mode]').forEach(button => {
             button.addEventListener('click', () => {

@@ -20,10 +20,10 @@
 <link href="pwa-icon-192.png" rel="apple-touch-icon"/>
 <link href="https://cdnjs.cloudflare.com" rel="preconnect"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="style.css?v=2.36.13" rel="stylesheet"/>
+<link href="style.css?v=2.36.15" rel="stylesheet"/>
 <link href="forum.css?v=2.9.5" rel="stylesheet"/>
 <link href="forum_v2.css?v=2.9.5" rel="stylesheet"/>
-<link href="planning.css?v=2.36.13" rel="stylesheet"/>
+<link href="planning.css?v=2.36.15" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -357,7 +357,7 @@
 <div class="university-access-copy">
 <span class="section-kicker">Accès universitaire</span>
 <strong id="courses-access-title">Activer votre compte</strong>
-<p id="courses-access-description">Connectez-vous à Planilim puis validez votre accès universitaire BIOM pour consulter les cours et les ressources.</p>
+<p id="courses-access-description">Connectez-vous puis validez votre accès universitaire BIOM pour consulter les cours et les ressources.</p>
 <small>Vos identifiants universitaires ne sont jamais lus ni enregistrés par le site.</small>
 </div>
 <button class="primary-btn compact-btn" id="courses-access-action" type="button"><i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte</button>
@@ -573,7 +573,7 @@
 <div class="planning-verification-copy">
 <span class="section-kicker">Première utilisation</span>
 <strong id="planning-access-title">Activer votre compte</strong>
-<p id="planning-access-description">Connectez-vous à Planilim puis validez votre accès universitaire BIOM pour consulter les emplois du temps.</p>
+<p id="planning-access-description">Connectez-vous puis validez votre accès universitaire BIOM pour consulter les emplois du temps.</p>
 <small>Cette activation n’est demandée qu’une seule fois. Planilim ne voit et ne conserve jamais les identifiants universitaires.</small>
 </div>
 <button class="primary-btn compact-btn" id="planning-verify-ade" type="button">
@@ -585,7 +585,7 @@
 <div class="planning-resource-copy">
 <span class="section-kicker">Emploi du temps</span>
 <strong id="planning-resource-mode-title">Votre filière</strong>
-<p id="planning-resource-mode-description">Votre filière est enregistrée dans votre profil et restaurée automatiquement.</p>
+<p id="planning-resource-mode-description">Choisissez votre filière pour afficher vos cours.</p>
 <div aria-label="Type d’emploi du temps" class="planning-resource-mode" role="group">
 <button aria-pressed="true" class="planning-resource-mode-btn is-active" data-planning-resource-mode="program" type="button"><i class="fa-solid fa-graduation-cap"></i> Filière</button>
 <button aria-pressed="false" class="planning-resource-mode-btn" data-planning-resource-mode="room" type="button"><i class="fa-solid fa-door-open"></i> Salle</button>
@@ -1438,10 +1438,10 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="pdf-reader.js?v=2.36.13"></script>
-<script src="script.js?v=2.36.13"></script>
-<script src="planning.js?v=2.36.13"></script>
-<script src="forum.js?v=2.36.13"></script>
+<script src="pdf-reader.js?v=2.36.15"></script>
+<script src="script.js?v=2.36.15"></script>
+<script src="planning.js?v=2.36.15"></script>
+<script src="forum.js?v=2.36.15"></script>
 <script src="forum_v2.js?v=2.9.5"></script>
 
 <div aria-labelledby="site-pdf-reader-title" aria-modal="true" class="site-pdf-reader" hidden id="site-pdf-reader" role="dialog">
@@ -1459,6 +1459,8 @@
 <button class="icon-btn" id="site-pdf-reader-prev" type="button" aria-label="Page précédente"><i class="fa-solid fa-chevron-left"></i></button>
 <label class="site-pdf-reader-page">Page <input id="site-pdf-reader-page" min="1" inputmode="numeric" type="number" value="1" aria-label="Numéro de page"><span id="site-pdf-reader-page-total"></span></label>
 <button class="icon-btn" id="site-pdf-reader-next" type="button" aria-label="Page suivante"><i class="fa-solid fa-chevron-right"></i></button>
+<button class="icon-btn site-pdf-reader-fs-tools-toggle" id="site-pdf-reader-fs-tools-toggle" type="button" aria-label="Afficher les outils" aria-expanded="false"><i class="fa-solid fa-chevron-down"></i></button>
+<button class="icon-btn site-pdf-reader-fs-exit" id="site-pdf-reader-fs-exit" type="button" aria-label="Quitter le plein écran"><i class="fa-solid fa-compress"></i></button>
 <span class="site-pdf-reader-separator"></span>
 <button class="icon-btn" id="site-pdf-reader-zoom-out" type="button" aria-label="Dézoomer"><i class="fa-solid fa-minus"></i></button>
 <label class="site-pdf-reader-zoom-field" aria-label="Zoom du PDF"><input id="site-pdf-reader-zoom-input" inputmode="decimal" type="text" value="100" aria-label="Zoom en pourcentage"><span>%</span></label>
