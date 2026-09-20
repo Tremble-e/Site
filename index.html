@@ -20,10 +20,10 @@
 <link href="pwa-icon-192.png" rel="apple-touch-icon"/>
 <link href="https://cdnjs.cloudflare.com" rel="preconnect"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="style.css?v=2.36.16" rel="stylesheet"/>
+<link href="style.css?v=2.36.19" rel="stylesheet"/>
 <link href="forum.css?v=2.9.5" rel="stylesheet"/>
 <link href="forum_v2.css?v=2.9.5" rel="stylesheet"/>
-<link href="planning.css?v=2.36.16" rel="stylesheet"/>
+<link href="planning.css?v=2.36.19" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -357,8 +357,8 @@
 <div class="university-access-copy">
 <span class="section-kicker">Accès universitaire</span>
 <strong id="courses-access-title">Activer votre compte</strong>
-<p id="courses-access-description">Connectez-vous puis validez votre accès universitaire BIOM pour consulter les cours et les ressources.</p>
-<small>Vos identifiants universitaires ne sont jamais lus ni enregistrés par le site.</small>
+<p id="courses-access-description">Connectez-vous puis vérifiez votre adresse universitaire pour consulter les cours et les ressources.</p>
+<small>Le site ne demande aucun mot de passe universitaire : seulement le code reçu par e-mail.</small>
 </div>
 <button class="primary-btn compact-btn" id="courses-access-action" type="button"><i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte</button>
 <p aria-live="polite" class="planning-verification-status" id="courses-access-status" role="status"></p>
@@ -573,8 +573,8 @@
 <div class="planning-verification-copy">
 <span class="section-kicker">Première utilisation</span>
 <strong id="planning-access-title">Activer votre compte</strong>
-<p id="planning-access-description">Connectez-vous puis validez votre accès universitaire BIOM pour consulter les emplois du temps.</p>
-<small>Cette activation n’est demandée qu’une seule fois. Planilim ne voit et ne conserve jamais les identifiants universitaires.</small>
+<p id="planning-access-description">Connectez-vous puis vérifiez votre adresse universitaire pour consulter les emplois du temps.</p>
+<small>Un code à usage unique sera envoyé sur votre adresse @etu.unilim.fr ou @unilim.fr. Une fois validée, cette activation ne sera plus demandée.</small>
 </div>
 <button class="primary-btn compact-btn" id="planning-verify-ade" type="button">
 <i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte
@@ -634,6 +634,14 @@
 <p>Collecte et publication des emplois du temps de filière et de salle. Les données incomplètes ne sont pas publiées.</p>
 </div>
 </div>
+<div class="planning-collector-mobile-launch" id="planning-collector-mobile-launch" hidden>
+<div class="planning-collector-mobile-icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
+<div class="planning-collector-mobile-copy">
+<strong>Synchronisation depuis l’application ADE</strong>
+<p>Sur mobile, la collecte est effectuée directement par l’application Android.</p>
+</div>
+<button class="primary-btn" id="planning-open-android-app" type="button"><i class="fa-solid fa-arrow-up-right-from-square"></i> Ouvrir l’application ADE</button>
+</div>
 <div class="planning-collector-control-grid">
 <section class="planning-collector-action-group" aria-labelledby="planning-sync-title">
 <div class="planning-collector-action-title" id="planning-sync-title"><i class="fa-solid fa-cloud-arrow-up"></i><span>Synchroniser</span></div>
@@ -651,6 +659,18 @@
 <button class="secondary-btn" data-collector-retry="all" id="planning-collector-retry-all" type="button"><i class="fa-solid fa-layer-group"></i> Tous <span class="planning-action-count" data-failure-count="all">0</span></button>
 </div>
 </section>
+</div>
+<div class="planning-collector-progress" id="planning-collector-progress" hidden>
+<div class="planning-collector-progress-head">
+<div>
+<span id="planning-collector-progress-label">Synchronisation ADE</span>
+<small id="planning-collector-progress-detail">Préparation…</small>
+</div>
+<strong id="planning-collector-progress-percent">0 %</strong>
+</div>
+<div class="planning-collector-progress-track" id="planning-collector-progress-track" role="progressbar" aria-label="Progression de la synchronisation ADE" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+<span id="planning-collector-progress-fill"></span>
+</div>
 </div>
 <p aria-live="polite" class="planning-collector-status" id="planning-collector-status">Prêt à lancer une synchronisation.</p>
 <div class="planning-collector-resources" id="planning-collector-resources"></div>
@@ -887,6 +907,33 @@
 <button class="secondary-btn account-delete-btn" id="account-delete-btn" type="button"><i class="fa-solid fa-user-xmark"></i> Supprimer mon compte</button>
 </section>
 </div>
+</div>
+</div>
+
+<!-- VÉRIFICATION DE L’ADRESSE ÉTUDIANTE -->
+<div aria-labelledby="university-email-title" aria-modal="true" class="modal-overlay" id="universityEmailModal" role="dialog">
+<div class="modal-content university-email-modal-content" onclick="event.stopPropagation()">
+<button aria-label="Fermer" class="modal-close-btn" data-tooltip="Fermer" id="university-email-close" type="button"><i class="fa-solid fa-xmark"></i></button>
+<div class="university-email-head">
+<div class="university-email-icon"><i class="fa-solid fa-envelope-circle-check"></i></div>
+<div><span class="section-kicker">Accès universitaire</span><h2 id="university-email-title">Vérifier votre adresse universitaire</h2><p>Un code à 6 chiffres valable 5 minutes vous sera envoyé par e-mail.</p></div>
+</div>
+<div class="university-email-step" id="university-email-step-address">
+<label class="field"><span>Adresse universitaire</span><input autocomplete="email" id="university-email-input" inputmode="email" placeholder="prenom.nom@etu.unilim.fr ou @unilim.fr" type="email"/><small>Adresses acceptées : @etu.unilim.fr (étudiants) et @unilim.fr (personnel / enseignants).</small></label>
+<button class="primary-btn university-email-primary" id="university-email-send" type="button"><i class="fa-solid fa-paper-plane"></i> Envoyer le code</button>
+</div>
+<div class="university-email-step" hidden id="university-email-step-code">
+<div class="university-email-sent">
+<i class="fa-solid fa-circle-check"></i>
+<div><strong>Code envoyé</strong><span id="university-email-target"></span></div>
+</div>
+<label class="field university-code-field"><span>Code de vérification</span><input autocomplete="one-time-code" id="university-code-input" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="000000" type="text"/></label>
+<div class="university-code-meta"><span><i class="fa-regular fa-clock"></i> Expire dans <strong id="university-code-expiry">05:00</strong></span><button class="text-link" id="university-code-change" type="button">Changer d’adresse</button></div>
+<button class="primary-btn university-email-primary" id="university-code-verify" type="button"><i class="fa-solid fa-shield-check"></i> Valider le code</button>
+<div class="university-resend-row"><span>Vous n’avez rien reçu ?</span><button class="secondary-btn compact-btn" disabled id="university-code-resend" type="button"><i class="fa-solid fa-rotate-right"></i> Renvoyer dans 60 s</button></div>
+</div>
+<p aria-live="polite" class="account-message university-email-message" hidden id="university-email-message" role="status"></p>
+<div class="university-email-security"><i class="fa-solid fa-lock"></i><span>Le code est à usage unique et géré par Supabase Auth. Le site ne stocke jamais le code en clair.</span></div>
 </div>
 </div>
 <!-- CRÉATION D'UN SUJET -->
@@ -1157,7 +1204,7 @@
 <label class="field"><span>Ordre</span><input id="admin-doc-order" min="0" step="1" type="number" value="0"/></label>
 <label class="field checkbox-field"><input checked="" id="admin-doc-published" type="checkbox"/><span>Visible sur le site</span></label>
 <label class="field field-wide"><span>Fichier</span><input accept=".pdf,.doc,.docx,.odt,.png,.jpg,.jpeg,.gif,.webp" id="admin-doc-file" type="file"/><small>PDF, Word, ODT et images — 50 Mo maximum. Laissez vide pour conserver le fichier actuel.</small></label>
-<label class="field field-wide"><span>Ou URL du document</span><input id="admin-doc-url" placeholder="https://… ou laisser vide si vous importez un fichier" type="text"/><small>URL externe facultative. Les fichiers importés dans Planilim sont stockés dans le bucket privé Supabase et accessibles uniquement après validation BIOM.</small></label>
+<label class="field field-wide"><span>Ou URL du document</span><input id="admin-doc-url" placeholder="https://… ou laisser vide si vous importez un fichier" type="text"/><small>URL externe facultative. Les fichiers importés dans Planilim sont stockés dans le bucket privé Supabase et accessibles uniquement après vérification de l’adresse universitaire.</small></label>
 </div>
 <div class="admin-form-actions"><button class="secondary-btn" data-admin-cancel="document" type="button">Annuler</button><button class="primary-btn" type="submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
 </form>
@@ -1438,10 +1485,10 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="pdf-reader.js?v=2.36.16"></script>
-<script src="script.js?v=2.36.16"></script>
-<script src="planning.js?v=2.36.16"></script>
-<script src="forum.js?v=2.36.16"></script>
+<script src="pdf-reader.js?v=2.36.19"></script>
+<script src="script.js?v=2.36.19"></script>
+<script src="planning.js?v=2.36.19"></script>
+<script src="forum.js?v=2.36.19"></script>
 <script src="forum_v2.js?v=2.9.5"></script>
 
 <div aria-labelledby="site-pdf-reader-title" aria-modal="true" class="site-pdf-reader" hidden id="site-pdf-reader" role="dialog">

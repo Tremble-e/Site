@@ -156,7 +156,7 @@ function studyDocumentDownloadName(item = {}) {
 async function getSignedCourseFileUrl(storagePath, { force = false } = {}) {
     const path = String(storagePath || '').replace(/^\/+/, '');
     if (!path) return '';
-    if (!siteUniversityAccess.granted) throw new Error('Activez votre accès universitaire BIOM pour ouvrir ce document.');
+    if (!siteUniversityAccess.granted) throw new Error('Vérifiez votre adresse universitaire pour ouvrir ce document.');
     if (!initSupabaseClient()) throw new Error('Supabase est indisponible.');
 
     const cached = courseFileSignedUrlCache.get(path);
@@ -845,12 +845,12 @@ function updateCoursesAccessUi() {
     if (granted) return;
     if (!siteUniversityAccess.user) {
         if (title) title.textContent = 'Activer votre compte';
-        if (description) description.textContent = 'Connectez-vous ou créez un compte, puis validez votre accès universitaire BIOM pour consulter les cours et les ressources.';
+        if (description) description.textContent = 'Connectez-vous ou créez un compte, puis vérifiez votre adresse universitaire pour consulter les cours et les ressources.';
         if (action) action.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte';
     } else {
         if (title) title.textContent = 'Activer votre accès universitaire';
-        if (description) description.textContent = 'Votre compte est connecté. Il reste à confirmer votre accès via BIOM / Université de Limoges.';
-        if (action) action.innerHTML = '<i class="fa-solid fa-building-columns"></i> Se connecter à BIOM';
+        if (description) description.textContent = 'Votre compte est connecté. Il reste à vérifier votre adresse universitaire (@etu.unilim.fr ou @unilim.fr) avec un code à usage unique.';
+        if (action) action.innerHTML = '<i class="fa-solid fa-envelope-circle-check"></i> Vérifier mon adresse universitaire';
     }
 }
 
@@ -862,7 +862,7 @@ async function requestUniversityActivation(returnHash = '#courses') {
         return;
     }
     if (siteUniversityAccess.granted) return;
-    if (status) status.textContent = 'Ouverture de BIOM / Université de Limoges…';
+    if (status) status.textContent = 'Ouverture de la vérification de l’adresse universitaire…';
     if (window.planilimPlanning?.verifyUniversity) {
         await window.planilimPlanning.verifyUniversity(returnHash);
     } else {

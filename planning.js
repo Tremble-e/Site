@@ -17,6 +17,7 @@
     const COLLECTOR_DEFAULT_WORKERS = 4;
     const COLLECTOR_ADAPTIVE_MAX_WORKERS = 4;
     const COLLECTOR_PROGRESS_POLL_MS = 1000;
+    const ANDROID_APP_DEEP_LINK = 'ade-collector://open';
     const SLOT_MINUTES = 15;
     const DEFAULT_DAY_START = 8 * 60;
     const DEFAULT_DAY_END = 19 * 60;
@@ -86,6 +87,14 @@
             showExcludedEvents: false
         },
         filterCatalogSignature: ''
+    };
+
+    const universityEmailVerification = {
+        returnHash: '#planning',
+        email: '',
+        expiresAt: 0,
+        resendAt: 0,
+        timer: null
     };
 
     const byId = id => document.getElementById(id);
@@ -673,18 +682,19 @@
         if (resourcePanel) resourcePanel.hidden = !accessGranted;
         if (accountMeta) accountMeta.hidden = !accessGranted || !state.selectedResourceId;
         if (collector) collector.hidden = !state.isAdmin;
+        configureCollectorPlatformUi();
 
         const title = byId('planning-access-title');
         const description = byId('planning-access-description');
         const button = byId('planning-verify-ade');
         if (!accessGranted && !state.user) {
             if (title) title.textContent = 'Activer votre compte';
-            if (description) description.textContent = 'Connectez-vous ou créez un compte, puis validez votre accès universitaire BIOM pour consulter les emplois du temps.';
+            if (description) description.textContent = 'Connectez-vous ou créez un compte, puis vérifiez votre adresse universitaire pour consulter les emplois du temps.';
             if (button && !state.adeVerificationLoading) button.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Se connecter / créer un compte';
         } else if (!accessGranted) {
             if (title) title.textContent = 'Activer votre accès universitaire';
-            if (description) description.textContent = 'Votre compte est connecté. Confirmez maintenant votre accès via BIOM / Université de Limoges.';
-            if (button && !state.adeVerificationLoading) button.innerHTML = '<i class="fa-solid fa-building-columns"></i> Se connecter à BIOM';
+            if (description) description.textContent = 'Votre compte est connecté. Vérifiez maintenant votre adresse universitaire (@etu.unilim.fr ou @unilim.fr) avec un code à usage unique.';
+            if (button && !state.adeVerificationLoading) button.innerHTML = '<i class="fa-solid fa-envelope-circle-check"></i> Vérifier mon adresse universitaire';
         }
 
         document.querySelectorAll(
@@ -737,18 +747,250 @@
     }
 
     function consumeAdeVerificationResult() {
+        // Ancien callback CAS : conservé comme no-op pour les anciennes URL mises en cache.
         const url = new URL(window.location.href);
-        const result = url.searchParams.get('ade');
-        if (!result) return;
-        const status = byId('planning-verification-status');
-        if (status) {
-            status.textContent = result === 'verified'
-                ? 'Accès universitaire vérifié. Chargement de vos filières…'
-                : 'La vérification n’a pas abouti. Vous pouvez réessayer sans modifier votre compte.';
-            status.classList.toggle('error', result !== 'verified');
-        }
+        if (!url.searchParams.has('ade')) return;
         url.searchParams.delete('ade');
         window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash || '#planning'}`);
+    }
+
+    function universityVerificationMessage(text = '', type = '') {
+        const element = byId('university-email-message');
+        if (!element) return;
+        element.hidden = !text;
+        element.textContent = text;
+        element.classList.toggle('error', type === 'error');
+        element.classList.toggle('success', type === 'success');
+    }
+
+    function universityVerificationStorageKey() {
+        return state.user?.id ? `ade-student-email:${state.user.id}` : '';
+    }
+
+    function formatCountdown(milliseconds) {
+        const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
+        const minutes = Math.floor(seconds / 60);
+        const rest = seconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`;
+    }
+
+    function updateUniversityVerificationTimers() {
+        const now = Date.now();
+        const expiry = byId('university-code-expiry');
+        const verify = byId('university-code-verify');
+        const resend = byId('university-code-resend');
+        if (expiry) expiry.textContent = formatCountdown(universityEmailVerification.expiresAt - now);
+        if (verify) verify.disabled = Boolean(universityEmailVerification.expiresAt && now >= universityEmailVerification.expiresAt);
+        if (resend) {
+            const remaining = Math.max(0, Math.ceil((universityEmailVerification.resendAt - now) / 1000));
+            resend.disabled = remaining > 0;
+            resend.innerHTML = remaining > 0
+                ? `<i class="fa-solid fa-rotate-right"></i> Renvoyer dans ${remaining} s`
+                : '<i class="fa-solid fa-rotate-right"></i> Renvoyer le code';
+        }
+        if (universityEmailVerification.expiresAt && now >= universityEmailVerification.expiresAt) {
+            const message = byId('university-email-message');
+            if (message?.hidden) universityVerificationMessage('Le code a expiré. Demandez-en un nouveau.', 'error');
+        }
+    }
+
+    function startUniversityVerificationTimer() {
+        if (universityEmailVerification.timer) window.clearInterval(universityEmailVerification.timer);
+        updateUniversityVerificationTimers();
+        universityEmailVerification.timer = window.setInterval(updateUniversityVerificationTimers, 1000);
+    }
+
+    function stopUniversityVerificationTimer() {
+        if (universityEmailVerification.timer) window.clearInterval(universityEmailVerification.timer);
+        universityEmailVerification.timer = null;
+    }
+
+    function showUniversityAddressStep() {
+        const address = byId('university-email-step-address');
+        const code = byId('university-email-step-code');
+        if (address) address.hidden = false;
+        if (code) code.hidden = true;
+        byId('university-code-input')?.setAttribute('value', '');
+        const codeInput = byId('university-code-input');
+        if (codeInput) codeInput.value = '';
+        universityVerificationMessage('');
+        window.setTimeout(() => byId('university-email-input')?.focus(), 30);
+    }
+
+    function showUniversityCodeStep(maskedEmail = '') {
+        const address = byId('university-email-step-address');
+        const code = byId('university-email-step-code');
+        if (address) address.hidden = true;
+        if (code) code.hidden = false;
+        const target = byId('university-email-target');
+        if (target) target.textContent = `Envoyé à ${maskedEmail || universityEmailVerification.email}`;
+        universityVerificationMessage('');
+        startUniversityVerificationTimer();
+        window.setTimeout(() => byId('university-code-input')?.focus(), 30);
+    }
+
+    function openUniversityEmailModal(returnHash = '#planning') {
+        universityEmailVerification.returnHash = ['#planning', '#courses'].includes(returnHash) ? returnHash : '#planning';
+        const modal = byId('universityEmailModal');
+        const input = byId('university-email-input');
+        if (input && !input.value) {
+            const key = universityVerificationStorageKey();
+            if (key) input.value = localStorage.getItem(key) || '';
+        }
+        if (universityEmailVerification.email && universityEmailVerification.expiresAt > Date.now()) {
+            showUniversityCodeStep(universityEmailVerification.email);
+        } else {
+            showUniversityAddressStep();
+        }
+        modal?.classList.add('active');
+    }
+
+    function closeUniversityEmailModal() {
+        byId('universityEmailModal')?.classList.remove('active');
+        stopUniversityVerificationTimer();
+        universityVerificationMessage('');
+    }
+
+    function verificationErrorText(result = {}) {
+        const retry = Number(result.retry_after_seconds || 0);
+        switch (result.code) {
+            case 'INVALID_STUDENT_EMAIL':
+            case 'INVALID_UNIVERSITY_EMAIL': return 'Utilisez une adresse universitaire @etu.unilim.fr ou @unilim.fr.';
+            case 'EMAIL_ALREADY_USED': return 'Cette adresse universitaire a déjà été utilisée pour activer un autre compte.';
+            case 'WAIT_BEFORE_RESEND': return `Patientez encore ${Math.max(1, retry)} seconde${retry > 1 ? 's' : ''} avant de renvoyer un code.`;
+            case 'RATE_LIMITED': return `Trop de codes ont été demandés. Réessayez dans environ ${Math.max(1, Math.ceil(retry / 60))} minute(s).`;
+            case 'WRONG_CODE': return `Ce code est incorrect.${Number.isFinite(Number(result.attempts_remaining)) ? ` ${result.attempts_remaining} essai(s) restant(s).` : ''}`;
+            case 'CODE_EXPIRED': return 'Ce code a expiré. Demandez-en un nouveau.';
+            case 'NO_ACTIVE_CODE': return 'Aucun code actif. Demandez un nouveau code.';
+            case 'TOO_MANY_ATTEMPTS': return 'Trop d’essais incorrects. Demandez un nouveau code.';
+            case 'INVALID_CODE_FORMAT': return 'Le code doit contenir exactement 6 chiffres.';
+            case 'SUPABASE_EMAIL_NOT_AUTHORIZED': return 'Supabase Auth refuse l’envoi à cette adresse avec son service mail intégré. Consultez la note de configuration du projet.';
+            case 'SUPABASE_EMAIL_RATE_LIMIT': return 'La limite d’envoi de Supabase Auth est atteinte. Réessayez un peu plus tard.';
+            case 'EMAIL_SEND_FAILED': return 'L’e-mail n’a pas pu être envoyé pour le moment. Réessayez dans quelques instants.';
+            case 'SERVER_NOT_CONFIGURED': return 'Le service de vérification n’est pas disponible pour le moment.';
+            default: return 'La vérification est momentanément indisponible. Réessayez dans quelques instants.';
+        }
+    }
+
+    async function invokeUniversityVerification(body) {
+        const client = getSupabase();
+        if (!client) throw new Error('SUPABASE_UNAVAILABLE');
+        const { data, error } = await client.functions.invoke('verify-ade', { body });
+        if (!error) return data || {};
+        try {
+            const payload = await error.context?.json?.();
+            if (payload?.code) return payload;
+        } catch {}
+        throw error;
+    }
+
+    async function completeUniversityVerification() {
+        state.adeVerified = true;
+        universityVerificationMessage('Adresse universitaire vérifiée. Activation du compte…', 'success');
+        await onAccountChanged(state.user);
+        const planningStatus = byId('planning-verification-status');
+        if (planningStatus) {
+            planningStatus.textContent = 'Adresse universitaire vérifiée. Votre accès est activé.';
+            planningStatus.classList.remove('error');
+        }
+        const coursesStatus = document.getElementById('courses-access-status');
+        if (coursesStatus) {
+            coursesStatus.textContent = 'Adresse universitaire vérifiée. Votre accès est activé.';
+            coursesStatus.classList.remove('error');
+        }
+        window.setTimeout(closeUniversityEmailModal, 350);
+    }
+
+    async function sendUniversityVerificationCode({ resend = false } = {}) {
+        if (!state.user || state.adeVerificationLoading) return;
+        const input = byId('university-email-input');
+        const email = String(resend ? universityEmailVerification.email : input?.value || '').trim().toLowerCase();
+        if (!email) {
+            universityVerificationMessage('Saisissez votre adresse universitaire.', 'error');
+            input?.focus();
+            return;
+        }
+
+        const sendButton = byId('university-email-send');
+        const resendButton = byId('university-code-resend');
+        state.adeVerificationLoading = true;
+        if (sendButton) sendButton.disabled = true;
+        if (resendButton) resendButton.disabled = true;
+        universityVerificationMessage(resend ? 'Renvoi du code…' : 'Envoi du code…');
+
+        try {
+            const result = await invokeUniversityVerification({ action: 'send_code', email });
+            if (result?.code === 'ALREADY_VERIFIED') {
+                await completeUniversityVerification();
+                return;
+            }
+            if (!result?.ok || result?.code !== 'CODE_SENT') {
+                if (result?.code === 'WAIT_BEFORE_RESEND' && retryAfterIsFinite(result)) {
+                    universityEmailVerification.resendAt = Date.now() + Number(result.retry_after_seconds) * 1000;
+                    startUniversityVerificationTimer();
+                }
+                universityVerificationMessage(verificationErrorText(result), 'error');
+                return;
+            }
+
+            universityEmailVerification.email = email;
+            universityEmailVerification.expiresAt = Date.now() + Number(result.expires_in_seconds || 300) * 1000;
+            universityEmailVerification.resendAt = Date.now() + Number(result.resend_after_seconds || 60) * 1000;
+            const key = universityVerificationStorageKey();
+            if (key) localStorage.setItem(key, email);
+            showUniversityCodeStep(result.masked_email || email);
+            universityVerificationMessage(resend ? 'Un nouveau code a été envoyé. L’ancien n’est plus valable.' : 'Code envoyé. Consultez votre messagerie universitaire.', 'success');
+        } catch (error) {
+            console.error('Envoi du code universitaire impossible :', error);
+            universityVerificationMessage('Impossible d’envoyer le code pour le moment. Réessayez dans quelques instants.', 'error');
+        } finally {
+            state.adeVerificationLoading = false;
+            if (sendButton) sendButton.disabled = false;
+            updateUniversityVerificationTimers();
+        }
+    }
+
+    function retryAfterIsFinite(result) {
+        return Number.isFinite(Number(result?.retry_after_seconds)) && Number(result.retry_after_seconds) > 0;
+    }
+
+    async function verifyUniversityEmailCode() {
+        if (!state.user || state.adeVerificationLoading) return;
+        const input = byId('university-code-input');
+        const code = String(input?.value || '').replace(/\D/g, '').slice(0, 6);
+        if (input) input.value = code;
+        if (!/^\d{6}$/.test(code)) {
+            universityVerificationMessage('Saisissez les 6 chiffres du code reçu.', 'error');
+            input?.focus();
+            return;
+        }
+
+        const button = byId('university-code-verify');
+        state.adeVerificationLoading = true;
+        if (button) button.disabled = true;
+        universityVerificationMessage('Vérification du code…');
+        try {
+            const result = await invokeUniversityVerification({ action: 'verify_code', code });
+            if (result?.code === 'ALREADY_VERIFIED' || (result?.ok && result?.code === 'VERIFIED')) {
+                await completeUniversityVerification();
+                return;
+            }
+            if (['CODE_EXPIRED', 'NO_ACTIVE_CODE', 'TOO_MANY_ATTEMPTS'].includes(result?.code)) {
+                universityEmailVerification.expiresAt = 0;
+            }
+            universityVerificationMessage(verificationErrorText(result), 'error');
+            if (result?.code === 'WRONG_CODE') {
+                if (input) input.value = '';
+                input?.focus();
+            }
+        } catch (error) {
+            console.error('Validation du code universitaire impossible :', error);
+            universityVerificationMessage('Impossible de vérifier le code pour le moment. Réessayez dans quelques instants.', 'error');
+        } finally {
+            state.adeVerificationLoading = false;
+            if (button) button.disabled = false;
+            updateUniversityVerificationTimers();
+        }
     }
 
     async function beginAdeVerification(returnHash = '#planning') {
@@ -756,50 +998,8 @@
             window.openAccountModal?.('login');
             return;
         }
-        if (state.adeVerificationLoading) return;
-        const button = byId('planning-verify-ade');
-        const status = byId('planning-verification-status');
-        state.adeVerificationLoading = true;
-        if (button) {
-            button.disabled = true;
-            button.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Redirection…';
-        }
-        if (status) {
-            status.textContent = 'Ouverture de la connexion sécurisée de l’Université de Limoges…';
-            status.classList.remove('error');
-        }
-
-        try {
-            const client = getSupabase();
-            if (!client) throw new Error('SUPABASE_UNAVAILABLE');
-            const safeHash = ['#planning', '#courses'].includes(returnHash) ? returnHash : '#planning';
-            const returnUrl = `${window.location.origin}${window.location.pathname}${safeHash}`;
-            const { data, error } = await client.functions.invoke('verify-ade', {
-                body: { action: 'start', returnUrl }
-            });
-            if (error) throw error;
-            if (data?.code === 'ALREADY_VERIFIED') {
-                state.adeVerified = true;
-                updatePlanningRoleUi();
-                await loadCloudPayload();
-                renderWeek();
-                return;
-            }
-            if (!data?.url) throw new Error(data?.code || 'CAS_REDIRECT_MISSING');
-            window.location.assign(data.url);
-        } catch (error) {
-            console.error('Vérification ADE impossible :', error);
-            if (status) {
-                status.textContent = 'La vérification universitaire est momentanément indisponible. Réessayez dans quelques instants.';
-                status.classList.add('error');
-            }
-        } finally {
-            state.adeVerificationLoading = false;
-            if (button) {
-                button.disabled = false;
-                button.innerHTML = '<i class="fa-solid fa-building-columns"></i> Se connecter à BIOM';
-            }
-        }
+        if (state.adeVerified) return;
+        openUniversityEmailModal(returnHash);
     }
 
     async function loadSharedResources() {
@@ -1311,10 +1511,12 @@
     }
 
 
-    async function runCollectorPipeline(profile = COLLECTOR_PROFILES.program) {
+    async function runCollectorPipeline(profile = COLLECTOR_PROFILES.program, progressContext = {}) {
         if (!state.isAdmin || state.busy) return { ok: false, code: 'BUSY' };
         const status = byId('planning-collector-status');
         const activeProfile = collectorProfile(profile?.key || profile?.targetKind || 'program');
+        const progressPhaseIndex = Math.max(0, Number(progressContext.phaseIndex || 0));
+        const progressPhaseCount = Math.max(1, Number(progressContext.phaseCount || 1));
         updateCollectorActionButtons();
 
         let successCount = 0;
@@ -1388,6 +1590,28 @@
             return ` · ${shown.join(' · ')}${hidden ? ` · +${hidden} actifs` : ''}`;
         };
 
+        const updatePipelineProgress = snapshot => {
+            const total = Math.max(discoveredCount, Number(snapshot?.discoveredCount || 0));
+            const done = Math.max(completedCount, Number(snapshot?.completedCount || 0));
+            let localPercent = total > 0 ? (Math.min(done, total) / total) * 100 : 0;
+            // Tant que l'extension effectue encore des réparations, garder un peu
+            // de marge visuelle même si tous les EDT ont été parcourus une fois.
+            if (!snapshot?.done && total > 0 && localPercent >= 100) localPercent = 99;
+            const overallPercent = ((progressPhaseIndex + (localPercent / 100)) / progressPhaseCount) * 100;
+            const phaseSuffix = progressPhaseCount > 1
+                ? ` · étape ${progressPhaseIndex + 1}/${progressPhaseCount}`
+                : '';
+            setCollectorProgress({
+                current: Math.min(done, total || done),
+                total,
+                percent: overallPercent,
+                label: `${activeProfile.label} · synchronisation`,
+                detail: total > 0
+                    ? `${Math.min(done, total)} / ${total} EDT · ${COLLECTOR_DEFAULT_WORKERS} workers${phaseSuffix}`
+                    : `Lecture du catalogue ADE…${phaseSuffix}`
+            });
+        };
+
         const updateLiveStatus = snapshot => {
             if (!status || !snapshot) return;
             const workers = Number(snapshot.workerCount || snapshot.requestedWorkerCount || COLLECTOR_DEFAULT_WORKERS);
@@ -1426,6 +1650,15 @@
             `${activeProfile.label} · lecture du catalogue puis démarrage de ${COLLECTOR_DEFAULT_WORKERS} workers stables.`
         );
         if (status) status.textContent = `${activeProfile.label} · lecture de l’arbre ADE…`;
+        setCollectorProgress({
+            current: 0,
+            total: 0,
+            percent: (progressPhaseIndex / progressPhaseCount) * 100,
+            label: `${activeProfile.label} · préparation`,
+            detail: progressPhaseCount > 1
+                ? `Lecture du catalogue ADE · étape ${progressPhaseIndex + 1}/${progressPhaseCount}`
+                : 'Lecture du catalogue ADE…'
+        });
 
         try {
             // Le démarrage rend immédiatement un runId. Le travail continue
@@ -1513,6 +1746,7 @@
                 }
                 resultCursor = Math.max(resultCursor, Number(snapshot.nextResultCursor || resultCursor));
 
+                updatePipelineProgress(snapshot);
                 updateLiveStatus(snapshot);
 
                 // Les résultats sont publiés au fil de l'eau, sans attendre la
@@ -1548,6 +1782,16 @@
                 } else {
                     status.textContent = `${activeProfile.label} · ${successCount} emplois du temps synchronisés sur ${discoveredCount}. ${failureRows.length} restent à relancer.`;
                 }
+            }
+
+            if (!authRequired && !fatal) {
+                setCollectorProgress({
+                    current: discoveredCount,
+                    total: discoveredCount,
+                    percent: ((progressPhaseIndex + 1) / progressPhaseCount) * 100,
+                    label: `${activeProfile.label} · terminé`,
+                    detail: `${completedCount || discoveredCount} / ${discoveredCount || completedCount || 0} EDT traités${progressPhaseCount > 1 ? ` · étape ${progressPhaseIndex + 1}/${progressPhaseCount}` : ''}`
+                });
             }
 
             return {
@@ -1629,6 +1873,13 @@
         const status = byId('planning-collector-status');
         setLoading(true, 'Synchronisation en cours…', `${targets.length} emploi${targets.length > 1 ? 's' : ''} du temps à récupérer.`);
         if (status) status.textContent = `Synchronisation 0/${targets.length}…`;
+        setCollectorProgress({
+            current: 0,
+            total: targets.length,
+            percent: 0,
+            label: options.progressLabel || 'Synchronisation ADE',
+            detail: `0 / ${targets.length} EDT`
+        });
 
         let successCount = 0;
         const successfulResourceIds = [];
@@ -1707,10 +1958,16 @@
                     }
                 }
 
+                const done = Math.min(start + chunk.length, targets.length);
                 if (status) {
-                    const done = Math.min(start + chunk.length, targets.length);
                     status.textContent = `Synchronisation ${done}/${targets.length}…`;
                 }
+                setCollectorProgress({
+                    current: done,
+                    total: targets.length,
+                    label: options.progressLabel || 'Synchronisation ADE',
+                    detail: `${done} / ${targets.length} EDT`
+                });
 
                 // Les erreurs sont persistées au fur et à mesure. Si le PC est
                 // fermé pendant une longue collecte, un autre poste peut donc
@@ -1791,27 +2048,78 @@
         return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
     }
 
+    function configureCollectorPlatformUi() {
+        const panel = byId('planning-collector-panel');
+        const launcher = byId('planning-collector-mobile-launch');
+        if (!panel) return;
+        const mobile = isMobileDevice();
+        panel.classList.toggle('is-mobile-launcher', mobile);
+        if (launcher) launcher.hidden = !mobile;
+    }
+
+    function setCollectorProgress({ current = 0, total = 0, percent = null, label = 'Synchronisation ADE', detail = '' } = {}) {
+        if (isMobileDevice()) return;
+        const box = byId('planning-collector-progress');
+        const fill = byId('planning-collector-progress-fill');
+        const percentNode = byId('planning-collector-progress-percent');
+        const labelNode = byId('planning-collector-progress-label');
+        const detailNode = byId('planning-collector-progress-detail');
+        const track = byId('planning-collector-progress-track');
+        if (!box || !fill || !percentNode || !track) return;
+
+        const numericTotal = Math.max(0, Number(total || 0));
+        const numericCurrent = Math.max(0, Number(current || 0));
+        const computed = Number.isFinite(Number(percent))
+            ? Number(percent)
+            : (numericTotal > 0 ? (numericCurrent / numericTotal) * 100 : 0);
+        const safePercent = Math.max(0, Math.min(100, Math.round(computed)));
+
+        box.hidden = false;
+        fill.style.width = `${safePercent}%`;
+        percentNode.textContent = `${safePercent} %`;
+        if (labelNode) labelNode.textContent = label || 'Synchronisation ADE';
+        if (detailNode) detailNode.textContent = detail || (numericTotal > 0 ? `${Math.min(numericCurrent, numericTotal)} / ${numericTotal} EDT` : 'Préparation…');
+        track.setAttribute('aria-valuenow', String(safePercent));
+        track.setAttribute('aria-valuetext', `${safePercent} %`);
+    }
+
+    function openCollectorAndroidApp() {
+        const status = byId('planning-collector-status');
+        if (!/Android/i.test(navigator.userAgent || '')) {
+            if (status) status.textContent = 'L’application de synchronisation ADE est actuellement disponible sur Android.';
+            return;
+        }
+        if (status) status.textContent = 'Ouverture de l’application ADE…';
+        window.location.href = ANDROID_APP_DEEP_LINK;
+    }
+
     async function runAdminCollector(kind = 'all') {
         if (!state.isAdmin || state.busy || state.collectorRunning) return;
+        if (isMobileDevice()) {
+            openCollectorAndroidApp();
+            return;
+        }
         const status = byId('planning-collector-status');
         const profiles = kind === 'all'
             ? [COLLECTOR_PROFILES.program, COLLECTOR_PROFILES.room]
             : [collectorProfile(kind)];
         state.collectorRunning = true;
         updateCollectorActionButtons();
+        setCollectorProgress({
+            current: 0,
+            total: 0,
+            percent: 0,
+            label: kind === 'all' ? 'Filières + salles' : `${collectorProfile(kind).label}`,
+            detail: 'Préparation de la synchronisation ADE…'
+        });
 
         try {
             if (!state.extensionDetected) {
                 await requestStatusAndPayload({ persistIfCloudEmpty: true });
             }
             if (!state.extensionDetected) {
-                if (isMobileDevice()) {
-                    if (status) status.textContent = 'Ouverture du collecteur sur cet appareil…';
-                    window.location.href = 'planilim-collector://sync';
-                } else {
-                    if (status) status.textContent = 'Le collecteur PC n’est pas détecté. Installation requise avant la synchronisation.';
-                    launchExtensionInstall();
-                }
+                if (status) status.textContent = 'Le collecteur PC n’est pas détecté. Installation requise avant la synchronisation.';
+                launchExtensionInstall();
                 return;
             }
 
@@ -1826,7 +2134,10 @@
                 if (status && profiles.length > 1) {
                     status.textContent = `${index + 1}/${profiles.length} · ${profile.label} · préparation…`;
                 }
-                const result = await runCollectorPipeline(profile);
+                const result = await runCollectorPipeline(profile, {
+                    phaseIndex: index,
+                    phaseCount: profiles.length
+                });
                 results.push(result || { ok: false, profile: profile.key });
                 if (result?.authRequired || result?.code === 'AUTH_REQUIRED') break;
             }
@@ -1840,6 +2151,17 @@
                 status.textContent = remaining
                     ? `${totalSuccess} emplois du temps synchronisés sur ${totalDiscovered}. ${remaining} échec${remaining > 1 ? 's' : ''} à relancer.`
                     : `${totalSuccess} emplois du temps synchronisés sur ${totalDiscovered}. ADE peut être fermé.`;
+            }
+            if (results.length === profiles.length && !results.some(item => item?.authRequired || item?.code === 'AUTH_REQUIRED')) {
+                const totalSuccess = results.reduce((sum, item) => sum + Number(item?.successCount || 0), 0);
+                const totalDiscovered = results.reduce((sum, item) => sum + Number(item?.discoveredCount || 0), 0);
+                setCollectorProgress({
+                    current: totalDiscovered,
+                    total: totalDiscovered,
+                    percent: 100,
+                    label: 'Synchronisation terminée',
+                    detail: `${totalSuccess} / ${totalDiscovered || totalSuccess} EDT publiés ou traités`
+                });
             }
         } finally {
             state.collectorRunning = false;
@@ -1866,7 +2188,11 @@
                     status.textContent = `Rattrapage : ${remaining.length} emploi${remaining.length > 1 ? 's' : ''} du temps à relancer…`;
                 }
 
-                const result = await syncCollectorResources(remaining, { weekConcurrency, failureKinds });
+                const result = await syncCollectorResources(remaining, {
+                    weekConcurrency,
+                    failureKinds,
+                    progressLabel: 'Rattrapage ADE'
+                });
                 remaining = Array.isArray(result?.failures) ? result.failures : failureKinds.flatMap(current => collectorFailuresForKind(current));
                 if (result?.authRequired || !remaining.length) break;
                 await new Promise(resolve => window.setTimeout(resolve, 650 + passIndex * 450));
@@ -2784,6 +3110,7 @@
         if (navItem) navItem.hidden = false;
 
         if (!state.user) {
+            closeUniversityEmailModal();
             state.isAdmin = false;
             state.adeVerified = false;
             state.sharedResources = [];
@@ -2946,6 +3273,23 @@
     function bindControls() {
         bindMobilePlanningSelects();
         byId('planning-verify-ade')?.addEventListener('click', beginAdeVerification);
+        byId('university-email-close')?.addEventListener('click', closeUniversityEmailModal);
+        byId('universityEmailModal')?.addEventListener('click', event => {
+            if (event.target === byId('universityEmailModal')) closeUniversityEmailModal();
+        });
+        byId('university-email-send')?.addEventListener('click', () => sendUniversityVerificationCode());
+        byId('university-code-verify')?.addEventListener('click', verifyUniversityEmailCode);
+        byId('university-code-resend')?.addEventListener('click', () => sendUniversityVerificationCode({ resend: true }));
+        byId('university-code-change')?.addEventListener('click', showUniversityAddressStep);
+        byId('university-code-input')?.addEventListener('input', event => {
+            event.target.value = String(event.target.value || '').replace(/\D/g, '').slice(0, 6);
+        });
+        byId('university-code-input')?.addEventListener('keydown', event => {
+            if (event.key === 'Enter') verifyUniversityEmailCode();
+        });
+        byId('university-email-input')?.addEventListener('keydown', event => {
+            if (event.key === 'Enter') sendUniversityVerificationCode();
+        });
         document.querySelectorAll('[data-planning-resource-mode]').forEach(button => {
             button.addEventListener('click', () => {
                 activateResourceMode(button.dataset.planningResourceMode === 'room' ? 'room' : 'program');
@@ -3000,6 +3344,8 @@
             renderWeek();
             updateConnectionUi();
         });
+        byId('planning-open-android-app')?.addEventListener('click', openCollectorAndroidApp);
+        configureCollectorPlatformUi();
         document.querySelectorAll('[data-collector-sync]').forEach(button => {
             button.addEventListener('click', () => runAdminCollector(button.dataset.collectorSync || 'all'));
         });

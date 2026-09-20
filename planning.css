@@ -1728,3 +1728,313 @@ body.planning-mobile-select-open {
 .planning-mobile-select-option.is-selected i {
     color: color-mix(in srgb, var(--accent, #3b82f6) 72%, white 28%);
 }
+
+/* v2.36.17 — progression collecteur PC + lanceur Android */
+.planning-collector-progress {
+    display: grid;
+    gap: 10px;
+    padding: 14px 15px;
+    border: 1px solid rgba(56, 189, 248, .18);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(30, 64, 175, .13), rgba(8, 47, 73, .12));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+}
+
+.planning-collector-progress[hidden],
+.planning-collector-mobile-launch[hidden] {
+    display: none !important;
+}
+
+.planning-collector-progress-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.planning-collector-progress-head > div {
+    min-width: 0;
+}
+
+.planning-collector-progress-head span,
+.planning-collector-progress-head small {
+    display: block;
+}
+
+.planning-collector-progress-head span {
+    color: var(--text-primary, #f8fafc);
+    font-size: .82rem;
+    font-weight: 850;
+}
+
+.planning-collector-progress-head small {
+    margin-top: 3px;
+    color: var(--text-muted, #94a3b8);
+    font-size: .72rem;
+    line-height: 1.35;
+}
+
+.planning-collector-progress-head strong {
+    flex: 0 0 auto;
+    min-width: 58px;
+    color: #67e8f9;
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.planning-collector-progress-track {
+    position: relative;
+    width: 100%;
+    height: 11px;
+    overflow: hidden;
+    border-radius: 999px;
+    border: 1px solid rgba(96, 165, 250, .14);
+    background: rgba(15, 23, 42, .72);
+}
+
+.planning-collector-progress-track > span {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #2563eb 0%, #0ea5e9 58%, #22d3ee 100%);
+    box-shadow: 0 0 18px rgba(34, 211, 238, .22);
+    transition: width .35s ease;
+}
+
+.planning-collector-mobile-launch {
+    display: none;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(56, 189, 248, .19);
+    background: linear-gradient(135deg, rgba(30, 64, 175, .16), rgba(8, 47, 73, .18));
+}
+
+.planning-collector-mobile-icon {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    color: #67e8f9;
+    background: rgba(14, 165, 233, .12);
+    border: 1px solid rgba(56, 189, 248, .18);
+    font-size: 1.05rem;
+}
+
+.planning-collector-mobile-copy strong {
+    display: block;
+    color: var(--text-primary, #f8fafc);
+    font-size: .9rem;
+}
+
+.planning-collector-mobile-copy p {
+    margin: 4px 0 0;
+    color: var(--text-muted, #94a3b8);
+    font-size: .76rem;
+    line-height: 1.45;
+}
+
+.planning-collector-panel.is-mobile-launcher .planning-collector-mobile-launch {
+    display: grid;
+}
+
+.planning-collector-panel.is-mobile-launcher .planning-collector-control-grid,
+.planning-collector-panel.is-mobile-launcher .planning-collector-progress,
+.planning-collector-panel.is-mobile-launcher .planning-collector-status,
+.planning-collector-panel.is-mobile-launcher .planning-collector-resources {
+    display: none !important;
+}
+
+@media (max-width: 760px) {
+    .planning-collector-mobile-launch {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .planning-collector-mobile-launch > button {
+        grid-column: 1 / -1;
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .planning-collector-progress-track > span { transition: none; }
+}
+
+/* Vérification de l'adresse étudiante par code à usage unique */
+.university-email-modal-content {
+    width: min(94vw, 560px);
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(34, 211, 238, .11), transparent 35%),
+        linear-gradient(160deg, rgba(11, 27, 52, .99), rgba(7, 18, 38, .99));
+    border-color: rgba(74, 144, 226, .28);
+}
+
+.university-email-head {
+    clear: both;
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 22px;
+}
+
+.university-email-head h2 {
+    margin: 3px 0 6px;
+    color: var(--text-primary, #f8fafc);
+    font-size: clamp(1.25rem, 4vw, 1.65rem);
+}
+
+.university-email-head p {
+    margin: 0;
+    color: var(--text-muted, #94a3b8);
+    line-height: 1.5;
+    font-size: .86rem;
+}
+
+.university-email-icon {
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    border: 1px solid rgba(34, 211, 238, .25);
+    border-radius: 18px;
+    color: #67e8f9;
+    background: linear-gradient(145deg, rgba(37, 99, 235, .22), rgba(34, 211, 238, .11));
+    box-shadow: 0 12px 30px rgba(2, 132, 199, .10);
+    font-size: 1.35rem;
+}
+
+.university-email-step {
+    display: grid;
+    gap: 14px;
+}
+
+.university-email-step[hidden] { display: none; }
+
+.university-email-modal-content .field {
+    display: grid;
+    gap: 7px;
+}
+
+.university-email-modal-content .field > span {
+    color: #dbeafe;
+    font-size: .82rem;
+    font-weight: 750;
+}
+
+.university-email-modal-content .field small {
+    color: #7890b0;
+    font-size: .72rem;
+    line-height: 1.45;
+}
+
+.university-email-modal-content input {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid rgba(96, 165, 250, .20);
+    border-radius: 13px;
+    outline: none;
+    color: #f8fbff;
+    background: rgba(5, 15, 33, .78);
+    transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.university-email-modal-content input:focus {
+    border-color: rgba(34, 211, 238, .62);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, .09);
+}
+
+.university-email-primary {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+}
+
+.university-email-sent {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 12px 14px;
+    border: 1px solid rgba(34, 197, 94, .18);
+    border-radius: 13px;
+    background: rgba(34, 197, 94, .07);
+}
+
+.university-email-sent > i {
+    color: #4ade80;
+    font-size: 1.1rem;
+}
+
+.university-email-sent strong,
+.university-email-sent span { display: block; }
+.university-email-sent strong { color: #dcfce7; font-size: .86rem; }
+.university-email-sent span { margin-top: 2px; color: #9fb2cc; font-size: .76rem; }
+
+.university-code-field input {
+    height: 62px;
+    text-align: center;
+    letter-spacing: .32em;
+    padding-left: calc(14px + .32em);
+    font-size: 1.6rem;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+}
+
+.university-code-meta,
+.university-resend-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: #91a6c3;
+    font-size: .77rem;
+}
+
+.university-code-meta strong {
+    color: #67e8f9;
+    font-variant-numeric: tabular-nums;
+}
+
+.university-resend-row {
+    margin-top: 2px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(148, 163, 184, .11);
+}
+
+.university-email-message {
+    margin-top: 14px;
+}
+
+.university-email-security {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(148, 163, 184, .10);
+    color: #7187a6;
+    font-size: .7rem;
+    line-height: 1.5;
+}
+
+.university-email-security i {
+    margin-top: 2px;
+    color: #60a5fa;
+}
+
+@media (max-width: 560px) {
+    .university-email-modal-content { padding: 1.25rem 1rem 1rem; }
+    .university-email-head { grid-template-columns: 48px minmax(0, 1fr); gap: 11px; }
+    .university-email-icon { width: 48px; height: 48px; border-radius: 15px; }
+    .university-code-meta,
+    .university-resend-row { align-items: stretch; flex-direction: column; }
+    .university-resend-row button { width: 100%; justify-content: center; }
+}
