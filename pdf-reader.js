@@ -120,14 +120,14 @@
         return Math.max(160, stage.clientWidth - horizontalPadding - 6);
     }
 
-    async function renderPage() {
+    async function renderPage({ quiet = false } = {}) {
         if (!state.pdf || state.fallback) return;
 
         const serial = ++state.renderSerial;
         cancelRender();
         state.page = Math.max(1, Math.min(state.numPages || 1, Number(state.page) || 1));
         updateToolbar();
-        setLoading(true, `Affichage de la page ${state.page}…`);
+        if (!quiet) setLoading(true, `Affichage de la page ${state.page}…`);
 
         try {
             const page = await state.pdf.getPage(state.page);
@@ -179,7 +179,7 @@
             await state.renderTask.promise;
             if (serial !== state.renderSerial) return;
             state.renderTask = null;
-            setLoading(false);
+            if (!quiet) setLoading(false);
         } catch (error) {
             if (error?.name === 'RenderingCancelledException') return;
             console.error('Rendu PDF :', error);
@@ -333,219 +333,280 @@
         return best;
     }
 
-    function zoom(delta) {
-        const currentPercent = explicitZoomPercent() ?? Math.max(50, Math.min(250, state.currentCssScale * 100));
-        const baseIndex = nearestZoomIndex(currentPercent);
-        state.manualZoomPercent = null;
-        state.zoomIndex = Math.max(0, Math.min(zoomSteps.length - 1, baseIndex + delta));
-        updateToolbar();
-        if (!state.fallback) renderPage();
-    }
-
-    function fitWidth() {
-        state.manualZoomPercent = null;
-        state.zoomIndex = -1;
-        updateToolbar();
-        if (!state.fallback) renderPage();
-    }
-
-    // Android/Chrome/Brave : utiliser Pointer Events plutôt que les anciens
-    // événements touch*. Le navigateur nous confie ainsi explicitement les
-    // deux pointeurs du pinch quand touch-action:none est appliqué au stage.
     const activePointers = new Map();
+    let gestureRenderTimer = 0;
 
-    function pointerDistance(points) {
-        const dx = points[0].x - points[1].x;
-        const dy = points[0].y - points[1].y;
-        return Math.hypot(dx, dy);
-    }
-
-    function pointerMidpoint(points) {
-        return {
-            x: (points[0].x + points[1].x) / 2,
-            y: (points[0].y + points[1].y) / 2
-        };
-    }
-
-    function currentPointerPoints() {
-        return Array.from(activePointers.values()).slice(0, 2);
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     function clampStageScroll(stage) {
+        if (!stage) return;
         const maxX = Math.max(0, stage.scrollWidth - stage.clientWidth);
         const maxY = Math.max(0, stage.scrollHeight - stage.clientHeight);
-        stage.scrollLeft = Math.max(0, Math.min(maxX, stage.scrollLeft));
-        stage.scrollTop = Math.max(0, Math.min(maxY, stage.scrollTop));
+        stage.scrollLeft = clamp(stage.scrollLeft, 0, maxX);
+        stage.scrollTop = clamp(stage.scrollTop, 0, maxY);
     }
 
-    function beginPanAt(point, pointerId = null) {
-        if (!point || !state.pdf || state.fallback || state.pinch) return;
+    function currentPercent() {
+        return clamp((state.currentCssScale || 1) * 100, 25, 500);
+    }
+
+    function canvasAnchorAt(clientX, clientY) {
+        const canvas = byId('site-pdf-reader-canvas');
+        if (!canvas || !canvas.clientWidth || !canvas.clientHeight) return null;
+        const rect = canvas.getBoundingClientRect();
+        return {
+            fx: clamp((clientX - rect.left) / Math.max(1, rect.width), 0, 1),
+            fy: clamp((clientY - rect.top) / Math.max(1, rect.height), 0, 1),
+            clientX,
+            clientY
+        };
+    }
+
+    function centerAnchor() {
         const stage = getStage();
-        if (!stage) return;
+        if (!stage) return null;
+        const rect = stage.getBoundingClientRect();
+        return canvasAnchorAt(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    }
+
+    // Redimensionne immédiatement le canvas en CSS sans recalculer les pixels.
+    // Cela rend le pinch / Ctrl+molette fluide. Le rendu PDF haute qualité est
+    // relancé juste après la fin du geste.
+    function previewZoom(percent, anchor = null) {
+        const stage = getStage();
+        const canvas = byId('site-pdf-reader-canvas');
+        if (!stage || !canvas || !state.pageBaseWidth || !state.pageBaseHeight) return;
+
+        const nextPercent = clamp(percent, 25, 500);
+        const savedAnchor = anchor || centerAnchor();
+        const width = Math.max(1, state.pageBaseWidth * nextPercent / 100);
+        const height = Math.max(1, state.pageBaseHeight * nextPercent / 100);
+
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        state.currentCssScale = nextPercent / 100;
+
+        // Laisse le navigateur recalculer la largeur du wrapper puis replace
+        // exactement le même point du PDF sous le doigt / curseur.
+        if (savedAnchor) {
+            const rect = canvas.getBoundingClientRect();
+            stage.scrollLeft += (rect.left + savedAnchor.fx * width) - savedAnchor.clientX;
+            stage.scrollTop += (rect.top + savedAnchor.fy * height) - savedAnchor.clientY;
+            clampStageScroll(stage);
+        }
+
+        const label = byId('site-pdf-reader-zoom-label');
+        if (label) label.textContent = `${Math.round(nextPercent)} %`;
+    }
+
+    function scheduleCrispRender(delay = 90) {
+        clearTimeout(gestureRenderTimer);
+        gestureRenderTimer = window.setTimeout(() => {
+            if (!state.pdf || state.fallback) return;
+            renderPage({ quiet: true });
+        }, delay);
+    }
+
+    function commitManualZoom(percent, anchor = null, renderDelay = 60) {
+        const nextPercent = clamp(percent, 25, 500);
+        state.manualZoomPercent = nextPercent;
+        state.zoomIndex = -1;
+        previewZoom(nextPercent, anchor);
+        updateToolbar();
+        scheduleCrispRender(renderDelay);
+    }
+
+    function zoom(delta) {
+        const current = explicitZoomPercent() ?? currentPercent();
+        const baseIndex = nearestZoomIndex(current);
+        const nextIndex = clamp(baseIndex + delta, 0, zoomSteps.length - 1);
+        const nextPercent = zoomSteps[nextIndex];
+        state.manualZoomPercent = nextPercent;
+        state.zoomIndex = nextIndex;
+        previewZoom(nextPercent, centerAnchor());
+        updateToolbar();
+        scheduleCrispRender(40);
+    }
+
+    function fitWidth() {
+        clearTimeout(gestureRenderTimer);
+        state.manualZoomPercent = null;
+        state.zoomIndex = -1;
+        state.pinch = null;
+        state.pan = null;
+        updateToolbar();
+        if (!state.fallback) renderPage({ quiet: true });
+    }
+
+    function pointFromTouch(touch) {
+        return { x: touch.clientX, y: touch.clientY };
+    }
+
+    function distance(a, b) {
+        return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function midpoint(a, b) {
+        return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+
+    function beginPan(point, sourceId = null) {
+        const stage = getStage();
+        if (!stage || !point || state.pinch) return;
         state.pan = {
-            pointerId,
+            sourceId,
             startX: point.x,
             startY: point.y,
             startScrollLeft: stage.scrollLeft,
             startScrollTop: stage.scrollTop
         };
+        stage.classList.add('panning');
     }
 
-    function movePanAt(point, pointerId = null) {
-        if (!state.pan || state.pinch || !point) return;
-        if (state.pan.pointerId != null && pointerId != null && state.pan.pointerId !== pointerId) return;
+    function movePan(point, sourceId = null) {
         const stage = getStage();
-        if (!stage) return;
+        if (!stage || !state.pan || state.pinch || !point) return;
+        if (state.pan.sourceId != null && sourceId != null && state.pan.sourceId !== sourceId) return;
         stage.scrollLeft = state.pan.startScrollLeft - (point.x - state.pan.startX);
         stage.scrollTop = state.pan.startScrollTop - (point.y - state.pan.startY);
         clampStageScroll(stage);
     }
 
-    function beginPinchAt(points) {
-        if (points.length < 2 || !state.pdf || state.fallback) return;
-        const stage = getStage();
-        const canvas = byId('site-pdf-reader-canvas');
-        if (!stage || !canvas || !canvas.clientWidth || !canvas.clientHeight) return;
-
-        const mid = pointerMidpoint(points);
-        const canvasRect = canvas.getBoundingClientRect();
+    function endPan() {
+        getStage()?.classList.remove('panning');
         state.pan = null;
+    }
+
+    function beginPinch(pointA, pointB) {
+        if (!state.pdf || state.fallback) return;
+        const stage = getStage();
+        if (!stage) return;
+        const mid = midpoint(pointA, pointB);
+        const anchor = canvasAnchorAt(mid.x, mid.y);
+        if (!anchor) return;
+        endPan();
         state.pinch = {
-            startDistance: Math.max(1, pointerDistance(points)),
-            startPercent: Math.max(25, state.currentCssScale * 100),
-            anchorX: Math.max(0, Math.min(1, (mid.x - canvasRect.left) / Math.max(1, canvasRect.width))),
-            anchorY: Math.max(0, Math.min(1, (mid.y - canvasRect.top) / Math.max(1, canvasRect.height))),
-            lastPercent: Math.max(25, state.currentCssScale * 100)
+            startDistance: Math.max(1, distance(pointA, pointB)),
+            startPercent: currentPercent(),
+            anchor,
+            lastPercent: currentPercent()
         };
         stage.classList.add('pinching');
     }
 
-    function movePinchAt(points) {
-        if (!state.pinch || points.length < 2) return;
-        const stage = getStage();
-        const canvas = byId('site-pdf-reader-canvas');
-        if (!stage || !canvas || !state.pageBaseWidth || !state.pageBaseHeight) return;
-
-        const mid = pointerMidpoint(points);
-        const ratio = pointerDistance(points) / state.pinch.startDistance;
-        const percent = Math.max(40, Math.min(350, state.pinch.startPercent * ratio));
-        const width = state.pageBaseWidth * percent / 100;
-        const height = state.pageBaseHeight * percent / 100;
-
-        // Redimensionnement visuel instantané pendant le geste. Le canvas n'est
-        // rerendu en haute qualité qu'à la fin du pinch pour rester fluide.
-        canvas.style.width = `${Math.max(1, width)}px`;
-        canvas.style.height = `${Math.max(1, height)}px`;
-
-        const resizedRect = canvas.getBoundingClientRect();
-        stage.scrollLeft += (resizedRect.left + state.pinch.anchorX * width) - mid.x;
-        stage.scrollTop += (resizedRect.top + state.pinch.anchorY * height) - mid.y;
-        clampStageScroll(stage);
-
+    function movePinch(pointA, pointB) {
+        if (!state.pinch) beginPinch(pointA, pointB);
+        if (!state.pinch) return;
+        const mid = midpoint(pointA, pointB);
+        const ratio = distance(pointA, pointB) / state.pinch.startDistance;
+        const percent = clamp(state.pinch.startPercent * ratio, 25, 500);
+        const liveAnchor = {
+            ...state.pinch.anchor,
+            clientX: mid.x,
+            clientY: mid.y
+        };
+        previewZoom(percent, liveAnchor);
         state.pinch.lastPercent = percent;
-        const zoom = byId('site-pdf-reader-zoom-label');
-        if (zoom) zoom.textContent = `${Math.round(percent)} %`;
     }
 
     function finishPinch() {
         if (!state.pinch) return;
-        const stage = getStage();
-        const percent = state.pinch.lastPercent;
+        const percent = clamp(state.pinch.lastPercent, 25, 500);
         state.pinch = null;
-        stage?.classList.remove('pinching');
-        state.manualZoomPercent = Math.max(40, Math.min(350, percent));
+        getStage()?.classList.remove('pinching');
+        state.manualZoomPercent = percent;
         state.zoomIndex = -1;
-        state.currentCssScale = state.manualZoomPercent / 100;
+        state.currentCssScale = percent / 100;
         updateToolbar();
-
-        const remaining = currentPointerPoints();
-        if (remaining.length === 1) {
-            const [pointerId, point] = Array.from(activePointers.entries())[0] || [];
-            beginPanAt(point, pointerId);
-        } else {
-            state.pan = null;
-        }
-
-        if (!state.fallback) renderPage();
+        scheduleCrispRender(80);
     }
 
-    function handlePointerDown(event) {
+    // MOBILE : utiliser volontairement Touch Events même lorsque PointerEvent
+    // existe. Certains navigateurs Android annoncent PointerEvent mais ne nous
+    // livrent pas correctement les deux pointeurs du pinch dans cette modale.
+    function handleTouchStart(event) {
         if (!state.pdf || state.fallback) return;
-        // La souris conserve son comportement habituel. Les gestes personnalisés
-        // sont réservés au tactile/stylet pour ne pas gêner le desktop.
-        if (event.pointerType === 'mouse') return;
+        if (event.touches.length >= 2) {
+            event.preventDefault();
+            const a = pointFromTouch(event.touches[0]);
+            const b = pointFromTouch(event.touches[1]);
+            beginPinch(a, b);
+            return;
+        }
+        if (event.touches.length === 1) {
+            event.preventDefault();
+            beginPan(pointFromTouch(event.touches[0]), 'touch');
+        }
+    }
+
+    function handleTouchMove(event) {
+        if (!state.pdf || state.fallback) return;
+        if (event.touches.length >= 2) {
+            event.preventDefault();
+            const a = pointFromTouch(event.touches[0]);
+            const b = pointFromTouch(event.touches[1]);
+            movePinch(a, b);
+            return;
+        }
+        if (event.touches.length === 1) {
+            event.preventDefault();
+            movePan(pointFromTouch(event.touches[0]), 'touch');
+        }
+    }
+
+    function handleTouchEnd(event) {
+        if (!state.pdf || state.fallback) return;
+        event.preventDefault();
+        if (state.pinch && event.touches.length < 2) finishPinch();
+        if (event.touches.length === 1 && !state.pinch) {
+            beginPan(pointFromTouch(event.touches[0]), 'touch');
+        } else if (event.touches.length === 0) {
+            endPan();
+        }
+    }
+
+    // DESKTOP : clic gauche + glisser pour recadrer le document zoomé.
+    function handleMousePointerDown(event) {
+        if (event.pointerType !== 'mouse' || event.button !== 0 || !state.pdf || state.fallback) return;
         const stage = getStage();
         if (!stage) return;
-
         event.preventDefault();
         try { stage.setPointerCapture(event.pointerId); } catch {}
-        activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-
-        if (activePointers.size >= 2) {
-            if (!state.pinch) beginPinchAt(currentPointerPoints());
-        } else {
-            beginPanAt({ x: event.clientX, y: event.clientY }, event.pointerId);
-        }
+        activePointers.set(event.pointerId, true);
+        beginPan({ x: event.clientX, y: event.clientY }, event.pointerId);
     }
 
-    function handlePointerMove(event) {
-        if (!activePointers.has(event.pointerId)) return;
+    function handleMousePointerMove(event) {
+        if (event.pointerType !== 'mouse' || !activePointers.has(event.pointerId)) return;
         event.preventDefault();
-        activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-
-        if (activePointers.size >= 2) {
-            const points = currentPointerPoints();
-            if (!state.pinch) beginPinchAt(points);
-            movePinchAt(points);
-        } else if (activePointers.size === 1) {
-            movePanAt({ x: event.clientX, y: event.clientY }, event.pointerId);
-        }
+        movePan({ x: event.clientX, y: event.clientY }, event.pointerId);
     }
 
-    function handlePointerUp(event) {
-        if (!activePointers.has(event.pointerId)) return;
+    function handleMousePointerUp(event) {
+        if (event.pointerType !== 'mouse' || !activePointers.has(event.pointerId)) return;
         event.preventDefault();
         activePointers.delete(event.pointerId);
-
-        if (state.pinch && activePointers.size < 2) {
-            finishPinch();
-        } else if (activePointers.size === 0) {
-            state.pan = null;
-        } else if (activePointers.size === 1 && !state.pinch) {
-            const [pointerId, point] = Array.from(activePointers.entries())[0];
-            beginPanAt(point, pointerId);
-        }
+        endPan();
     }
 
-    // Fallback pour de très vieux WebView ne prenant pas Pointer Events en charge.
-    function handleTouchStartFallback(event) {
-        if ('PointerEvent' in window) return;
-        if (event.touches.length === 2) {
-            event.preventDefault();
-            beginPinchAt(Array.from(event.touches).map(t => ({ x: t.clientX, y: t.clientY })));
-        } else if (event.touches.length === 1) {
-            event.preventDefault();
-            beginPanAt({ x: event.touches[0].clientX, y: event.touches[0].clientY });
-        }
-    }
+    // PC / trackpad : Ctrl + molette (et le pinch du trackpad, que Chrome
+    // expose comme wheel+ctrlKey) zoome UNIQUEMENT le PDF.
+    function handleWheel(event) {
+        const modal = byId('site-pdf-reader');
+        if (!modal || modal.hidden || !state.pdf || state.fallback || !event.ctrlKey) return;
+        event.preventDefault();
+        event.stopPropagation();
 
-    function handleTouchMoveFallback(event) {
-        if ('PointerEvent' in window) return;
-        if (event.touches.length === 2) {
-            event.preventDefault();
-            const points = Array.from(event.touches).map(t => ({ x: t.clientX, y: t.clientY }));
-            if (!state.pinch) beginPinchAt(points);
-            movePinchAt(points);
-        } else if (event.touches.length === 1) {
-            event.preventDefault();
-            movePanAt({ x: event.touches[0].clientX, y: event.touches[0].clientY });
-        }
-    }
-
-    function handleTouchEndFallback(event) {
-        if ('PointerEvent' in window) return;
-        if (state.pinch && event.touches.length < 2) finishPinch();
-        if (event.touches.length === 0) state.pan = null;
+        const anchor = canvasAnchorAt(event.clientX, event.clientY) || centerAnchor();
+        const factor = Math.exp(-event.deltaY * 0.0025);
+        const next = clamp(currentPercent() * factor, 25, 500);
+        state.manualZoomPercent = next;
+        state.zoomIndex = -1;
+        previewZoom(next, anchor);
+        updateToolbar();
+        scheduleCrispRender(120);
     }
 
     let resizeTimer = 0;
@@ -555,7 +616,7 @@
         resizeTimer = window.setTimeout(() => renderPage(), 120);
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function bindReaderUi() {
         document.querySelectorAll('[data-pdf-reader-close]').forEach(el => el.addEventListener('click', close));
         byId('site-pdf-reader-prev')?.addEventListener('click', () => setPage(state.page - 1));
         byId('site-pdf-reader-next')?.addEventListener('click', () => setPage(state.page + 1));
@@ -572,18 +633,21 @@
         byId('site-pdf-reader-fit')?.addEventListener('click', fitWidth);
 
         const stage = getStage();
-        stage?.addEventListener('pointerdown', handlePointerDown, { passive: false });
-        stage?.addEventListener('pointermove', handlePointerMove, { passive: false });
-        stage?.addEventListener('pointerup', handlePointerUp, { passive: false });
-        stage?.addEventListener('pointercancel', handlePointerUp, { passive: false });
-        stage?.addEventListener('lostpointercapture', handlePointerUp, { passive: false });
+        // Doigts : Touch Events, sans dépendre de PointerEvent.
+        stage?.addEventListener('touchstart', handleTouchStart, { passive: false });
+        stage?.addEventListener('touchmove', handleTouchMove, { passive: false });
+        stage?.addEventListener('touchend', handleTouchEnd, { passive: false });
+        stage?.addEventListener('touchcancel', handleTouchEnd, { passive: false });
 
-        // Compatibilité ancien WebView uniquement : sur les navigateurs modernes,
-        // Pointer Events est la seule voie utilisée afin d'éviter les doubles gestes.
-        stage?.addEventListener('touchstart', handleTouchStartFallback, { passive: false });
-        stage?.addEventListener('touchmove', handleTouchMoveFallback, { passive: false });
-        stage?.addEventListener('touchend', handleTouchEndFallback, { passive: false });
-        stage?.addEventListener('touchcancel', handleTouchEndFallback, { passive: false });
+        // Souris : glisser pour déplacer le document.
+        stage?.addEventListener('pointerdown', handleMousePointerDown, { passive: false });
+        stage?.addEventListener('pointermove', handleMousePointerMove, { passive: false });
+        stage?.addEventListener('pointerup', handleMousePointerUp, { passive: false });
+        stage?.addEventListener('pointercancel', handleMousePointerUp, { passive: false });
+        stage?.addEventListener('lostpointercapture', handleMousePointerUp, { passive: false });
+
+        // Ctrl+molette / pinch trackpad : empêcher le zoom de la page et zoomer le PDF.
+        stage?.addEventListener('wheel', handleWheel, { passive: false, capture: true });
 
         byId('site-pdf-reader-download')?.addEventListener('click', async event => {
             event.preventDefault();
@@ -625,7 +689,10 @@
         });
 
         window.addEventListener('resize', onResize, { passive: true });
-    });
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindReaderUi, { once: true });
+    else bindReaderUi();
 
     window.sitePdfReader = { open, close };
 })();

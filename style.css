@@ -3470,3 +3470,23 @@ body.site-pdf-reader-open { overflow: hidden; }
     pointer-events: auto;
     -webkit-user-drag: none;
 }
+
+
+/* v2.36.11 — interactions unifiées de la liseuse PDF */
+.site-pdf-reader-stage {
+    touch-action: none !important;
+    overscroll-behavior: none;
+    cursor: grab;
+}
+.site-pdf-reader-stage.panning,
+.site-pdf-reader-stage.pinching {
+    cursor: grabbing;
+    scroll-behavior: auto !important;
+}
+.site-pdf-reader-stage,
+.site-pdf-reader-canvas-wrap,
+#site-pdf-reader-canvas {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
