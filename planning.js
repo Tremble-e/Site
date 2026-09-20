@@ -698,7 +698,7 @@
         }
 
         document.querySelectorAll(
-            '#planning > .planning-toolbar, #planning > .planning-filter-panel, #planning > .planning-mobile-panel, #planning > .planning-timetable-shell, #planning > .planning-empty'
+            '#planning > .planning-toolbar, #planning > .planning-filter-panel, #planning > .planning-mobile-panel, #planning > .planning-timetable-shell'
         ).forEach(element => {
             element.hidden = !accessGranted;
             // Sécurité visuelle : certains anciens CSS forçaient le panneau de tri à rester affiché malgré [hidden].
@@ -2971,7 +2971,6 @@
 
     function renderWeek() {
         const grid = byId('planning-week-grid');
-        const empty = byId('planning-empty');
         const label = byId('planning-week-label');
         const range = byId('planning-week-range');
         if (!grid || !state.user) return;
@@ -3038,19 +3037,6 @@
 
         renderDayTimeline(firstDate);
 
-        if (empty) {
-            const rawWeekCount = (state.payload?.events || []).filter(event => dates.includes(event.date)).length;
-            const emptyTitle = empty.querySelector('h2');
-            const emptyText = empty.querySelector('p');
-            empty.hidden = allEvents.length !== 0;
-            if (!empty.hidden && rawWeekCount > 0) {
-                if (emptyTitle) emptyTitle.textContent = 'Aucun cours avec ces filtres';
-                if (emptyText) emptyText.textContent = 'Modifiez ou réinitialisez les filtres pour réafficher les cours de cette semaine.';
-            } else {
-                if (emptyTitle) emptyTitle.textContent = 'Aucun cours cette semaine';
-                if (emptyText) emptyText.textContent = 'Cette semaine est vide dans l’emploi du temps actuellement synchronisé.';
-            }
-        }
     }
 
     function moveWeek(delta) {

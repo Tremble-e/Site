@@ -20,10 +20,10 @@
 <link href="pwa-icon-192.png" rel="apple-touch-icon"/>
 <link href="https://cdnjs.cloudflare.com" rel="preconnect"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="style.css?v=2.36.22" rel="stylesheet"/>
+<link href="style.css?v=2.36.24" rel="stylesheet"/>
 <link href="forum.css?v=2.9.5" rel="stylesheet"/>
 <link href="forum_v2.css?v=2.9.6" rel="stylesheet"/>
-<link href="planning.css?v=2.36.22" rel="stylesheet"/>
+<link href="planning.css?v=2.36.24" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -721,11 +721,7 @@
 <div class="planning-timetable-shell">
 <div aria-live="polite" class="planning-week-grid" id="planning-week-grid"></div>
 </div>
-<div class="glass-panel planning-empty" hidden="" id="planning-empty">
-<i class="fa-regular fa-calendar-xmark"></i>
-<h2>Aucun cours cette semaine</h2>
-<p>Cette semaine est vide dans l’emploi du temps actuellement synchronisé.</p>
-</div><div class="glass-panel planning-filter-panel" id="planning-filter-panel">
+<div class="glass-panel planning-filter-panel" id="planning-filter-panel">
 <div class="planning-filter-header">
 <div>
 <span class="section-kicker">Affichage</span>
@@ -929,7 +925,7 @@
 </div>
 <p class="form-help"><i class="fa-solid fa-triangle-exclamation"></i> Vous ne voyez pas l’e-mail ? Vérifiez vos courriers indésirables / spams.</p>
 <label class="field university-code-field"><span>Code de vérification</span><input autocomplete="one-time-code" id="university-code-input" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="000000" type="text"/></label>
-<div class="university-code-meta"><span><i class="fa-regular fa-clock"></i> Expire dans <strong id="university-code-expiry">05:00</strong></span><button class="text-link" id="university-code-change" type="button">Changer d’adresse</button></div>
+<div class="university-code-meta"><span><i class="fa-regular fa-clock"></i> Expire dans <strong id="university-code-expiry">05:00</strong></span><button class="secondary-btn compact-btn university-change-btn" id="university-code-change" type="button"><i class="fa-solid fa-pen"></i> Modifier l'adresse</button></div>
 <button class="primary-btn university-email-primary" id="university-code-verify" type="button"><i class="fa-solid fa-shield-check"></i> Valider le code</button>
 <div class="university-resend-row"><span>Vous n’avez rien reçu ?</span><button class="secondary-btn compact-btn" disabled id="university-code-resend" type="button"><i class="fa-solid fa-rotate-right"></i> Renvoyer dans 60 s</button></div>
 </div>
@@ -1486,10 +1482,10 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="pdf-reader.js?v=2.36.22"></script>
-<script src="script.js?v=2.36.22"></script>
-<script src="planning.js?v=2.36.22"></script>
-<script src="forum.js?v=2.36.22"></script>
+<script src="pdf-reader.js?v=2.36.24"></script>
+<script src="script.js?v=2.36.24"></script>
+<script src="planning.js?v=2.36.24"></script>
+<script src="forum.js?v=2.36.24"></script>
 <script src="forum_v2.js?v=2.9.5"></script>
 
 <div aria-labelledby="site-pdf-reader-title" aria-modal="true" class="site-pdf-reader" hidden id="site-pdf-reader" role="dialog">

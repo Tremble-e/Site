@@ -724,15 +724,6 @@
     white-space: nowrap;
 }
 
-.planning-empty {
-    margin-top: .8rem;
-    padding: 1.7rem;
-    text-align: center;
-}
-.planning-empty > i { font-size: 1.8rem; color: var(--accent, #3b82f6); }
-.planning-empty h2 { margin: .6rem 0 .25rem; }
-.planning-empty p { margin: 0; color: var(--text-muted, #94a3b8); }
-
 
 @media (min-width: 901px) {
     #planning.planning-view-week .planning-mobile-panel { display: none; }
@@ -2030,11 +2021,33 @@ body.planning-mobile-select-open {
     color: #60a5fa;
 }
 
+.university-change-btn {
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(96, 165, 250, .22);
+    background: rgba(15, 23, 42, .72);
+    color: #dbeafe;
+    box-shadow: 0 10px 24px rgba(2, 8, 23, .16);
+    white-space: nowrap;
+}
+
+.university-change-btn:hover:not(:disabled) {
+    border-color: rgba(34, 211, 238, .36);
+    background: rgba(14, 35, 67, .88);
+    color: #f8fbff;
+}
+
+.university-change-btn i {
+    color: #67e8f9;
+}
+
 @media (max-width: 560px) {
     .university-email-modal-content { padding: 1.25rem 1rem 1rem; }
     .university-email-head { grid-template-columns: 48px minmax(0, 1fr); gap: 11px; }
     .university-email-icon { width: 48px; height: 48px; border-radius: 15px; }
     .university-code-meta,
     .university-resend-row { align-items: stretch; flex-direction: column; }
-    .university-resend-row button { width: 100%; justify-content: center; }
+    .university-resend-row button,
+    .university-change-btn { width: 100%; justify-content: center; }
 }
