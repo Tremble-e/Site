@@ -594,7 +594,7 @@
 
             if (status) {
                 status.textContent = selectedResource && resourceKind(selectedResource) === 'room'
-                    ? `Salle : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
+                    ? `Salle : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · synchronisé ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'date inconnue'}`
                     : resources.length
                         ? 'Choisissez un bâtiment puis une salle.'
                         : 'Aucune salle n’a encore été publiée par le collecteur.';
@@ -644,7 +644,7 @@
 
         if (status) {
             status.textContent = selectedResource && resourceKind(selectedResource) === 'program'
-                ? `Filière : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · mise à jour ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'inconnue'}`
+                ? `Filière : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · synchronisé ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'date inconnue'}`
                 : resources.length
                     ? 'Choisissez votre année, votre spécialité puis votre semestre.'
                     : 'Aucune filière n’a encore été publiée par le collecteur.';
@@ -2367,7 +2367,7 @@
         if (lastSync) {
             const value = selected?.updated_at || selected?.source_updated_at || state.payload?.generatedAt || null;
             lastSync.textContent = value
-                ? `Mis à jour ${new Date(value).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                ? `Synchronisé ${new Date(value).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
                 : 'Aucune mise à jour';
         }
         if (cloud) {
