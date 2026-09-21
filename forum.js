@@ -29,6 +29,7 @@ const forumState = {
     searchTerm: '',
     rawPosts: new Map(),
     profilesById: new Map(),
+    universityVerifiedIds: new Set(),
     reactionsByPost: new Map(),
     realtimeChannel: null,
     notificationChannel: null,
@@ -166,6 +167,34 @@ function fRoleBadge(role) {
     if (role === 'admin') return '<span class="member-role admin"><i class="fa-solid fa-shield-halved"></i> Admin</span>';
     if (role === 'moderator') return '<span class="member-role moderator"><i class="fa-solid fa-gavel"></i> Modérateur</span>';
     return '<span class="member-role">Membre</span>';
+}
+
+function fUniversityVerifiedBadge(userId, profile = null) {
+    const verified = Boolean(profile?.university_verified) || forumState.universityVerifiedIds.has(String(userId || ''));
+    if (!verified) return '';
+    return '<span class="university-verified-badge" title="Membre de l’Université de Limoges vérifié" aria-label="Membre de l’Université de Limoges vérifié"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>';
+}
+
+async function loadUniversityVerifiedUsers(userIds = []) {
+    const ids = [...new Set((userIds || []).filter(Boolean).map(String))];
+    if (!ids.length) return;
+    const client = forumClient();
+    if (!client) return;
+    try {
+        const { data, error } = await client
+            .from('profiles')
+            .select('user_id,university_verified')
+            .in('user_id', ids);
+        if (error) throw error;
+        for (const row of data || []) {
+            const id = String(row.user_id || '');
+            if (!id) continue;
+            if (row.university_verified) forumState.universityVerifiedIds.add(id);
+            else forumState.universityVerifiedIds.delete(id);
+        }
+    } catch (error) {
+        console.warn('Statut universitaire des membres indisponible :', error?.message || error);
+    }
 }
 
 function fSafeHttpUrl(value) {
@@ -448,7 +477,7 @@ function renderAccountPopover() {
     pop.innerHTML = `
         <div class="account-popover-head">
             ${fAvatar(p)}
-            <div><strong>${fEsc(p.username || 'Membre')}</strong><small>${fEsc(forumState.user.email || '')}</small></div>
+            <div><strong class="account-verified-name">${fEsc(p.username || 'Membre')}${fUniversityVerifiedBadge(p.user_id || forumState.user.id, p)}</strong><small>${fEsc(forumState.user.email || '')}</small></div>
         </div>
         <button type="button" class="account-menu-action" data-account-action="profile"><i class="fa-solid fa-user-pen"></i> Modifier mon profil</button>
         <button type="button" class="account-menu-action" data-account-action="public-profile"><i class="fa-regular fa-id-card"></i> Voir mon profil public</button>
@@ -910,6 +939,7 @@ async function renderTopicList({ authorId = forumState.currentAuthorFilter } = {
         return;
     }
 
+    await loadUniversityVerifiedUsers((data || []).map(topic => topic.author_id));
     const totalPages = Math.max(1, Math.ceil((count || 0) / FORUM_PAGE_SIZE));
     container.innerHTML = `
         <div class="forum-view-heading">${heading}</div>
@@ -930,7 +960,7 @@ function forumPresenceMarkup(userId, username = '', withText = false) {
 function renderTopicCard(topic) {
     const replyCount = Math.max(0, Number(topic.post_count || 0) - 1);
     const author = topic.author_id
-        ? `<button type="button" data-member-profile="${fAttr(topic.author_id)}">${forumPresenceMarkup(topic.author_id, topic.author_username || 'Membre')}${fEsc(topic.author_username || 'Membre')}</button>`
+        ? `<button type="button" data-member-profile="${fAttr(topic.author_id)}">${forumPresenceMarkup(topic.author_id, topic.author_username || 'Membre')}${fEsc(topic.author_username || 'Membre')}${fUniversityVerifiedBadge(topic.author_id)}</button>`
         : '<span>Utilisateur supprimé</span>';
     return `
         <article class="topic-card" data-forum-topic="${fAttr(topic.id)}" tabindex="0" role="button">
@@ -1000,6 +1030,7 @@ async function openForumTopic(topicId) {
     if (authorIds.length) {
         const { data } = await client.from('community_members').select('*').in('user_id', authorIds);
         memberRows = data || [];
+        await loadUniversityVerifiedUsers(authorIds);
     }
     const postIds = (posts || []).map(p => p.id);
     let reactions = [];
@@ -1049,7 +1080,7 @@ function renderForumTopic() {
                 <div>
                     <span class="section-kicker">${fEsc(topic.category_name || '')}</span>
                     <h2>${fEsc(topic.title)}</h2>
-                    <div class="topic-meta"><span>créé par ${topic.author_id ? `<button type="button" data-member-profile="${fAttr(topic.author_id)}">${forumPresenceMarkup(topic.author_id, topic.author_username || 'Membre')}${fEsc(topic.author_username || 'Membre')}</button>` : '<span>Utilisateur supprimé</span>'}</span><span>•</span><span>${fFullDate(topic.created_at)}</span></div>
+                    <div class="topic-meta"><span>créé par ${topic.author_id ? `<button type="button" data-member-profile="${fAttr(topic.author_id)}">${forumPresenceMarkup(topic.author_id, topic.author_username || 'Membre')}${fEsc(topic.author_username || 'Membre')}${fUniversityVerifiedBadge(topic.author_id)}</button>` : '<span>Utilisateur supprimé</span>'}</span><span>•</span><span>${fFullDate(topic.created_at)}</span></div>
                 </div>
                 <div class="forum-topic-actions">${headerActions}</div>
             </div>
@@ -1081,7 +1112,7 @@ function renderForumPost(post, number) {
     const authorHtml = post.author_id ? `
         <button type="button" data-member-profile="${fAttr(profile.user_id)}">
             ${fAvatar(profile)}
-            <span><span class="forum-post-author-name-row"><strong>${fEsc(profile.username || 'Membre')}</strong>${fRoleBadge(role)}</span>${forumPresenceMarkup(profile.user_id, profile.username || 'Membre', true)}<small>Membre depuis ${new Date(profile.created_at || post.created_at).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}</small>${profile.message_count !== undefined ? `<small>${Number(profile.message_count || 0)} message${Number(profile.message_count || 0) === 1 ? '' : 's'}</small>` : ''}</span>
+            <span><span class="forum-post-author-name-row"><strong>${fEsc(profile.username || 'Membre')}</strong>${fUniversityVerifiedBadge(profile.user_id, profile)}${fRoleBadge(role)}</span>${forumPresenceMarkup(profile.user_id, profile.username || 'Membre', true)}<small>Membre depuis ${new Date(profile.created_at || post.created_at).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}</small>${profile.message_count !== undefined ? `<small>${Number(profile.message_count || 0)} message${Number(profile.message_count || 0) === 1 ? '' : 's'}</small>` : ''}</span>
         </button>` : `
         <div class="forum-deleted-member">
             <span class="member-avatar"><i class="fa-solid fa-user-slash"></i></span>
@@ -1315,6 +1346,7 @@ async function renderCommunityMembers() {
     const start = (forumState.memberPage - 1) * MEMBER_PAGE_SIZE;
     const { data, error, count } = await query.order('message_count', { ascending: false }).order('created_at', { ascending: true }).range(start, start + MEMBER_PAGE_SIZE - 1);
     if (error) { forumErrorState('Impossible de charger les membres', error.message); return; }
+    await loadUniversityVerifiedUsers((data || []).map(member => member.user_id));
     const totalPages = Math.max(1, Math.ceil((count || 0) / MEMBER_PAGE_SIZE));
     const container = document.getElementById('forum-content');
     if (!data?.length) {
@@ -1325,7 +1357,7 @@ async function renderCommunityMembers() {
         <div class="community-heading"><div><h2>Communauté</h2><p>${count || 0} membre${count === 1 ? '' : 's'} inscrit${count === 1 ? '' : 's'}</p></div></div>
         <div class="community-list">${data.map(member => `
             <article class="community-member clickable" data-member-profile="${fAttr(member.user_id)}" tabindex="0" role="button">
-                <div class="community-member-main">${fAvatar(member)}<div><strong>${fEsc(member.username)}</strong>${fRoleBadge(member.role)}${forumPresenceMarkup(member.user_id, member.username, true)}<small>Inscrit ${fRelativeDate(member.created_at)}</small></div></div>
+                <div class="community-member-main">${fAvatar(member)}<div><strong class="member-name-with-verification">${fEsc(member.username)}${fUniversityVerifiedBadge(member.user_id, member)}</strong>${fRoleBadge(member.role)}${forumPresenceMarkup(member.user_id, member.username, true)}<small>Inscrit ${fRelativeDate(member.created_at)}</small></div></div>
                 <div class="community-stat"><strong>${Number(member.message_count || 0)}</strong><span>Messages</span></div>
                 <div class="community-stat"><strong>${Number(member.topic_count || 0)}</strong><span>Sujets</span></div>
                 <div class="community-stat"><strong>${Number(member.document_count || 0)}</strong><span>Documents</span></div>
@@ -1342,12 +1374,13 @@ async function openMemberProfile(userId) {
         client.from('forum_topic_summaries').select('id,title,created_at,is_solved').eq('author_id', userId).order('created_at', { ascending: false }).limit(5)
     ]);
     if (error || !member) return forumToast('Profil indisponible.');
+    await loadUniversityVerifiedUsers([userId]);
     const website = fSafeHttpUrl(member.website_url);
     const content = document.getElementById('member-profile-content');
     content.innerHTML = `
         <div class="member-profile-hero">
             ${fAvatar(member, 'large')}
-            <div><h2 id="member-profile-title">${fEsc(member.username)}</h2>${fRoleBadge(member.role)}${forumPresenceMarkup(member.user_id, member.username, true)}<p>Membre depuis ${new Date(member.created_at).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</p></div>
+            <div><h2 id="member-profile-title" class="member-name-with-verification">${fEsc(member.username)}${fUniversityVerifiedBadge(member.user_id, member)}</h2>${fRoleBadge(member.role)}${forumPresenceMarkup(member.user_id, member.username, true)}<p>Membre depuis ${new Date(member.created_at).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</p></div>
         </div>
         ${member.bio ? `<div class="member-profile-bio">${renderForumText(member.bio)}</div>` : '<div class="member-profile-bio"><p>Aucune biographie renseignée.</p></div>'}
         ${website ? `<p style="margin-top:.7rem"><a class="text-link" href="${fAttr(website)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-link"></i> Site / profil externe</a></p>` : ''}

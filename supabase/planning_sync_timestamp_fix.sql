@@ -1,4 +1,4 @@
--- 2.36.26 — Corrige la date publique de dernière synchronisation.
+-- 2.36.27 — Utilise la vraie date source ADE, jamais une date technique de mise à jour.
 -- À exécuter une fois dans Supabase > SQL Editor.
 
 create or replace function public.get_public_planning_status()
@@ -15,7 +15,7 @@ as $$
         (select count(*)::bigint
            from public.planning_resources
           where coalesce(active, true) = true) as available_count,
-        (select max(updated_at)
+        (select max(coalesce(source_updated_at, updated_at))
            from public.planning_resources
           where coalesce(active, true) = true) as last_synced_at,
         (select count(*)::bigint

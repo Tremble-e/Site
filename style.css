@@ -3649,3 +3649,29 @@ body.site-pdf-reader-open { overflow: hidden; }
         min-height: 0;
     }
 }
+
+/* 2.36.27 — badge universitaire discret */
+.university-verified-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.05rem;
+    height: 1.05rem;
+    margin-left: .34rem;
+    vertical-align: -.08rem;
+    border-radius: 999px;
+    color: #7dd3fc;
+    background: rgba(14, 165, 233, .10);
+    border: 1px solid rgba(125, 211, 252, .22);
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, .04), 0 0 12px rgba(14, 165, 233, .08);
+    font-size: .62rem;
+    line-height: 1;
+    flex: 0 0 auto;
+}
+.university-verified-badge i { line-height: 1; }
+.member-name-with-verification,
+.account-verified-name {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+}

@@ -817,20 +817,23 @@ async function loadPublicHomeStatus() {
 
         // Le RPC historique peut contenir une ancienne date globale. Pour un
         // utilisateur connecté ayant accès aux EDT, la source la plus fiable est
-        // désormais la ressource réellement publiée la plus récemment. Android
-        // harmonise `updated_at` de tout le run sur son heure exacte de fin.
+        // désormais l'horodatage source ADE. `updated_at` peut être modifié par des
+        // opérations techniques et ne doit jamais être présenté comme une vraie synchro.
         try {
             const { data: latestResource, error: latestResourceError } = await supabaseClient
                 .from('planning_resources')
-                .select('updated_at')
+                .select('source_updated_at,updated_at')
                 .eq('active', true)
-                .order('updated_at', { ascending: false })
+                .order('source_updated_at', { ascending: false, nullsFirst: false })
                 .limit(1)
                 .maybeSingle();
-            if (!latestResourceError && latestResource?.updated_at) {
-                const rpcTime = Date.parse(lastSyncedAt || '') || 0;
-                const resourceTime = Date.parse(latestResource.updated_at) || 0;
-                if (resourceTime >= rpcTime) lastSyncedAt = latestResource.updated_at;
+            if (!latestResourceError && latestResource) {
+                const resourceSync = latestResource.source_updated_at || latestResource.updated_at || null;
+                if (resourceSync) {
+                    const rpcTime = Date.parse(lastSyncedAt || '') || 0;
+                    const resourceTime = Date.parse(resourceSync) || 0;
+                    if (resourceTime >= rpcTime) lastSyncedAt = resourceSync;
+                }
             }
         } catch {}
 

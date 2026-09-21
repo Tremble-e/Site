@@ -510,6 +510,14 @@
             .map(resource => ({ resource, hierarchy: roomHierarchy(resource) }));
     }
 
+    function resourceSyncTimestamp(resource) {
+        // `updated_at` peut changer pour des raisons techniques (maintenance,
+        // publication, relecture). `source_updated_at` correspond à l'instant où
+        // les données ADE ont réellement été collectées. On le privilégie donc
+        // pour toute date affichée à l'utilisateur.
+        return resource?.source_updated_at || resource?.payload?.generatedAt || resource?.updated_at || null;
+    }
+
     function selectedSharedResource() {
         return state.sharedResources.find(resource =>
             String(resource.resource_id) === String(state.selectedResourceId)
@@ -594,7 +602,7 @@
 
             if (status) {
                 status.textContent = selectedResource && resourceKind(selectedResource) === 'room'
-                    ? `Salle : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · synchronisé ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'date inconnue'}`
+                    ? `Salle : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · synchronisé ${resourceSyncTimestamp(selectedResource) ? new Date(resourceSyncTimestamp(selectedResource)).toLocaleString('fr-FR') : 'date inconnue'}`
                     : resources.length
                         ? 'Choisissez un bâtiment puis une salle.'
                         : 'Aucune salle n’a encore été publiée par le collecteur.';
@@ -644,7 +652,7 @@
 
         if (status) {
             status.textContent = selectedResource && resourceKind(selectedResource) === 'program'
-                ? `Filière : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · synchronisé ${selectedResource.updated_at ? new Date(selectedResource.updated_at).toLocaleString('fr-FR') : 'date inconnue'}`
+                ? `Filière : ${resourceDisplayLabel(selectedResource)} · ${selectedResource.event_count || selectedResource.payload?.events?.length || 0} cours · synchronisé ${resourceSyncTimestamp(selectedResource) ? new Date(resourceSyncTimestamp(selectedResource)).toLocaleString('fr-FR') : 'date inconnue'}`
                 : resources.length
                     ? 'Choisissez votre année, votre spécialité puis votre semestre.'
                     : 'Aucune filière n’a encore été publiée par le collecteur.';
@@ -2365,7 +2373,7 @@
         );
         if (count) count.textContent = `${state.payload?.eventCount ?? state.payload?.events?.length ?? 0} cours`;
         if (lastSync) {
-            const value = selected?.updated_at || selected?.source_updated_at || state.payload?.generatedAt || null;
+            const value = resourceSyncTimestamp(selected) || state.payload?.generatedAt || null;
             lastSync.textContent = value
                 ? `Synchronisé ${new Date(value).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
                 : 'Aucune mise à jour';
