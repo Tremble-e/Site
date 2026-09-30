@@ -3675,3 +3675,74 @@ body.site-pdf-reader-open { overflow: hidden; }
     align-items: center;
     min-width: 0;
 }
+
+/* 2.36.31 — le titre du PDF ne doit jamais élargir/décaler la liseuse */
+.site-pdf-reader-dialog,
+.site-pdf-reader-header,
+.site-pdf-reader-toolbar,
+.site-pdf-reader-stage {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.site-pdf-reader-header {
+    width: 100%;
+    overflow: hidden;
+}
+
+.site-pdf-reader-heading {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.site-pdf-reader-heading strong {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.site-pdf-reader-actions {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+@media (max-width: 760px) {
+    .site-pdf-reader-dialog {
+        width: 100vw;
+        max-width: 100vw;
+        overflow: hidden;
+    }
+
+    .site-pdf-reader-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        width: 100%;
+        max-width: 100vw;
+        overflow: hidden;
+    }
+
+    .site-pdf-reader-heading {
+        width: 100%;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .site-pdf-reader-heading strong {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .site-pdf-reader-actions {
+        justify-self: end;
+        min-width: 0;
+    }
+}
+
