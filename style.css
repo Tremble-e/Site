@@ -3842,3 +3842,13 @@ footer {
         linear-gradient(rgba(var(--accent-rgb), .035), rgba(var(--accent-rgb), .035)),
         rgba(var(--theme-bg-rgb), .60);
 }
+
+
+/* v2.36.34 — surfaces interactives cohérentes avec la couleur choisie */
+.project-toolbar,
+.course-search-panel,
+.personal-library-toolbar {
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .055), rgba(var(--accent-rgb), .018)),
+        var(--glass-bg);
+}

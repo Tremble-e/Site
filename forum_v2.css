@@ -1707,3 +1707,57 @@ select:-webkit-autofill {
     .private-thread-item,
     .private-message-bubble { transition: none !important; }
 }
+
+
+/* v2.9.8 — thème immersif : champs et recherche suivent réellement la couleur choisie */
+#forum input:not([type="checkbox"]):not([type="radio"]),
+#forum textarea,
+#forum select,
+.account-modal-content input:not([type="checkbox"]):not([type="radio"]),
+.account-modal-content textarea,
+.account-modal-content select,
+.forum-composer-modal input:not([type="checkbox"]):not([type="radio"]),
+.forum-composer-modal textarea,
+.forum-composer-modal select,
+.report-modal input:not([type="checkbox"]):not([type="radio"]),
+.report-modal textarea,
+.report-modal select,
+.forum-reference-modal input:not([type="checkbox"]):not([type="radio"]),
+.forum-reference-modal textarea,
+.forum-reference-modal select,
+.forum-attachment-modal input:not([type="checkbox"]):not([type="radio"]),
+.forum-attachment-modal textarea,
+.forum-attachment-modal select,
+.private-messages-modal input:not([type="checkbox"]):not([type="radio"]),
+.private-messages-modal textarea,
+.private-messages-modal select,
+.admin-v2-editor-modal input:not([type="checkbox"]):not([type="radio"]),
+.admin-v2-editor-modal textarea,
+.admin-v2-editor-modal select,
+.admin-user-row select {
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .085), rgba(var(--accent-rgb), .028)),
+        var(--input-bg) !important;
+}
+
+/* La recherche du forum utilise le fond du conteneur au lieu d'empiler un rectangle bleu. */
+#forum .search-box {
+    border-color: rgba(var(--accent-rgb), .18);
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .11), rgba(var(--accent-rgb), .035)),
+        rgba(var(--theme-elevated-rgb), .78);
+}
+#forum .search-box input {
+    min-height: 0 !important;
+    padding: .78rem 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+#forum .search-box:focus-within {
+    border-color: rgba(var(--accent-rgb), .52);
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .15), rgba(var(--accent-rgb), .05)),
+        rgba(var(--theme-strong-rgb), .88);
+}

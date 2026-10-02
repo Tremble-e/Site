@@ -2055,3 +2055,79 @@ body.planning-mobile-select-open {
     .university-resend-row button,
     .university-change-btn { width: 100%; justify-content: center; }
 }
+
+
+/* v2.36.34 — thème immersif : sélecteurs et grille ne conservent plus de bleu fixe */
+#planning .planning-resource-field select {
+    border-color: color-mix(in srgb, var(--accent, #3b82f6) 24%, rgba(148,163,184,.16));
+    background-color: transparent;
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--text-muted, #94a3b8) 50%),
+        linear-gradient(135deg, var(--text-muted, #94a3b8) 50%, transparent 50%),
+        linear-gradient(180deg, color-mix(in srgb, var(--accent, #3b82f6) 12%, transparent), color-mix(in srgb, var(--accent, #3b82f6) 4%, transparent)),
+        linear-gradient(var(--input-bg), var(--input-bg));
+    background-position:
+        calc(100% - 18px) 20px,
+        calc(100% - 13px) 20px,
+        0 0,
+        0 0;
+    background-size: 5px 5px, 5px 5px, 100% 100%, 100% 100%;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+#planning .planning-resource-field select:hover {
+    border-color: color-mix(in srgb, var(--accent, #3b82f6) 42%, rgba(148,163,184,.16));
+}
+#planning .planning-resource-field select:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--accent, #3b82f6) 62%, white 4%);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #3b82f6) 10%, transparent), inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+#planning .planning-timetable-shell,
+#planning .planning-day-timeline {
+    background:
+        radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent, #3b82f6) 9%, transparent), transparent 38%),
+        linear-gradient(180deg, color-mix(in srgb, var(--accent, #3b82f6) 5%, transparent), transparent 36%),
+        var(--panel-bg-soft);
+}
+#planning .planning-slot {
+    background-color: color-mix(in srgb, var(--panel-bg-soft) 94%, transparent);
+}
+#planning .planning-slot.is-weekend {
+    background-color: color-mix(in srgb, var(--panel-bg-soft) 88%, rgba(148,163,184,.025));
+}
+#planning .planning-slot.is-today {
+    background-color: color-mix(in srgb, var(--accent, #3b82f6) 7%, var(--panel-bg-soft));
+}
+#planning .planning-slot.is-lunch {
+    background: color-mix(in srgb, var(--panel-bg-soft) 88%, rgba(148,163,184,.045));
+}
+#planning .planning-slot.is-today.is-lunch {
+    background: color-mix(in srgb, var(--accent, #3b82f6) 8%, var(--panel-bg-soft));
+}
+#planning .planning-day-slot {
+    background-color: color-mix(in srgb, var(--panel-bg-soft) 94%, transparent);
+}
+#planning .planning-day-slot.is-lunch {
+    background: color-mix(in srgb, var(--panel-bg-soft) 88%, rgba(148,163,184,.045));
+}
+
+/* Les cellules horaires et les entêtes restent dans la même famille de couleur que la grille. */
+#planning .planning-time-cell,
+#planning .planning-day-time,
+#planning .planning-corner,
+#planning .planning-day-head {
+    background-color: color-mix(in srgb, var(--panel-bg) 94%, transparent);
+}
+#planning .planning-day-head.is-weekend {
+    background: color-mix(in srgb, var(--panel-bg) 89%, rgba(148,163,184,.04));
+}
+#planning .planning-day-head.is-today {
+    background: color-mix(in srgb, var(--accent, #3b82f6) 16%, var(--panel-bg));
+}
+
+/* Vue jour : les cartes restent sémantiques mais leur base sombre suit aussi le thème. */
+#planning .planning-day-event {
+    background: color-mix(in srgb, var(--event-color) 16%, var(--panel-bg-strong) 84%);
+}
