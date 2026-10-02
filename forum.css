@@ -31,7 +31,7 @@
     padding: .6rem;
     border: 1px solid var(--glass-border);
     border-radius: 16px;
-    background: rgba(13, 23, 41, .98);
+    background: rgba(var(--theme-elevated-rgb), .98);
     box-shadow: var(--shadow-lg);
     backdrop-filter: blur(18px);
 }

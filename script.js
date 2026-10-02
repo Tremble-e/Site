@@ -2359,10 +2359,27 @@ function buildAccentPalette(color, hover = '') {
     const secondaryHsl = rgbToHsl(hexToRgb(secondary));
     const tertiaryHsl = rgbToHsl(hexToRgb(tertiary));
 
+    // Décline la teinte sélectionnée jusque dans les surfaces sombres du site.
+    // La saturation reste volontairement contenue pour conserver contraste et lisibilité.
+    const darkSaturation = clamp(hsl.s * .36, 0, 38);
+    const bg = hslColor({ h: hsl.h, s: darkSaturation, l: 6.5 });
+    const bgMid = hslColor({ h: hsl.h, s: clamp(darkSaturation + 2, 0, 40), l: 9.5 });
+    const bgHigh = hslColor({ h: hsl.h, s: clamp(darkSaturation + 4, 0, 42), l: 12.5 });
+    const elevated = hslColor({ h: hsl.h, s: clamp(darkSaturation + 3, 0, 42), l: 11.5 });
+    const strong = hslColor({ h: hsl.h, s: clamp(darkSaturation + 4, 0, 44), l: 14.5 });
+
     return {
         primary,
         hover: hover || hslColor({ h: hsl.h, s: hsl.s, l: clamp(hsl.l - 9, 30, 58) }),
         rgb,
+        bg,
+        bgRgb: hexToRgb(bg),
+        bgMid,
+        bgHigh,
+        elevated,
+        elevatedRgb: hexToRgb(elevated),
+        strong,
+        strongRgb: hexToRgb(strong),
         secondary,
         secondaryRgb: hexToRgb(secondary),
         tertiary,
@@ -2418,6 +2435,22 @@ function applyTheme(name, persist = true, customColor = '') {
     root.style.setProperty('--accent-secondary-pale', palette.secondaryPale);
     root.style.setProperty('--accent-tertiary-light', palette.tertiaryLight);
     root.style.setProperty('--accent-tertiary-pale', palette.tertiaryPale);
+
+    // Le thème colore désormais aussi le fond, les panneaux et les bordures.
+    root.style.setProperty('--accent', palette.primary);
+    root.style.setProperty('--bg-color', palette.bg);
+    root.style.setProperty('--bg-elevated', palette.elevated);
+    root.style.setProperty('--theme-bg-rgb', rgbValue(palette.bgRgb));
+    root.style.setProperty('--theme-elevated-rgb', rgbValue(palette.elevatedRgb));
+    root.style.setProperty('--theme-strong-rgb', rgbValue(palette.strongRgb));
+    root.style.setProperty('--theme-bg-mid', palette.bgMid);
+    root.style.setProperty('--theme-bg-high', palette.bgHigh);
+    root.style.setProperty('--glass-bg', `rgba(${rgbValue(palette.elevatedRgb)}, 0.76)`);
+    root.style.setProperty('--glass-strong', `rgba(${rgbValue(palette.strongRgb)}, 0.94)`);
+    root.style.setProperty('--glass-border', `rgba(${rgbValue(palette.rgb)}, 0.14)`);
+    root.style.setProperty('--card-bg', `rgba(${rgbValue(palette.rgb)}, 0.055)`);
+    root.style.setProperty('--shadow-card', `0 12px 30px rgba(0, 0, 0, 0.18), 0 16px 48px rgba(${rgbValue(palette.rgb)}, 0.055)`);
+    root.style.setProperty('--shadow-lg', `0 24px 70px rgba(0, 0, 0, 0.30), 0 22px 72px rgba(${rgbValue(palette.rgb)}, 0.07)`);
     root.dataset.accentTheme = themeName;
 
     document.querySelectorAll('.theme-swatch').forEach(swatch => {
