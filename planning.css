@@ -10,6 +10,9 @@
     --planning-exam: #ef4444;
     --planning-other: var(--accent-tertiary, #14b8a6);
     --planning-axis-footer: 26px;
+    --panel-bg: color-mix(in srgb, var(--bg-elevated, #0d1729) 88%, var(--accent, #3b82f6) 12%);
+    --panel-bg-soft: color-mix(in srgb, var(--bg-color, #07101f) 84%, var(--accent, #3b82f6) 16%);
+    --input-bg: color-mix(in srgb, var(--bg-elevated, #0d1729) 84%, var(--accent, #3b82f6) 16%);
 }
 
 .planning-heading { margin-bottom: 1.1rem; }
@@ -140,7 +143,7 @@
     padding: .22rem;
     border-radius: .8rem;
     border: 1px solid rgba(148, 163, 184, .13);
-    background: rgba(var(--theme-elevated-rgb), .42);
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), .09), rgba(var(--accent-rgb), .03)), rgba(var(--theme-elevated-rgb), .5);
 }
 .planning-view-btn {
     appearance: none;
@@ -1184,7 +1187,7 @@
     appearance: none;
     font: inherit;
 }
-.planning-resource-field select option { background: #0b1428; color: #f8fafc; }
+.planning-resource-field select option { background: var(--bg-elevated); color: #f8fafc; }
 .planning-resource-field select:disabled { opacity: .55; cursor: not-allowed; }
 
 .planning-resource-status {
@@ -1614,7 +1617,7 @@
     .planning-resource-field select {
         min-height: 50px;
         border-color: rgba(148, 163, 184, .22);
-        background-color: #0b1428;
+        background: linear-gradient(180deg, rgba(var(--accent-rgb), .06), rgba(var(--accent-rgb), .02)), var(--input-bg);
         box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
     }
 }
@@ -1655,7 +1658,7 @@ body.planning-mobile-select-open {
     overflow: hidden;
     border: 1px solid rgba(148, 163, 184, .2);
     border-radius: 20px;
-    background: #0b1428;
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), .08), rgba(var(--accent-rgb), .03)), var(--panel-bg);
     box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
 }
 

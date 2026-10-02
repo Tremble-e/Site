@@ -405,7 +405,7 @@
 .admin-v2-editor-modal select option,
 .admin-user-row select option {
     color: var(--text-color);
-    background: #0d1729;
+    background: var(--bg-elevated);
 }
 
 /* Autofill Chrome/Edge : évite le fond blanc/jaune. */
@@ -415,7 +415,7 @@ input:-webkit-autofill:focus,
 textarea:-webkit-autofill,
 select:-webkit-autofill {
     -webkit-text-fill-color: var(--text-color);
-    -webkit-box-shadow: 0 0 0 1000px #0b1628 inset;
+    -webkit-box-shadow: 0 0 0 1000px rgba(var(--theme-elevated-rgb), .98) inset;
     transition: background-color 9999s ease-out 0s;
     caret-color: var(--text-color);
 }
@@ -424,7 +424,7 @@ select:-webkit-autofill {
 .forum-editor-toolbar + textarea {
     border-top-left-radius: 0 !important;
     border-top-right-radius: 0 !important;
-    background: rgba(8, 18, 34, .9) !important;
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), .055), rgba(var(--accent-rgb), .02)), var(--input-bg-strong) !important;
 }
 .private-message-form textarea {
     min-height: 54px;

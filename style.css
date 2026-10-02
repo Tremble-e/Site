@@ -30,6 +30,11 @@
     --glass-strong: rgba(18, 31, 53, 0.93);
     --glass-border: rgba(255, 255, 255, 0.09);
     --card-bg: rgba(255, 255, 255, 0.035);
+    --panel-bg: var(--theme-bg-high);
+    --panel-bg-strong: var(--bg-elevated);
+    --input-bg: rgba(var(--theme-elevated-rgb), 0.78);
+    --input-bg-strong: rgba(var(--theme-strong-rgb), 0.92);
+    --surface-accent: rgba(var(--accent-rgb), 0.08);
     --danger: #ef4444;
     --success: #22c55e;
     --warning: #f59e0b;
@@ -1213,13 +1218,19 @@ main {
     padding: 0 .85rem;
     border: 1px solid var(--glass-border);
     border-radius: 12px;
-    background: rgba(0,0,0,.13);
-    transition: border-color .2s ease, box-shadow .2s ease;
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .075), rgba(var(--accent-rgb), .025)),
+        var(--input-bg);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
 
 .search-box:focus-within {
     border-color: rgba(var(--accent-rgb), .5);
-    box-shadow: 0 0 0 4px rgba(var(--accent-rgb), .08);
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .105), rgba(var(--accent-rgb), .04)),
+        var(--input-bg-strong);
+    box-shadow: 0 0 0 4px rgba(var(--accent-rgb), .08), inset 0 1px 0 rgba(255,255,255,.045);
 }
 
 .search-box > i { color: var(--accent-color); }
@@ -1962,7 +1973,10 @@ body.modal-open {
     border-radius: 10px;
     outline: none;
     color: white;
-    background-color: rgba(15,27,47,.72);
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .065), rgba(var(--accent-rgb), .02)),
+        var(--input-bg);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
     color-scheme: dark;
     resize: vertical;
 }
@@ -1983,7 +1997,7 @@ body.modal-open {
 .field select:hover { border-color: rgba(var(--accent-rgb), .35); }
 .field select option {
     color: var(--text-color);
-    background: #0d1729;
+    background: var(--bg-elevated);
 }
 .field select option:checked {
     color: white;
@@ -2007,7 +2021,7 @@ body.modal-open {
 .field input[type="file"] { padding: .5rem .65rem; }
 .field input::file-selector-button { margin-right: .7rem; padding: .45rem .65rem; border: 0; border-radius: 8px; color: white; background: rgba(var(--accent-rgb),.18); cursor: pointer; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: rgba(var(--accent-rgb),.55); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .08); }
-.checkbox-field { flex-direction: row; align-items: center; align-self: end; min-height: 42px; padding: .6rem .7rem; border: 1px solid var(--glass-border); border-radius: 10px; background: rgba(15,27,47,.45); }
+.checkbox-field { flex-direction: row; align-items: center; align-self: end; min-height: 42px; padding: .6rem .7rem; border: 1px solid var(--glass-border); border-radius: 10px; background: linear-gradient(180deg, rgba(var(--accent-rgb), .055), rgba(var(--accent-rgb), .02)), rgba(var(--theme-elevated-rgb), .5); }
 .checkbox-field input { width: 16px; height: 16px; accent-color: var(--accent-color); }
 .checkbox-field span { color: var(--text-soft); }
 .admin-form-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
@@ -2241,7 +2255,9 @@ html {
     gap: .35rem;
     border: 1px solid var(--glass-border);
     border-radius: 14px;
-    background: rgba(8, 17, 32, .58);
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .09), rgba(var(--accent-rgb), .03)),
+        rgba(var(--theme-elevated-rgb), .72);
     box-shadow: var(--shadow-card);
 }
 .project-main-tab {
@@ -2776,7 +2792,18 @@ body.image-lightbox-open {
     gap: 1rem;
 }
 .library-main-tabs,
-.library-filterbar { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; }
+.library-filterbar {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    flex-wrap: wrap;
+    padding: .35rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .08), rgba(var(--accent-rgb), .025)),
+        rgba(var(--theme-elevated-rgb), .66);
+}
 .library-main-tab,
 .library-filter {
     min-height: 40px;
