@@ -344,7 +344,7 @@
     border-radius: 10px;
     outline: none;
     color: var(--text-color);
-    background: rgba(8, 18, 34, .86);
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), .065), rgba(var(--accent-rgb), .02)), var(--input-bg);
     caret-color: var(--accent-color);
     color-scheme: dark;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.025);

@@ -3852,3 +3852,145 @@ footer {
         linear-gradient(180deg, rgba(var(--accent-rgb), .055), rgba(var(--accent-rgb), .018)),
         var(--glass-bg);
 }
+
+
+/* v2.36.35 — administration entièrement raccordée au thème utilisateur */
+.admin-modal-content {
+    border-color: rgba(var(--accent-rgb), .18);
+    background:
+        radial-gradient(circle at 12% 0%, rgba(var(--accent-rgb), .10), transparent 32%),
+        linear-gradient(145deg, rgba(var(--accent-rgb), .045), transparent 58%),
+        rgba(var(--theme-elevated-rgb), .985);
+}
+
+.admin-dashboard {
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), .025), transparent 42%);
+}
+
+.admin-header {
+    border-bottom-color: rgba(var(--accent-rgb), .15);
+    background:
+        linear-gradient(100deg, rgba(var(--accent-rgb), .105), rgba(var(--accent-rgb), .025) 58%, transparent),
+        rgba(var(--theme-bg-rgb), .72);
+}
+
+.admin-tabs {
+    border-color: rgba(var(--accent-rgb), .16);
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .075), rgba(var(--accent-rgb), .02)),
+        rgba(var(--theme-elevated-rgb), .70);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
+
+.admin-tab:hover {
+    background: rgba(var(--accent-rgb), .09);
+}
+
+.admin-tab.active {
+    border: 1px solid rgba(var(--accent-rgb), .27);
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), .21), rgba(var(--accent-rgb), .10));
+    box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), .035), 0 8px 24px rgba(var(--accent-rgb), .045);
+}
+
+.admin-panel {
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), .018), transparent 20%);
+}
+
+.admin-row,
+.admin-v2-forum-row,
+.admin-storage-status {
+    border-color: rgba(var(--accent-rgb), .135);
+    background:
+        linear-gradient(145deg, rgba(var(--accent-rgb), .055), rgba(var(--accent-rgb), .018)),
+        rgba(var(--theme-elevated-rgb), .52);
+}
+
+.admin-row:hover,
+.admin-v2-forum-row:hover {
+    border-color: rgba(var(--accent-rgb), .28);
+    background:
+        linear-gradient(145deg, rgba(var(--accent-rgb), .09), rgba(var(--accent-rgb), .03)),
+        rgba(var(--theme-elevated-rgb), .62);
+}
+
+.admin-editor,
+.admin-storage-card {
+    border-color: rgba(var(--accent-rgb), .20);
+    background:
+        linear-gradient(145deg, rgba(var(--accent-rgb), .085), rgba(var(--accent-rgb), .018) 64%),
+        rgba(var(--theme-elevated-rgb), .70);
+}
+
+.admin-info-filterbar,
+.admin-forum-v2-tabs,
+.admin-v2-filter-row .filter-group {
+    border-color: rgba(var(--accent-rgb), .14);
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .065), rgba(var(--accent-rgb), .018)),
+        rgba(var(--theme-elevated-rgb), .48);
+}
+
+.admin-forum-v2-tabs {
+    padding: .35rem;
+    border: 1px solid rgba(var(--accent-rgb), .14);
+    border-radius: 12px;
+}
+
+.admin-v2-filter-row .filter-group {
+    padding: .25rem;
+    border: 1px solid rgba(var(--accent-rgb), .12);
+    border-radius: 10px;
+}
+
+.admin-forum-v2-tabs button,
+.admin-v2-filter-row .filter-group button {
+    background: rgba(var(--accent-rgb), .025);
+}
+
+.admin-forum-v2-tabs button:hover,
+.admin-v2-filter-row .filter-group button:hover {
+    color: white;
+    border-color: rgba(var(--accent-rgb), .22);
+    background: rgba(var(--accent-rgb), .085);
+}
+
+.admin-forum-v2-tabs button.active,
+.admin-v2-filter-row .filter-group button.active {
+    border-color: rgba(var(--accent-rgb), .34);
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), .19), rgba(var(--accent-rgb), .09));
+}
+
+.admin-profile-storage-preview {
+    background:
+        radial-gradient(circle at 50% 40%, rgba(var(--accent-rgb), .095), transparent 58%),
+        rgba(var(--theme-bg-rgb), .42);
+}
+
+.password-field input,
+.admin-v2-editor-modal input:not([type="checkbox"]):not([type="radio"]),
+.admin-v2-editor-modal textarea,
+.admin-v2-editor-modal select,
+.admin-user-row select {
+    border-color: rgba(var(--accent-rgb), .14);
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .07), rgba(var(--accent-rgb), .022)),
+        var(--input-bg) !important;
+}
+
+.password-field input:focus,
+.admin-v2-editor-modal input:focus,
+.admin-v2-editor-modal textarea:focus,
+.admin-v2-editor-modal select:focus,
+.admin-user-row select:focus {
+    border-color: rgba(var(--accent-rgb), .55);
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .10), rgba(var(--accent-rgb), .035)),
+        var(--input-bg-strong) !important;
+}
+
+.admin-editor .checkbox-field {
+    border-color: rgba(var(--accent-rgb), .14);
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), .065), rgba(var(--accent-rgb), .02)),
+        rgba(var(--theme-elevated-rgb), .58);
+}
