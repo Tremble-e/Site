@@ -100,6 +100,7 @@ let publicContentLoadError = null;
 let portfolioSettings = { servicesAvailable: true, servicesStatusText: 'Services disponibles actuellement', profileImageUrl: '', profileImageStoragePath: '' };
 
 let siteUniversityAccess = { user: null, verified: false, admin: false, granted: false, initialized: false };
+window.canAccessStudyDocument = () => Boolean(siteUniversityAccess.initialized && siteUniversityAccess.granted);
 let protectedStudyContentLoaded = false;
 let publicHomeStatus = { availableCount: null, lastSyncedAt: null, studyDocumentCount: null };
 
@@ -124,6 +125,214 @@ function normalizeText(value) {
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .trim();
+}
+
+let siteDeepLinkOpening = false;
+let siteDeepLinkHandledToken = '';
+let siteDeepLinkMissingNotice = '';
+
+function isPlainPrimaryActivation(event) {
+    return (event?.button ?? 0) === 0
+        && !event?.ctrlKey
+        && !event?.metaKey
+        && !event?.shiftKey
+        && !event?.altKey;
+}
+
+function buildSiteDeepLink(type, id, asset = '') {
+    // Le lien ne reprend jamais les paramètres courants (code d'authentification, OTP, etc.).
+    // Il ne transporte que l'identifiant stable nécessaire à la navigation interne.
+    const url = new URL(window.location.pathname, window.location.origin);
+    const cleanId = String(id || '').trim();
+    if (!cleanId) return `${url.pathname}${url.search}${url.hash}`;
+
+    if (type === 'document' || type === 'offline') {
+        url.searchParams.set('open', type);
+        url.searchParams.set('document', cleanId);
+        url.hash = '#courses';
+    } else if (type === 'info') {
+        url.searchParams.set('open', 'info');
+        url.searchParams.set('info', cleanId);
+        if (['image', 'attachment'].includes(asset)) url.searchParams.set('asset', asset);
+        const info = generalInfo.find(item => String(item._dbId) === cleanId);
+        const section = info?.section === 'projects' ? 'projects' : 'studies';
+        url.searchParams.set('section', section);
+        url.hash = section === 'projects' ? '#projects' : '#courses';
+    }
+    return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function siteDeepLinkToken(deepLink) {
+    if (!deepLink) return '';
+    return `${deepLink.type}:${deepLink.id}:${deepLink.asset || ''}:${deepLink.sectionHint || ''}`;
+}
+
+function readSiteDeepLink() {
+    const params = new URLSearchParams(window.location.search);
+    const type = String(params.get('open') || '').toLowerCase();
+    if (type === 'document' || type === 'offline') {
+        const id = String(params.get('document') || '').trim();
+        return id ? { type, id } : null;
+    }
+    if (type === 'info') {
+        const id = String(params.get('info') || '').trim();
+        const asset = String(params.get('asset') || '').toLowerCase();
+        const sectionHint = String(params.get('section') || '').toLowerCase();
+        return id ? {
+            type,
+            id,
+            asset: ['image', 'attachment'].includes(asset) ? asset : '',
+            sectionHint: ['studies', 'projects'].includes(sectionHint) ? sectionHint : ''
+        } : null;
+    }
+    return null;
+}
+
+function requireUniversityResourceAccess() {
+    if (!siteUniversityAccess.granted) {
+        throw new Error('Vérifiez votre adresse universitaire pour ouvrir cette ressource.');
+    }
+}
+
+function findStudyDocumentContextById(documentId) {
+    const key = String(documentId || '');
+    if (!key) return null;
+    for (let subjectIndex = 0; subjectIndex < myCourses.length; subjectIndex += 1) {
+        const subject = myCourses[subjectIndex];
+        for (const type of ['lessons', 'exercise_statements', 'exercise_corrections', 'sheets']) {
+            const itemIndex = (subject[type] || []).findIndex(item => String(item._dbId) === key);
+            if (itemIndex >= 0) return { item: subject[type][itemIndex], viewer: 'course', subjectIndex, type, itemIndex };
+        }
+    }
+    const resourceIndex = globalResources.findIndex(item => String(item._dbId) === key);
+    if (resourceIndex >= 0) return { item: globalResources[resourceIndex], viewer: 'resource', subjectIndex: -1, type: 'resources', itemIndex: resourceIndex };
+    return null;
+}
+
+function findInfoById(infoId) {
+    const key = String(infoId || '');
+    return key ? generalInfo.find(item => String(item._dbId) === key) || null : null;
+}
+
+function setDeepLinkAccessMessage(message) {
+    const status = document.getElementById('courses-access-status');
+    if (status) status.textContent = message || '';
+}
+
+async function attemptOpenSiteDeepLink() {
+    const deepLink = readSiteDeepLink();
+    const token = siteDeepLinkToken(deepLink);
+    if (!deepLink || siteDeepLinkOpening || siteDeepLinkHandledToken === token) return false;
+    siteDeepLinkOpening = true;
+    try {
+        if (deepLink.type === 'document') {
+            activateSection('courses', { updateHash: false, scroll: false });
+            if (!siteUniversityAccess.initialized) return false;
+            if (!siteUniversityAccess.granted) {
+                updateCoursesAccessUi();
+                setDeepLinkAccessMessage('Cette ressource est protégée. Vérifiez votre compte étudiant pour l’ouvrir.');
+                return false;
+            }
+            if (!protectedStudyContentLoaded) {
+                const loaded = await refreshProtectedStudyContent();
+                if (!loaded) return false;
+            }
+            const context = findStudyDocumentContextById(deepLink.id);
+            if (!context) {
+                const noticeKey = `document:${deepLink.id}`;
+                if (siteDeepLinkMissingNotice !== noticeKey) {
+                    siteDeepLinkMissingNotice = noticeKey;
+                    showToast('Cette ressource est introuvable ou n’est plus accessible.');
+                }
+                return false;
+            }
+            setDeepLinkAccessMessage('');
+            if (context.viewer === 'resource') {
+                switchMainCourseTab('global-resources-content');
+            } else {
+                switchMainCourseTab('courses-content');
+                const isExercise = ['exercise_statements', 'exercise_corrections'].includes(context.type);
+                const tab = isExercise ? 'exercises' : context.type;
+                selectSubject(context.subjectIndex, tab, isExercise ? context.type : currentExerciseTab, false);
+            }
+            await openStudyDocument(context.item, context.viewer);
+            siteDeepLinkHandledToken = token;
+            return true;
+        }
+
+        if (deepLink.type === 'offline') {
+            activateSection('courses', { updateHash: false, scroll: false });
+            if (!siteUniversityAccess.initialized) return false;
+            if (!siteUniversityAccess.granted) {
+                updateCoursesAccessUi();
+                setDeepLinkAccessMessage('Cette ressource hors connexion reste protégée. Vérifiez votre compte étudiant pour l’ouvrir.');
+                return false;
+            }
+            const opened = await openOfflineEntry(deepLink.id);
+            if (opened) siteDeepLinkHandledToken = token;
+            return Boolean(opened);
+        }
+
+        if (deepLink.type === 'info') {
+            let info = findInfoById(deepLink.id);
+
+            // Une information d'études n'est même pas chargée avant validation universitaire.
+            // Le hint de section sert uniquement à afficher le bon écran d'accès, jamais à autoriser la ressource.
+            if (!info && deepLink.sectionHint === 'studies') {
+                activateSection('courses', { updateHash: false, scroll: false });
+                if (!siteUniversityAccess.initialized) return false;
+                if (!siteUniversityAccess.granted) {
+                    updateCoursesAccessUi();
+                    setDeepLinkAccessMessage('Cette information est réservée aux comptes étudiants vérifiés.');
+                    return false;
+                }
+                if (!protectedStudyContentLoaded) {
+                    const loaded = await refreshProtectedStudyContent();
+                    if (!loaded) return false;
+                }
+                info = findInfoById(deepLink.id);
+            }
+
+            if (!info) {
+                const noticeKey = `info:${deepLink.id}`;
+                if (siteDeepLinkMissingNotice !== noticeKey) {
+                    siteDeepLinkMissingNotice = noticeKey;
+                    showToast('Cette information est introuvable ou n’est plus accessible.');
+                }
+                return false;
+            }
+            if (info.section === 'studies') {
+                activateSection('courses', { updateHash: false, scroll: false });
+                if (!siteUniversityAccess.initialized) return false;
+                if (!siteUniversityAccess.granted) {
+                    updateCoursesAccessUi();
+                    setDeepLinkAccessMessage('Cette information est réservée aux comptes étudiants vérifiés.');
+                    return false;
+                }
+                switchMainCourseTab('global-info-content');
+                renderGeneralInfo();
+            } else {
+                activateSection('projects', { updateHash: false, scroll: false });
+                switchProjectPageTab('infos');
+                renderProjectInfo();
+            }
+
+            const block = document.querySelector(`.info-block[data-info-id="${CSS.escape(String(info._dbId))}"]`);
+            block?.scrollIntoView({ behavior: motionReduced ? 'auto' : 'smooth', block: 'center' });
+            if (deepLink.asset === 'image' && info.imageUrl) {
+                const image = block?.querySelector('.info-block-img');
+                if (image) window.setTimeout(() => openImageLightbox(image), motionReduced ? 0 : 80);
+            } else if (deepLink.asset === 'attachment' && info.attachmentUrl) {
+                const label = info.attachmentName || info.title || 'Fichier joint';
+                window.setTimeout(() => openInfoDocumentPreview(label, info.attachmentUrl), motionReduced ? 0 : 80);
+            }
+            siteDeepLinkHandledToken = token;
+            return true;
+        }
+        return false;
+    } finally {
+        siteDeepLinkOpening = false;
+    }
 }
 
 function safeExternalLink(url) {
@@ -175,6 +384,7 @@ async function getSignedCourseFileUrl(storagePath, { force = false } = {}) {
 }
 
 async function resolveStudyDocumentUrl(item = {}, { force = false } = {}) {
+    requireUniversityResourceAccess();
     if (item.storagePath) return getSignedCourseFileUrl(item.storagePath, { force });
     const url = String(item.url || '').trim();
     if (safeResourceUrl(url)) return url;
@@ -706,6 +916,13 @@ function renderInfoCollection(containerId, section) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
+    // Les informations d'études appartiennent à la zone universitaire protégée.
+    // Ne pas créer leurs images/pièces jointes dans le DOM tant que l'accès n'est pas accordé.
+    if (section === 'studies' && !siteUniversityAccess.granted) {
+        container.innerHTML = '';
+        return;
+    }
+
     // La description reste facultative.
     const publishedInfo = generalInfo.filter(info => info.section === section);
 
@@ -724,14 +941,16 @@ function renderInfoCollection(containerId, section) {
     }
 
     container.innerHTML = publishedInfo.map(info => {
-        const imageHtml = info.imageUrl ? `<img src="${escapeHtmlAttribute(info.imageUrl)}" alt="${escapeHtmlAttribute(info.title)}" class="info-block-img" loading="lazy">` : '';
+        const imageHref = escapeHtmlAttribute(buildSiteDeepLink('info', info._dbId, 'image'));
+        const attachmentHref = escapeHtmlAttribute(buildSiteDeepLink('info', info._dbId, 'attachment'));
+        const imageHtml = info.imageUrl ? `<a class="info-block-image-link" href="${imageHref}" data-info-id="${escapeHtmlAttribute(info._dbId)}" data-info-asset="image" aria-label="Ouvrir l’image dans une nouvelle page"><img src="${escapeHtmlAttribute(info.imageUrl)}" alt="${escapeHtmlAttribute(info.title)}" class="info-block-img" loading="lazy"></a>` : '';
         const attachmentLabel = info.attachmentName || (info.attachmentUrl ? decodeURIComponent(String(info.attachmentUrl).split('/').pop().split('?')[0] || 'Fichier joint') : '');
         const attachmentHtml = info.attachmentUrl ? `
-            <button class="info-attachment info-attachment-button" type="button" data-info-document-url="${escapeHtmlAttribute(info.attachmentUrl)}" data-info-document-title="${escapeHtmlAttribute(attachmentLabel || info.title || 'Fichier joint')}">
+            <a class="info-attachment info-attachment-button" href="${attachmentHref}" data-info-id="${escapeHtmlAttribute(info._dbId)}" data-info-document-url="${escapeHtmlAttribute(info.attachmentUrl)}" data-info-document-title="${escapeHtmlAttribute(attachmentLabel || info.title || 'Fichier joint')}">
                 <span class="info-attachment-icon"><i class="${fileIconFromName(attachmentLabel || info.attachmentUrl)}"></i></span>
                 <span><strong>${escapeHtmlAttribute(attachmentLabel || 'Fichier joint')}</strong><small>Prévisualiser le document</small></span>
                 <i class="fa-solid fa-eye" aria-hidden="true"></i>
-            </button>` : '';
+            </a>` : '';
         const dateLabel = formatInfoDate(info.publishedAt);
         const favoriteButton = siteFavoriteButtonMarkup('info', info._dbId, 'Enregistrer cette information', 'info-favorite-btn');
         return `
@@ -898,11 +1117,15 @@ async function refreshProtectedStudyContent() {
     if (!siteUniversityAccess.granted) {
         myCourses = [];
         globalResources = [];
+        generalInfo = generalInfo.filter(info => info.section !== 'studies');
         protectedStudyContentLoaded = false;
         courseSearchEntries = [];
+        siteFavoriteResolved = new Map();
         renderSubjects();
         renderGlobalResources();
+        renderGeneralInfo();
         updateStats();
+        if (document.getElementById('library')?.classList.contains('active')) await renderPersonalLibrary();
         return false;
     }
     const loaded = await loadRemoteContent();
@@ -920,11 +1143,13 @@ window.updateSiteUniversityAccess = async detail => {
         initialized: true
     };
     updateCoursesAccessUi();
+    window.sitePdfReader?.enforceAccess?.();
     if (siteUniversityAccess.granted && (!previousGranted || !protectedStudyContentLoaded)) {
         await refreshProtectedStudyContent();
     } else if (!siteUniversityAccess.granted && previousGranted) {
         await refreshProtectedStudyContent();
     }
+    await attemptOpenSiteDeepLink();
 };
 window.requestUniversityActivation = requestUniversityActivation;
 
@@ -1076,6 +1301,17 @@ function favoriteTypeLabel(type) {
     return type === 'document' ? 'Études' : type === 'topic' ? 'Forum' : 'Information';
 }
 
+function favoriteOpenControl(item) {
+    if (item.missing) return '';
+    if (item.type === 'document') {
+        return `<a class="secondary-btn compact-btn" href="${escapeHtmlAttribute(buildSiteDeepLink('document', item.id))}" data-library-open="${escapeHtmlAttribute(item.key)}"><i class="fa-solid fa-arrow-up-right-from-square"></i> Ouvrir</a>`;
+    }
+    if (item.type === 'info') {
+        return `<a class="secondary-btn compact-btn" href="${escapeHtmlAttribute(buildSiteDeepLink('info', item.id))}" data-library-open="${escapeHtmlAttribute(item.key)}"><i class="fa-solid fa-arrow-up-right-from-square"></i> Ouvrir</a>`;
+    }
+    return `<button class="secondary-btn compact-btn" type="button" data-library-open="${escapeHtmlAttribute(item.key)}"><i class="fa-solid fa-arrow-up-right-from-square"></i> Ouvrir</button>`;
+}
+
 function renderFavoriteLibraryItems(items) {
     const container = document.getElementById('library-favorites-list');
     if (!container) return;
@@ -1090,7 +1326,7 @@ function renderFavoriteLibraryItems(items) {
             <span class="personal-library-item-icon"><i class="${escapeHtmlAttribute(item.icon)}"></i></span>
             <div class="personal-library-item-copy"><small>${favoriteTypeLabel(item.type)}</small><strong>${escapeHtmlAttribute(item.title)}</strong><span>${escapeHtmlAttribute(item.detail)}</span></div>
             <div class="personal-library-item-actions">
-                ${item.missing ? '' : `<button class="secondary-btn compact-btn" type="button" data-library-open="${escapeHtmlAttribute(item.key)}"><i class="fa-solid fa-arrow-up-right-from-square"></i> Ouvrir</button>`}
+                ${favoriteOpenControl(item)}
                 <button class="icon-btn danger-btn" type="button" data-favorite-type="${escapeHtmlAttribute(item.type)}" data-favorite-id="${escapeHtmlAttribute(item.id)}" data-tooltip="Retirer des favoris" aria-label="Retirer des favoris"><i class="fa-solid fa-bookmark"></i></button>
             </div>
         </article>`).join('');
@@ -1181,6 +1417,10 @@ async function toggleOfflineDocument(button) {
         else showToast('Connectez-vous pour enregistrer une ressource hors connexion.');
         return;
     }
+    if (!siteUniversityAccess.granted) {
+        showToast('Vérifiez votre adresse universitaire pour enregistrer cette ressource.');
+        return;
+    }
     const id = String(button.dataset.offlineDocumentId || '');
     const item = findStudyDocumentById(id);
     let url = button.dataset.offlineUrl || '';
@@ -1225,6 +1465,10 @@ async function renderOfflineLibrary() {
         container.innerHTML = '<div class="library-empty"><i class="fa-solid fa-cloud-arrow-down"></i><h3>Compte requis</h3><p>Connectez-vous pour gérer les ressources enregistrées sur cet appareil.</p></div>';
         return;
     }
+    if (!siteUniversityAccess.granted) {
+        container.innerHTML = '<div class="library-empty"><i class="fa-solid fa-user-graduate"></i><h3>Accès étudiant requis</h3><p>Vérifiez votre adresse universitaire pour consulter les ressources enregistrées sur cet appareil.</p></div>';
+        return;
+    }
     const term = normalizeText(personalLibrarySearch);
     const entries = getOfflineEntries(user.id).filter(item => !term || normalizeText(item.title).includes(term));
     if (!entries.length) {
@@ -1236,7 +1480,7 @@ async function renderOfflineLibrary() {
             <span class="personal-library-item-icon offline"><i class="${fileIconFromName(item.title || item.url)}"></i></span>
             <div class="personal-library-item-copy"><small>Hors connexion</small><strong>${escapeHtmlAttribute(item.title)}</strong><span>Enregistré ${formatInfoDate(item.savedAt) || 'sur cet appareil'}</span></div>
             <div class="personal-library-item-actions">
-                <button class="secondary-btn compact-btn" type="button" data-offline-open-id="${escapeHtmlAttribute(item.id)}"><i class="fa-solid fa-eye"></i> Ouvrir</button>
+                <a class="secondary-btn compact-btn" href="${escapeHtmlAttribute(buildSiteDeepLink('offline', item.id))}" data-offline-open-id="${escapeHtmlAttribute(item.id)}"><i class="fa-solid fa-eye"></i> Ouvrir</a>
                 <button class="icon-btn danger-btn" type="button" data-offline-remove-id="${escapeHtmlAttribute(item.id)}" data-tooltip="Retirer du mode hors connexion" aria-label="Retirer"><i class="fa-solid fa-trash"></i></button>
             </div>
         </article>`).join('');
@@ -1244,8 +1488,12 @@ async function renderOfflineLibrary() {
 
 async function openOfflineEntry(id) {
     const user = await getCurrentSiteUser();
-    const entry = getOfflineEntries(user?.id).find(item => String(item.id) === String(id));
-    if (!entry) return;
+    if (!user || !siteUniversityAccess.granted) {
+        showToast('Vérifiez votre compte étudiant pour ouvrir cette ressource.');
+        return false;
+    }
+    const entry = getOfflineEntries(user.id).find(item => String(item.id) === String(id));
+    if (!entry) return false;
     navigateToSection('courses');
     if (entry.viewer === 'resource') {
         switchMainCourseTab('global-resources-content');
@@ -1254,6 +1502,7 @@ async function openOfflineEntry(id) {
         switchMainCourseTab('courses-content');
         window.setTimeout(() => openPdf(entry.title, entry.url, entry.id), 40);
     }
+    return true;
 }
 
 async function removeOfflineEntry(id) {
@@ -1690,12 +1939,13 @@ function createDocumentList(items, emptyLabel, viewer = 'course') {
         const url = escapeHtmlAttribute(item.url);
         const storagePath = escapeHtmlAttribute(item.storagePath || '');
         const fileName = escapeHtmlAttribute(item.fileName || studyDocumentDownloadName(item));
+        const deepLink = escapeHtmlAttribute(buildSiteDeepLink('document', item._dbId));
         return `
         <li class="study-document-row">
-            <button class="pdf-item" type="button" data-tooltip="Prévisualiser le document" data-tooltip-placement="bottom" data-viewer="${viewer}" data-document-id="${documentId}" data-title="${title}" data-url="${url}" data-storage-path="${storagePath}">
+            <a class="pdf-item" href="${deepLink}" data-tooltip="Prévisualiser le document · clic molette : nouvel onglet" data-tooltip-placement="bottom" data-viewer="${viewer}" data-document-id="${documentId}" data-title="${title}" data-url="${url}" data-storage-path="${storagePath}">
                 <span><i class="fa-regular fa-file-lines"></i>${title}</span>
                 <i class="fa-solid fa-eye" aria-hidden="true"></i>
-            </button>
+            </a>
             <div class="study-document-actions">
                 ${siteFavoriteButtonMarkup('document', item._dbId, 'Ajouter aux favoris', 'study-document-action')}
                 <button class="study-document-action" type="button" data-study-download-id="${documentId}" data-tooltip="Télécharger le fichier" aria-label="Télécharger le fichier"><i class="fa-solid fa-download"></i></button>
@@ -1707,7 +1957,8 @@ function createDocumentList(items, emptyLabel, viewer = 'course') {
 
 document.addEventListener('click', async event => {
     const documentButton = event.target.closest('.pdf-item[data-document-id]');
-    if (!documentButton) return;
+    if (!documentButton || !isPlainPrimaryActivation(event)) return;
+    event.preventDefault();
     const item = findStudyDocumentById(documentButton.dataset.documentId);
     if (!item) return showToast('Document introuvable.');
     await openStudyDocument(item, documentButton.dataset.viewer === 'resource' ? 'resource' : 'course');
@@ -1887,6 +2138,7 @@ function getCourseSearchEntries() {
                     itemIndex,
                     title: item.title,
                     url: item.url,
+                    documentId: item._dbId,
                     icon: courseTypeIcons[type],
                     searchable: normalizeText(`${subject.name} ${item.title} ${courseTypeLabels[type]}`)
                 });
@@ -1903,6 +2155,7 @@ function getCourseSearchEntries() {
             itemIndex,
             title: item.title,
             url: item.url,
+            documentId: item._dbId,
             icon: courseTypeIcons.resources,
             searchable: normalizeText(`${item.title} ressource générale document transversal`)
         });
@@ -1943,12 +2196,13 @@ function renderCourseSearchResults(query) {
             `;
         }
 
+        const deepLink = escapeHtmlAttribute(buildSiteDeepLink('document', entry.documentId));
         return `
-            <button type="button" class="course-search-item" onclick="openCourseSearchResult(${entry.subjectIndex}, '${entry.type}', ${entry.itemIndex})">
+            <a class="course-search-item" href="${deepLink}" data-course-search-document="1" data-subject-index="${entry.subjectIndex}" data-document-type="${escapeHtmlAttribute(entry.type)}" data-item-index="${entry.itemIndex}">
                 <i class="${escapeHtmlAttribute(entry.icon)}"></i>
                 <span><strong>${escapeHtmlAttribute(entry.title)}</strong><small>${escapeHtmlAttribute(entry.subjectName)}</small></span>
                 <span class="course-search-type">${courseTypeLabels[entry.type]}</span>
-            </button>
+            </a>
         `;
     }).join('');
 }
@@ -1985,6 +2239,17 @@ function openCourseSearchResult(subjectIndex, type, itemIndex) {
 const courseSearch = document.getElementById('course-search');
 courseSearch?.addEventListener('input', event => renderCourseSearchResults(event.target.value));
 courseSearch?.addEventListener('focus', event => renderCourseSearchResults(event.target.value));
+
+document.addEventListener('click', event => {
+    const resultLink = event.target.closest('.course-search-item[data-course-search-document]');
+    if (!resultLink || !isPlainPrimaryActivation(event)) return;
+    event.preventDefault();
+    openCourseSearchResult(
+        Number(resultLink.dataset.subjectIndex),
+        resultLink.dataset.documentType || 'lessons',
+        Number(resultLink.dataset.itemIndex)
+    );
+});
 
 document.addEventListener('click', event => {
     const searchPanel = document.querySelector('.course-search-panel');
@@ -2099,9 +2364,15 @@ function closeDocumentViewer(prefix = '') {
     if (imgViewer) imgViewer.src = '';
 }
 
-function openPdf(title, url, documentId = '', item = null) { openDocumentViewer(title, url, documentId, '', item); }
+function openPdf(title, url, documentId = '', item = null) {
+    if (!siteUniversityAccess.granted) { showToast('Vérifiez votre compte étudiant pour ouvrir cette ressource.'); return; }
+    openDocumentViewer(title, url, documentId, '', item);
+}
 function closePdf() { closeDocumentViewer(''); }
-function openResourcePdf(title, url, documentId = '', item = null) { openDocumentViewer(title, url, documentId, 'resource-', item); }
+function openResourcePdf(title, url, documentId = '', item = null) {
+    if (!siteUniversityAccess.granted) { showToast('Vérifiez votre compte étudiant pour ouvrir cette ressource.'); return; }
+    openDocumentViewer(title, url, documentId, 'resource-', item);
+}
 function closeResourcePdf() { closeDocumentViewer('resource-'); }
 
 window.selectSubject = selectSubject;
@@ -2718,6 +2989,9 @@ async function fetchContentTables({ publishedOnly = false, includeStudies = fals
         infosQuery = infosQuery.eq('is_published', true);
         projectsQuery = projectsQuery.eq('is_published', true);
     }
+    // Les informations de la section Études suivent la même barrière d'accès que les documents.
+    // Sans accès universitaire, seule la section Projets est demandée au client.
+    if (!includeStudies) infosQuery = infosQuery.eq('section', 'projects');
 
     const publicPromises = [
         infosQuery.order('sort_order').order('id'),
@@ -4094,6 +4368,13 @@ window.openAdminModal = openAdminModal;
 document.addEventListener('click', event => {
     const attachment = event.target.closest('[data-info-document-url]');
     if (attachment) {
+        if (!isPlainPrimaryActivation(event)) return;
+        event.preventDefault();
+        const info = findInfoById(attachment.dataset.infoId);
+        if (info?.section === 'studies' && !siteUniversityAccess.granted) {
+            showToast('Vérifiez votre compte étudiant pour ouvrir cette ressource.');
+            return;
+        }
         openInfoDocumentPreview(attachment.dataset.infoDocumentTitle || 'Document', attachment.dataset.infoDocumentUrl || '');
         return;
     }
@@ -4289,7 +4570,16 @@ function updateImageLightboxPinch(stage) {
 
 document.addEventListener('click', event => {
     const image = event.target instanceof Element ? event.target.closest(IMAGE_ZOOM_SELECTOR) : null;
-    if (!image) return;
+    if (!image || !isPlainPrimaryActivation(event)) return;
+    const infoBlock = image.closest('.info-block[data-info-id]');
+    if (infoBlock) {
+        const info = findInfoById(infoBlock.dataset.infoId);
+        if (info?.section === 'studies' && !siteUniversityAccess.granted) {
+            event.preventDefault();
+            showToast('Vérifiez votre compte étudiant pour ouvrir cette image.');
+            return;
+        }
+    }
     event.preventDefault();
     event.stopPropagation();
     openImageLightbox(image);
@@ -4470,6 +4760,10 @@ document.addEventListener('click', async event => {
     if (viewerDownload?.href && viewerDownload.dataset.downloadName) {
         event.preventDefault();
         event.stopImmediatePropagation();
+        if (!siteUniversityAccess.granted) {
+            showToast('Vérifiez votre compte étudiant pour télécharger cette ressource.');
+            return;
+        }
         try {
             showToast('Téléchargement…');
             await forceSiteFileDownload(viewerDownload.href, viewerDownload.dataset.downloadName);
@@ -4497,10 +4791,20 @@ document.addEventListener('click', async event => {
     }
 
     const favoriteOpen = target.closest('[data-library-open]');
-    if (favoriteOpen) { await openResolvedFavorite(favoriteOpen.dataset.libraryOpen); return; }
+    if (favoriteOpen) {
+        if (favoriteOpen.matches('a[href]') && !isPlainPrimaryActivation(event)) return;
+        if (favoriteOpen.matches('a[href]')) event.preventDefault();
+        await openResolvedFavorite(favoriteOpen.dataset.libraryOpen);
+        return;
+    }
 
     const offlineOpen = target.closest('[data-offline-open-id]');
-    if (offlineOpen) { await openOfflineEntry(offlineOpen.dataset.offlineOpenId); return; }
+    if (offlineOpen) {
+        if (offlineOpen.matches('a[href]') && !isPlainPrimaryActivation(event)) return;
+        if (offlineOpen.matches('a[href]')) event.preventDefault();
+        await openOfflineEntry(offlineOpen.dataset.offlineOpenId);
+        return;
+    }
 
     const offlineRemove = target.closest('[data-offline-remove-id]');
     if (offlineRemove) { await removeOfflineEntry(offlineRemove.dataset.offlineRemoveId); return; }
@@ -4551,6 +4855,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (initialHash === 'library') renderPersonalLibrary().catch(console.warn);
     if (initialHash === 'notifications') window.refreshNotificationCenter?.();
     refreshRevealElements();
+    await attemptOpenSiteDeepLink();
 
     window.setInterval(() => {
         if (document.visibilityState !== 'visible') return;

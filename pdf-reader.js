@@ -258,7 +258,23 @@
         }
     }
 
+    function hasProtectedStudyAccess(documentId = state.documentId) {
+        if (!String(documentId || '')) return true;
+        return typeof window.canAccessStudyDocument === 'function' && window.canAccessStudyDocument() === true;
+    }
+
+    function enforceAccess() {
+        if (!state.documentId || hasProtectedStudyAccess(state.documentId)) return true;
+        window.showToast?.('Vérifiez votre compte étudiant pour ouvrir cette ressource.');
+        finalizeClose();
+        return false;
+    }
+
     function open({ title = 'Document PDF', url = '', documentId = '', fileName = '' } = {}) {
+        if (String(documentId || '') && !hasProtectedStudyAccess(documentId)) {
+            window.showToast?.('Vérifiez votre compte étudiant pour ouvrir cette ressource.');
+            return false;
+        }
         const safe = safePdfUrl(url);
         if (!safe) return false;
 
@@ -824,6 +840,7 @@
         byId('site-pdf-reader-download')?.addEventListener('click', async event => {
             event.preventDefault();
             const button = event.currentTarget;
+            if (!enforceAccess()) return;
             if (!state.url || typeof window.downloadSiteFile !== 'function') return;
             button.setAttribute('aria-busy', 'true');
             try {
@@ -872,5 +889,5 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindReaderUi, { once: true });
     else bindReaderUi();
 
-    window.sitePdfReader = { open, close };
+    window.sitePdfReader = { open, close, enforceAccess };
 })();
