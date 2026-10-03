@@ -2449,11 +2449,19 @@ function updateStats() {
     const resourceCount = globalResources.length;
     const protectedDocumentCount = lessonCount + exerciseCount + sheetCount + resourceCount;
     const documentCount = siteUniversityAccess.granted ? protectedDocumentCount : (publicHomeStatus.studyDocumentCount ?? protectedDocumentCount);
-    const availableCount = myProjects.filter(project => projectStatus(project) === 'available').length;
-    const developmentCount = myProjects.filter(project => projectStatus(project) === 'development').length;
+    const projectCounts = myProjects.reduce((counts, project) => {
+        const status = projectStatus(project);
+        counts[status] = (counts[status] || 0) + 1;
+        counts.total += 1;
+        return counts;
+    }, { total: 0, available: 0, development: 0, prototype: 0, archived: 0 });
+    const availableCount = projectCounts.available;
+    const developmentCount = projectCounts.development;
+    const prototypeCount = projectCounts.prototype;
+    const archivedCount = projectCounts.archived;
 
     const values = {
-        'stat-projects': myProjects.length,
+        'stat-projects': projectCounts.total,
         'stat-documents': documentCount,
         'study-subject-count': myCourses.length,
         'study-lesson-count': lessonCount,
@@ -2471,8 +2479,16 @@ function updateStats() {
 
     const availableInline = document.getElementById('stat-available-inline');
     const developmentInline = document.getElementById('stat-development-inline');
+    const prototypeInline = document.getElementById('stat-prototype-inline');
+    const archivedInline = document.getElementById('stat-archived-inline');
+    const prototypeBadge = document.getElementById('stat-prototype-badge');
+    const archivedBadge = document.getElementById('stat-archived-badge');
     if (availableInline) availableInline.textContent = `${availableCount} disponible${availableCount === 1 ? '' : 's'}`;
     if (developmentInline) developmentInline.textContent = `${developmentCount} en développement`;
+    if (prototypeInline) prototypeInline.textContent = `${prototypeCount} prototype${prototypeCount === 1 ? '' : 's'}`;
+    if (archivedInline) archivedInline.textContent = `${archivedCount} archivé${archivedCount === 1 ? '' : 's'}`;
+    if (prototypeBadge) prototypeBadge.hidden = prototypeCount === 0;
+    if (archivedBadge) archivedBadge.hidden = archivedCount === 0;
     renderServiceAvailabilityStat();
 }
 

@@ -958,6 +958,14 @@ main {
     color: var(--accent-secondary-light);
     background: rgba(var(--accent-secondary-rgb),.1);
 }
+.stat-inline-detail.prototype {
+    color: #fcd34d;
+    background: rgba(245,158,11,.10);
+}
+.stat-inline-detail.archived {
+    color: var(--text-soft);
+    background: rgba(148,163,184,.08);
+}
 .stat-inline-detail.muted { background: rgba(255,255,255,.045); color: var(--text-muted); }
 .project-summary-stat .stat-label,
 .study-summary-stat .stat-label { max-width: calc(100% - 46px); }
