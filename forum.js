@@ -338,17 +338,45 @@ async function checkForumAdminBackend() {
     }
 }
 
+const forumModalReturnTargets = new WeakMap();
 function openModalById(id) {
     const modal = document.getElementById(id);
     if (!modal) return;
+    if (!modal.classList.contains('active')) forumModalReturnTargets.set(modal, document.activeElement);
     modal.classList.add('active');
     if (typeof setBodyModalState === 'function') setBodyModalState();
+    requestAnimationFrame(() => {
+        if (!modal.classList.contains('active')) return;
+        modal.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
+    });
 }
 
 function closeModalById(id) {
-    document.getElementById(id)?.classList.remove('active');
+    const modal = document.getElementById(id);
+    if (!modal?.classList.contains('active')) return;
+    modal.classList.remove('active');
     if (typeof setBodyModalState === 'function') setBodyModalState();
+    const target = forumModalReturnTargets.get(modal);
+    if (target?.isConnected) target.focus({ preventScroll: true });
 }
+
+document.addEventListener('keydown', event => {
+    const modal = [...document.querySelectorAll('#accountModal.active, #forumComposerModal.active, #memberProfileModal.active, #forumReportModal.active')].at(-1);
+    if (!modal || document.getElementById('siteConfirmModal')?.classList.contains('active') || !document.getElementById('imageLightbox')?.hidden) return;
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeModalById(modal.id);
+    }
+    if (event.key !== 'Tab') return;
+    const controls = [...modal.querySelectorAll('button:not(:disabled), a[href], input:not([type="hidden"]), textarea, select')].filter(control => control.getClientRects().length);
+    const first = controls[0], last = controls[controls.length - 1];
+    if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+        event.preventDefault(); last?.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+        event.preventDefault(); first?.focus();
+    }
+}, true);
 
 function setMessage(id, message = '', type = '') {
     const el = document.getElementById(id);

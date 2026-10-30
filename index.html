@@ -20,10 +20,11 @@
 <link href="pwa-icon-192.png" rel="apple-touch-icon"/>
 <link href="https://cdnjs.cloudflare.com" rel="preconnect"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<link href="style.css?v=2.36.36" rel="stylesheet"/>
-<link href="forum.css?v=2.9.6" rel="stylesheet"/>
-<link href="forum_v2.css?v=2.9.10" rel="stylesheet"/>
-<link href="planning.css?v=2.36.35" rel="stylesheet"/>
+<link href="style.css?v=2.38.3" rel="stylesheet"/>
+<link href="forum.css?v=2.38.3" rel="stylesheet"/>
+<link href="forum_v2.css?v=2.38.3" rel="stylesheet"/>
+<link href="planning.css?v=2.38.3" rel="stylesheet"/>
+<link href="experience.css?v=2.38.3" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -37,7 +38,60 @@
 <nav aria-label="Navigation principale" class="site-nav">
 <div class="nav-content">
 <button aria-label="Retour à l'accueil" class="brand" data-go="about" data-tooltip="Retour à l’accueil" data-tooltip-placement="bottom" type="button">
-<span class="brand-mark"><img alt="" aria-hidden="true" src="site-logo.svg"/></span>
+<span class="brand-mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="brand-bg" x1="78" y1="52" x2="442" y2="470" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="var(--theme-bg-high)"/>
+      <stop offset="0.47" stop-color="var(--theme-bg-mid)"/>
+      <stop offset="1" stop-color="var(--bg-color)"/>
+    </linearGradient>
+    <linearGradient id="brand-edge" x1="75" y1="62" x2="434" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="var(--accent-light)"/>
+      <stop offset="0.48" stop-color="var(--accent-color)"/>
+      <stop offset="1" stop-color="var(--accent-secondary)"/>
+    </linearGradient>
+    <linearGradient id="brand-mark" x1="118" y1="160" x2="393" y2="350" gradientUnits="userSpaceOnUse">
+      <stop stop-color="var(--accent-light)"/>
+      <stop offset="0.48" stop-color="var(--accent-light)"/>
+      <stop offset="1" stop-color="var(--accent-secondary-light)"/>
+    </linearGradient>
+    <radialGradient id="brand-glow" cx="0" cy="0" r="1" gradientTransform="translate(256 236) rotate(90) scale(225)">
+      <stop stop-color="var(--accent-color)" stop-opacity=".24"/>
+      <stop offset="1" stop-color="var(--accent-color)" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="brand-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="brand-clip"><rect x="28" y="28" width="456" height="456" rx="118"/></clipPath>
+  </defs>
+
+  <rect x="28" y="28" width="456" height="456" rx="118" fill="url(#brand-bg)"/>
+  <g clip-path="url(#brand-clip)">
+    <rect x="28" y="28" width="456" height="456" fill="url(#brand-glow)"/>
+    <path d="M46 154C146 81 338 70 466 133" fill="none" stroke="#ffffff" stroke-opacity=".055" stroke-width="2"/>
+    <path d="M47 361C164 434 354 431 474 352" fill="none" stroke="var(--accent-secondary)" stroke-opacity=".09" stroke-width="2"/>
+    <g opacity=".055" stroke="#e2e8f0" stroke-width="1">
+      <path d="M92 64V448M148 64V448M204 64V448M260 64V448M316 64V448M372 64V448M428 64V448"/>
+      <path d="M64 92H448M64 148H448M64 204H448M64 260H448M64 316H448M64 372H448M64 428H448"/>
+    </g>
+  </g>
+  <rect x="30.5" y="30.5" width="451" height="451" rx="115.5" fill="none" stroke="url(#brand-edge)" stroke-width="5"/>
+  <rect x="60" y="60" width="392" height="392" rx="92" fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="2"/>
+
+  <g fill="none" stroke="url(#brand-mark)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" filter="url(#brand-shadow)">
+    <path d="M188 166L116 256L188 346"/>
+    <path d="M324 166L396 256L324 346"/>
+  </g>
+
+  <path d="M190 257C211 216 239 211 263 251C287 291 310 297 331 257C310 217 287 223 263 263C239 303 211 298 190 257Z"
+        fill="none" stroke="url(#brand-mark)" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <circle cx="256" cy="111" r="7" fill="var(--accent-light)"/>
+  <circle cx="401" cy="365" r="6" fill="var(--accent-secondary-light)"/>
+  <circle cx="111" cy="367" r="5" fill="var(--accent-light)"/>
+</svg>
+</span>
 <span class="brand-text">
 <strong>Mathématiques</strong>
 <small>&amp; Développement</small>
@@ -60,7 +114,7 @@
 <button aria-expanded="false" aria-label="Choisir la couleur d'accent" class="icon-btn" data-tooltip="Personnaliser la couleur" data-tooltip-placement="bottom" id="theme-picker-btn" type="button">
 <i class="fa-solid fa-palette"></i>
 </button>
-<div aria-label="Couleur d'accent" class="theme-popover" id="theme-popover" role="menu">
+<div aria-label="Couleur d'accent" class="theme-popover" id="theme-popover" role="group">
 <div aria-label="Couleurs prédéfinies" class="theme-swatches">
 <button aria-label="Bleu" class="theme-swatch blue" data-theme="blue" data-tooltip="Bleu" data-tooltip-placement="bottom" type="button"></button>
 <button aria-label="Indigo" class="theme-swatch indigo" data-theme="indigo" data-tooltip="Indigo" data-tooltip-placement="bottom" type="button"></button>
@@ -118,11 +172,10 @@
 <p class="eyebrow"><span class="status-dot"></span> Portfolio personnel</p>
 <h1 id="about-title">Leween Chauveau</h1>
 <p class="hero-subtitle">Mathématiques <span>×</span> Développement</p>
-<p aria-live="polite" class="hero-rotating"><span class="rotating-text-shell"><span id="rotating-text">Étudiant en L3 de Mathématiques</span><span aria-hidden="true" id="rotating-text-next"></span><span aria-hidden="true" class="rotating-text-glow"></span></span></p>
+<p class="hero-rotating"><span class="rotating-text-shell"><span id="rotating-text">Étudiant en L3 de Mathématiques</span><span aria-hidden="true" id="rotating-text-next"></span><span aria-hidden="true" class="rotating-text-glow"></span></span></p>
 <p class="hero-description">
                         J'aime comprendre comment les choses fonctionnent, expérimenter de nouvelles idées et transformer certaines d'entre elles en projets concrets.
                     </p>
-
 </div>
 <div aria-hidden="true" class="hero-visual">
 <div class="hero-orbit orbit-one"></div>
@@ -138,30 +191,34 @@
 <div aria-label="Aperçu du portfolio" class="stats-grid home-stats-grid reveal">
 <div class="stat-card project-summary-stat">
 <span class="home-stat-icon project-stat-icon"><i class="fa-solid fa-layer-group"></i></span>
-<span class="stat-value" id="stat-projects">0</span>
+<span class="stat-value" id="stat-projects">—</span>
 <span class="stat-label">Projets</span>
-<div class="project-stat-details">
+<div class="project-stat-details" hidden>
 <span class="stat-inline-detail"><i class="fa-solid fa-circle-check"></i><strong id="stat-available-inline">0 disponible</strong></span>
 <span class="stat-inline-detail development"><i class="fa-solid fa-code-branch"></i><strong id="stat-development-inline">0 en développement</strong></span>
 <span class="stat-inline-detail prototype" id="stat-prototype-badge" hidden><i class="fa-solid fa-flask"></i><strong id="stat-prototype-inline">0 prototype</strong></span>
 <span class="stat-inline-detail archived" id="stat-archived-badge" hidden><i class="fa-solid fa-box-archive"></i><strong id="stat-archived-inline">0 archivé</strong></span>
 </div>
+<button class="stat-card-link" data-go="projects" type="button">Explorer les projets <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
 </div>
 <div class="stat-card study-summary-stat">
 <span class="home-stat-icon study-stat-icon"><i class="fa-solid fa-graduation-cap"></i></span>
-<span class="stat-value" id="stat-documents">0</span>
+<span class="stat-value" id="stat-documents">—</span>
 <span class="stat-label">documents d'étude</span>
+<button class="stat-card-link" data-go="courses" type="button">Accéder aux études <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
 </div>
 <div class="stat-card planning-summary-stat" id="home-planning-status-card">
 <span class="home-stat-icon planning-stat-icon"><i class="fa-regular fa-calendar-check"></i></span>
 <span class="stat-value" id="home-planning-count">—</span>
 <span class="stat-label">emplois du temps disponibles</span>
 <div class="planning-stat-details" id="home-planning-sync"><i class="fa-regular fa-clock"></i> Dernière synchronisation : chargement…</div>
+<button class="stat-card-link" data-go="planning" type="button">Consulter le planning <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
 </div>
 <div class="stat-card services-availability-stat is-available" id="stat-services">
 <span class="service-stat-icon"><i class="fa-solid fa-briefcase"></i></span>
 <span class="service-stat-status"><span class="service-status-dot"></span><strong id="stat-services-status">Service disponible</strong></span>
 <span class="stat-label" id="stat-services-note">Services disponibles actuellement</span>
+<button class="stat-card-link" data-go="services" type="button">Découvrir les services <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
 </div>
 </div>
 <div class="about-grid reveal">
@@ -279,12 +336,16 @@
 <p>Création d'outils numériques, de logiciels de bureau, de sites web et de scripts d'automatisation pensés pour répondre précisément à vos besoins pratiques.</p>
 <ul class="service-details">
 <li><i class="fa-solid fa-check"></i> Logiciels de bureau (Python &amp; C#)</li>
-<li><i class="fa-solid fa-check"></i> Sites webs (HTML, CSS &amp; JavaScipt)</li>
+<li><i class="fa-solid fa-check"></i> Sites web (HTML, CSS &amp; JavaScript)</li>
 <li><i class="fa-solid fa-check"></i> Outils d'automatisation de tâches</li>
 <li><i class="fa-solid fa-check"></i> Interfaces claires &amp; ergonomiques</li>
 </ul>
 </article>
 </div>
+<aside class="service-contact-panel glass-panel reveal">
+<div><span class="section-kicker">Faisons connaissance</span><h2>Échangeons sur votre besoin</h2><p>Un cours, un outil ou une idée à développer ? Retrouvez mes coordonnées pour en discuter.</p></div>
+<button class="primary-btn" data-open-contact type="button">Me contacter <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+</aside>
 </section>
 <!-- PROJETS -->
 <section aria-labelledby="projects-title" class="page-section" id="projects">
@@ -301,7 +362,7 @@
 <span>Projets</span>
 <span class="project-tab-count" id="project-catalog-tab-count">0</span>
 </button>
-<button aria-controls="project-info-content" aria-selected="false" class="project-main-tab" data-project-page-tab="infos" id="project-tab-infos" role="tab" type="button">
+<button aria-controls="project-info-content" aria-selected="false" class="project-main-tab" data-project-page-tab="infos" id="project-tab-infos" role="tab" type="button" tabindex="-1">
 <i class="fa-solid fa-bullhorn"></i>
 <span>Informations</span>
 <span class="project-tab-count" id="project-info-tab-count">0</span>
@@ -320,11 +381,13 @@
 <button class="filter-btn" data-category="game" type="button">Jeux</button>
 </div>
 </div>
-<div aria-live="polite" class="projects-grid" id="projects-container"></div>
+<p class="project-results-summary" id="project-results-summary" role="status"></p>
+<div class="projects-grid" id="projects-container"><div class="projects-loading" role="status"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><span>Chargement des projets…</span></div></div>
 <div class="empty-state" hidden="" id="projects-empty">
 <i class="fa-regular fa-folder-open"></i>
 <h2>Aucun projet trouvé</h2>
 <p>Essayez une autre recherche ou une autre catégorie.</p>
+<button class="secondary-btn" id="project-reset-filters" type="button">Effacer les filtres</button>
 </div>
 </div>
 <div aria-labelledby="project-tab-infos" hidden="" id="project-info-content" role="tabpanel">
@@ -1432,26 +1495,31 @@
 </div>
 </div>
 <!-- AGRANDISSEMENT DES IMAGES -->
-<div aria-label="Agrandissement de l’image" aria-modal="true" class="image-lightbox" hidden="" id="imageLightbox" role="dialog">
-<button aria-label="Fermer l’image" class="image-lightbox-close" data-tooltip="Fermer" id="image-lightbox-close" type="button">
-<i class="fa-solid fa-xmark"></i>
-</button>
+<div aria-labelledby="image-lightbox-title" aria-describedby="image-lightbox-help" aria-modal="true" class="image-lightbox" hidden="" id="imageLightbox" role="dialog" tabindex="-1">
+<header class="image-lightbox-header">
+<div class="image-lightbox-heading"><strong id="image-lightbox-title">Image</strong><span id="image-lightbox-position" aria-live="polite"></span></div>
+<button aria-label="Fermer l’image" class="image-lightbox-close" id="image-lightbox-close" type="button"><i aria-hidden="true" class="fa-solid fa-xmark"></i></button>
+</header>
 <div class="image-lightbox-stage" id="image-lightbox-stage">
-<img alt="" draggable="false" id="image-lightbox-img" src=""/>
+<img alt="" draggable="false" id="image-lightbox-img"/>
+<div class="image-lightbox-status" id="image-lightbox-status"><p id="image-lightbox-message" role="status">Chargement de l’image…</p><button class="secondary-btn" id="image-lightbox-retry" type="button" hidden>Réessayer</button></div>
 </div>
-<div aria-label="Contrôles de zoom" class="image-lightbox-controls" role="group">
-<button aria-label="Dézoomer" data-tooltip="Dézoomer" id="image-lightbox-zoom-out" type="button">
-<i class="fa-solid fa-minus"></i>
-</button>
-<span aria-live="polite" id="image-lightbox-zoom-level">100%</span>
-<button aria-label="Zoomer" data-tooltip="Zoomer" id="image-lightbox-zoom-in" type="button">
-<i class="fa-solid fa-plus"></i>
-</button>
-<button aria-label="Réinitialiser le zoom" class="image-lightbox-reset" data-tooltip="Réinitialiser" id="image-lightbox-reset" type="button">
-<i class="fa-solid fa-arrows-rotate"></i>
-</button>
+<button aria-label="Image précédente" class="image-lightbox-arrow previous" id="image-lightbox-previous" type="button" hidden><i aria-hidden="true" class="fa-solid fa-chevron-left"></i></button>
+<button aria-label="Image suivante" class="image-lightbox-arrow next" id="image-lightbox-next" type="button" hidden><i aria-hidden="true" class="fa-solid fa-chevron-right"></i></button>
+<footer class="image-lightbox-footer">
+<div aria-label="Contrôles de l’image" class="image-lightbox-controls" role="group">
+<button aria-label="Dézoomer" id="image-lightbox-zoom-out" type="button"><i aria-hidden="true" class="fa-solid fa-minus"></i></button>
+<output aria-label="Niveau de zoom" id="image-lightbox-zoom-level">100%</output>
+<button aria-label="Zoomer" id="image-lightbox-zoom-in" type="button"><i aria-hidden="true" class="fa-solid fa-plus"></i></button>
+<span class="image-lightbox-separator" aria-hidden="true"></span>
+<button aria-label="Adapter l’image à l’écran" class="image-lightbox-fit" id="image-lightbox-reset" type="button"><i aria-hidden="true" class="fa-solid fa-expand"></i><span>Adapter</span></button>
+<button aria-label="Afficher à la taille réelle" id="image-lightbox-actual" type="button">1:1</button>
+<a aria-label="Ouvrir l’image originale dans un nouvel onglet" id="image-lightbox-original" target="_blank" rel="noopener"><i aria-hidden="true" class="fa-solid fa-arrow-up-right-from-square"></i></a>
 </div>
+<p id="image-lightbox-help">Molette ou pincement pour zoomer · Glisser pour déplacer · Échap pour fermer</p>
+</footer>
 </div>
+<button class="back-to-top" id="site-back-to-top" aria-label="Revenir en haut de la page" type="button" hidden><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>
 <div class="site-tooltip" hidden="" id="site-tooltip" role="tooltip"></div>
 <div aria-live="polite" class="toast" id="toast" role="status"><i class="fa-solid fa-check"></i><span>Copié dans le presse-papiers !</span></div>
 <aside aria-describedby="pwa-install-notice-text" aria-labelledby="pwa-install-notice-title" class="pwa-install-notice" hidden="" id="pwa-install-notice" role="dialog">
@@ -1469,7 +1537,7 @@
 </aside>
 <footer>
 <div class="footer-content">
-<div class="footer-identity"><strong>Leween Chauveau</strong><span>Mathématiques &amp; Développement</span></div>
+<div class="footer-identity"><strong>Leween Chauveau</strong><span>Mathématiques &amp; Développement</span><nav class="footer-links" aria-label="Liens de bas de page"><button data-go="projects" type="button">Projets</button><button data-go="courses" type="button">Études</button><button data-open-contact type="button">Contact</button></nav></div>
 <div class="footer-actions">
 <button class="footer-install-button" hidden="" id="pwa-footer-install-btn" type="button">
 <img alt="" src="site-logo.svg"/>
@@ -1485,9 +1553,10 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="pdf-reader.js?v=2.36.36"></script>
-<script src="script.js?v=2.36.36"></script>
+<script src="script.js?v=2.38.3"></script>
+<script src="image-viewer.js?v=2.38.3"></script>
 <script src="planning.js?v=2.36.31"></script>
-<script src="forum.js?v=2.36.31"></script>
+<script src="forum.js?v=2.38.3"></script>
 <script src="forum_v2.js?v=2.9.5"></script>
 
 <div aria-labelledby="site-pdf-reader-title" aria-modal="true" class="site-pdf-reader" hidden id="site-pdf-reader" role="dialog">
