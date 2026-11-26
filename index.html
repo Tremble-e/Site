@@ -24,7 +24,7 @@
 <link href="forum.css?v=2.38.3" rel="stylesheet"/>
 <link href="forum_v2.css?v=2.38.3" rel="stylesheet"/>
 <link href="planning.css?v=2.38.3" rel="stylesheet"/>
-<link href="experience.css?v=2.38.3" rel="stylesheet"/>
+<link href="experience.css?v=2.39.0" rel="stylesheet"/>
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet"/>
 </head>
 <body>
@@ -1348,7 +1348,15 @@
 <label class="field field-wide"><span>Fonctionnalités</span><textarea id="admin-project-features" placeholder="Une fonctionnalité par ligne" rows="6"></textarea></label>
 <label class="field field-wide"><span>Logo</span><input accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.ico" id="admin-project-logo-file" type="file"/><small>PNG, JPG, WEBP, SVG ou ICO. Laissez vide pour conserver le logo actuel.</small></label>
 <label class="field field-wide"><span>Ou URL du logo</span><input id="admin-project-logo-url" placeholder="https://…" type="text"/></label>
-<label class="field field-wide"><span>Lien de téléchargement</span><input id="admin-project-app-url" placeholder="https://…" type="url"/></label>
+<fieldset class="field-wide admin-project-download-fields">
+<legend>Liens de téléchargement</legend>
+<p>Renseignez uniquement les versions disponibles. Un lien vide masque le bouton correspondant sur le site.</p>
+<div class="admin-project-download-grid">
+<label class="field"><span><i class="fa-brands fa-windows" aria-hidden="true"></i> Windows</span><input id="admin-project-app-url" placeholder="https://…" type="url"/></label>
+<label class="field"><span><i class="fa-brands fa-android" aria-hidden="true"></i> Android</span><input id="admin-project-android-url" placeholder="https://…" type="url"/></label>
+<label class="field"><span><i class="fa-brands fa-apple" aria-hidden="true"></i> Mac</span><input id="admin-project-mac-url" placeholder="https://…" type="url"/></label>
+</div>
+</fieldset>
 <label class="field field-wide"><span>Lien du code source</span><input id="admin-project-dev-url" placeholder="https://github.com/…" type="url"/></label>
 </div>
 <div class="admin-form-actions"><button class="secondary-btn" data-admin-cancel="project" type="button">Annuler</button><button class="primary-btn" type="submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button></div>
@@ -1553,7 +1561,7 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="pdf-reader.js?v=2.36.36"></script>
-<script src="script.js?v=2.38.3"></script>
+<script src="script.js?v=2.39.0"></script>
 <script src="image-viewer.js?v=2.38.3"></script>
 <script src="planning.js?v=2.36.31"></script>
 <script src="forum.js?v=2.38.3"></script>

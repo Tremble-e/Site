@@ -455,9 +455,56 @@ const projectStatusDescriptions = {
     archived: 'Projet conservé à titre d’archive.'
 };
 
+const PROJECT_DOWNLOAD_PLATFORMS = [
+    { key: 'windowsUrl', column: 'app_url', field: 'admin-project-app-url', label: 'Windows', icon: 'fa-brands fa-windows' },
+    { key: 'androidUrl', column: 'android_url', field: 'admin-project-android-url', label: 'Android', icon: 'fa-brands fa-android' },
+    { key: 'macUrl', column: 'mac_url', field: 'admin-project-mac-url', label: 'Mac', icon: 'fa-brands fa-apple' }
+];
+
+function projectDownloads(project) {
+    return PROJECT_DOWNLOAD_PLATFORMS.flatMap(platform => {
+        const rawUrl = project?.[platform.key] ?? (platform.key === 'windowsUrl' ? project?.appUrl : '');
+        const url = typeof rawUrl === 'string' ? rawUrl.trim() : '';
+        if (!safeExternalLink(url)) return [];
+        try {
+            const parsed = new URL(url);
+            if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) return [];
+        } catch { return []; }
+        return [{ ...platform, url }];
+    });
+}
+
+function renderProjectDownloads(project) {
+    const downloads = projectDownloads(project);
+    if (!downloads.length) return '';
+    const links = downloads.map(download =>
+        '<a href="' + escapeHtmlAttribute(download.url) + '" class="primary-btn project-download-link" target="_blank" rel="noopener noreferrer" aria-label="' +
+        escapeHtmlAttribute('Télécharger ' + (project.name || 'le projet') + ' pour ' + download.label) + '">' +
+        '<i class="' + download.icon + '" aria-hidden="true"></i><span>' + download.label + '</span></a>'
+    ).join('');
+    return '<div class="project-downloads" role="group" aria-label="' +
+        escapeHtmlAttribute('Téléchargements de ' + (project.name || 'ce projet')) + '">' +
+        '<span class="project-downloads-label">Télécharger pour</span><div class="project-download-links">' + links + '</div></div>';
+}
+
+function projectDownloadPayload(previous = null) {
+    const payload = {};
+    for (const platform of PROJECT_DOWNLOAD_PLATFORMS) {
+        const url = document.getElementById(platform.field).value.trim();
+        if (url && !projectDownloads({ [platform.key]: url }).length) {
+            throw new Error('Le lien ' + platform.label + ' doit être une adresse http:// ou https:// valide.');
+        }
+        // Keep old projects editable until the additional columns are installed.
+        const columnKnown = (previous && Object.hasOwn(previous, platform.column))
+            || adminCache.projects.some(project => Object.hasOwn(project, platform.column));
+        if (platform.column === 'app_url' || url || columnKnown) payload[platform.column] = url || null;
+    }
+    return payload;
+}
+
 function projectStatus(project) {
     if (project && project.status && projectStatusLabels[project.status]) return project.status;
-    return safeExternalLink(project?.appUrl) ? 'available' : 'development';
+    return projectDownloads(project).length ? 'available' : 'development';
 }
 
 function setBodyModalState() {
@@ -834,9 +881,7 @@ function renderProjects() {
             ? `<img src="${escapeHtmlAttribute(project.logoUrl)}" alt="" class="project-logo" loading="lazy">`
             : `<i class="${escapeHtmlAttribute(project.icon)}" aria-hidden="true"></i>`;
         const tags = project.tags.map(tag => `<span class="tech-chip">${escapeHtmlAttribute(tag)}</span>`).join('');
-        const download = safeExternalLink(project.appUrl)
-            ? `<a href="${escapeHtmlAttribute(project.appUrl)}" class="primary-btn" target="_blank" rel="noopener"><i class="fa-solid fa-download"></i> Télécharger</a>`
-            : '';
+        const downloads = renderProjectDownloads(project);
         const source = safeExternalLink(project.devUrl)
             ? `<a href="${escapeHtmlAttribute(project.devUrl)}" class="project-mini-link" target="_blank" rel="noopener" data-tooltip="Voir le code source" aria-label="Code source de ${escapeHtmlAttribute(project.name)}"><i class="fa-solid fa-code"></i></a>`
             : '';
@@ -855,8 +900,8 @@ function renderProjects() {
                     <p class="project-feature-preview"><i class="fa-solid fa-list-check"></i>${project.features.length} fonctionnalité${project.features.length > 1 ? 's' : ''} présentée${project.features.length > 1 ? 's' : ''}</p>
                     <div class="project-actions">
                         <button class="detail-btn" type="button" onclick="openProjectModal(${index})"><i class="fa-regular fa-eye"></i> Voir le détail</button>
-                        ${download}
                         ${source}
+                        ${downloads}
                     </div>
                 </div>
             </article>
@@ -891,9 +936,8 @@ function openProjectModal(index) {
     const features = project.features.map(feature => `<li><i class="fa-solid fa-check"></i><span>${escapeHtmlAttribute(feature)}</span></li>`).join('');
 
     const actions = [];
-    if (safeExternalLink(project.appUrl)) {
-        actions.push(`<a href="${escapeHtmlAttribute(project.appUrl)}" class="primary-btn" target="_blank" rel="noopener"><i class="fa-solid fa-download"></i> Télécharger</a>`);
-    }
+    const downloads = renderProjectDownloads(project);
+    if (downloads) actions.push(downloads);
     if (safeExternalLink(project.devUrl)) {
         actions.push(`<a href="${escapeHtmlAttribute(project.devUrl)}" class="secondary-btn" target="_blank" rel="noopener"><i class="fa-solid fa-code"></i> Code source</a>`);
     }
@@ -3170,11 +3214,13 @@ function mapProjectRow(row) {
         logoStoragePath: row.logo_storage_path || '',
         icon: row.icon || 'fa-solid fa-laptop-code',
         category: row.category || 'application',
-        status: row.status || (row.app_url ? 'available' : 'development'),
+        status: row.status || '',
         tags: Array.isArray(row.tags) ? row.tags : [],
         description: row.description || '',
         features: Array.isArray(row.features) ? row.features : [],
-        appUrl: row.app_url || '',
+        windowsUrl: row.app_url || '',
+        androidUrl: row.android_url || '',
+        macUrl: row.mac_url || '',
         devUrl: row.dev_url || '',
         sortOrder: Number(row.sort_order || 0)
     };
@@ -4080,7 +4126,9 @@ function editAdminProject(id) {
     document.getElementById('admin-project-tags').value = (project.tags || []).join(', ');
     document.getElementById('admin-project-features').value = (project.features || []).join('\n');
     document.getElementById('admin-project-logo-url').value = project.logo_url || '';
-    document.getElementById('admin-project-app-url').value = project.app_url || '';
+    PROJECT_DOWNLOAD_PLATFORMS.forEach(platform => {
+        document.getElementById(platform.field).value = project[platform.column] || '';
+    });
     document.getElementById('admin-project-dev-url').value = project.dev_url || '';
     document.getElementById('admin-project-order').value = project.sort_order || 0;
     document.getElementById('admin-project-published').checked = project.is_published !== false;
@@ -4329,6 +4377,7 @@ async function handleProjectSave(event) {
     let storagePath = document.getElementById('admin-project-storage-path').value || '';
     let uploaded = null;
     try {
+        const downloadPayload = projectDownloadPayload(old);
         setAdminBusy(true, 'Enregistrement de l’application…');
         if (logoUrl && !safeExternalLink(logoUrl)) throw new Error('Les chemins locaux GitHub ne sont plus acceptés pour les logos. Importez le logo dans Supabase ou utilisez une URL https:// externe.');
         if (file) {
@@ -4349,7 +4398,7 @@ async function handleProjectSave(event) {
             features,
             logo_url: logoUrl || null,
             logo_storage_path: storagePath || null,
-            app_url: document.getElementById('admin-project-app-url').value.trim() || null,
+            ...downloadPayload,
             dev_url: document.getElementById('admin-project-dev-url').value.trim() || null,
             sort_order: Number(document.getElementById('admin-project-order').value || 0),
             is_published: document.getElementById('admin-project-published').checked
@@ -4363,7 +4412,11 @@ async function handleProjectSave(event) {
         await afterAdminMutation(id ? 'Application modifiée.' : 'Application ajoutée.');
     } catch (error) {
         if (uploaded?.path) await removeStorageFile(STORAGE_BUCKETS.assets, uploaded.path);
-        setAdminStatus(error.message || 'Erreur lors de l’enregistrement.', 'error');
+        const missingDownloadColumns = ['PGRST204', '42703'].includes(error.code)
+            && /android_url|mac_url/i.test(error.message || '');
+        setAdminStatus(missingDownloadColumns
+            ? 'Les téléchargements Android et Mac doivent être activés dans la base avant leur enregistrement.'
+            : error.message || 'Erreur lors de l’enregistrement.', 'error');
     } finally {
         setAdminBusy(false);
     }

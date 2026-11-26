@@ -316,3 +316,53 @@ body.modal-open .back-to-top, body.mobile-menu-open .back-to-top, body.image-lig
     background: radial-gradient(circle at 12% 0%, rgba(var(--accent-rgb), .08), transparent 40%), var(--bg-elevated);
     border-color: var(--glass-border);
 }
+
+/* Only platforms with a valid configured link appear. */
+.project-actions { flex-wrap: wrap; }
+.project-actions > .project-downloads { flex: 1 1 100%; }
+.project-downloads { width: 100%; min-width: 0; }
+.project-downloads-label {
+    display: block;
+    margin: .35rem 0 .45rem;
+    color: var(--text-muted);
+    font-size: .7rem;
+    font-weight: 650;
+}
+.project-download-links { display: flex; flex-wrap: wrap; gap: .4rem; }
+.project-download-links > .project-download-link {
+    flex: 1 1 80px;
+    min-width: 0;
+    min-height: 42px;
+    padding: .65rem .55rem;
+    gap: .4rem;
+    border: 1px solid rgba(var(--accent-rgb), .28);
+    color: var(--accent-light);
+    background: rgba(var(--accent-rgb), .085);
+    box-shadow: none;
+    font-size: .77rem;
+    white-space: nowrap;
+}
+.project-download-links > .project-download-link:hover {
+    color: var(--text-color);
+    background: rgba(var(--accent-rgb), .17);
+    border-color: rgba(var(--accent-rgb), .5);
+    box-shadow: none;
+}
+.project-modal-actions > .project-downloads { flex: 1 1 100%; margin-bottom: .35rem; }
+.project-modal-actions .project-download-link { min-width: 0; }
+.admin-project-download-fields {
+    min-width: 0;
+    margin: .2rem 0;
+    padding: 1rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+}
+.admin-project-download-fields legend { padding: 0 .4rem; color: var(--text-soft); font-size: .85rem; font-weight: 700; }
+.admin-project-download-fields > p { margin: 0 0 .9rem; color: var(--text-muted); font-size: .78rem; line-height: 1.6; }
+.admin-project-download-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+.admin-project-download-grid .field { min-width: 0; }
+.admin-project-download-grid input { width: 100%; min-width: 0; }
+.admin-project-download-grid .field > span > i { margin-right: .3rem; color: var(--accent-light); }
+@media (max-width: 700px) {
+    .admin-project-download-grid { grid-template-columns: minmax(0, 1fr); }
+}
